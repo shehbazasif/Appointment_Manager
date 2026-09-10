@@ -2,24 +2,6 @@
   <main
     class="min-h-screen bg-[radial-gradient(circle_at_80%_0%,#f8eee9_0,transparent_32rem),#fbfaf8]"
   >
-    <header
-      class="mx-auto flex max-w-7xl items-center justify-between px-5 py-6 lg:px-10"
-    >
-      <NuxtLink to="/landing" class="text-xl font-bold tracking-tight"
-        >rantevou<span class="text-rose">OS</span></NuxtLink
-      >
-      <nav class="flex items-center gap-3">
-        <NuxtLink
-          to="/login"
-          class="rounded-lg px-4 py-2 text-sm font-semibold text-stone-600"
-          >Sign in</NuxtLink
-        ><NuxtLink
-          to="/register"
-          class="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white"
-          >Start free</NuxtLink
-        >
-      </nav>
-    </header>
     <section
       class="mx-auto grid max-w-7xl gap-12 px-5 pb-20 pt-16 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:px-10 lg:pt-24"
     >

@@ -6,6 +6,7 @@ useHead({ title: "Terms of Service — RantevouOS" });
   <div
     class="min-h-screen bg-[radial-gradient(circle_at_80%_0%,#f8eee9_0,transparent_32rem),#fbfaf8]"
   >
+    <Navbar />
     <Header />
 
     <main class="mx-auto max-w-4xl px-6 py-16 lg:px-10 lg:py-20">

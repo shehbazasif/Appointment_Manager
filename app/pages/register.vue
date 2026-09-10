@@ -35,16 +35,19 @@ const errorMessage = ref("");
 const showPassword = ref(false);
 
 // Auto-generate slug from business name if user hasn't edited slug manually
-watch(() => form.businessName, (newName) => {
-  if (!touched.businessSlug) {
-    form.businessSlug = newName
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9 -]/g, "")
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-");
-  }
-});
+watch(
+  () => form.businessName,
+  (newName) => {
+    if (!touched.businessSlug) {
+      form.businessSlug = newName
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9 -]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-");
+    }
+  },
+);
 
 const validateField = (field: keyof typeof form) => {
   touched[field] = true;
@@ -107,6 +110,7 @@ const register = async () => {
 </script>
 
 <template>
+  <Navbar />
   <main
     class="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_80%_0%,#f8eee9_0,transparent_32rem),#fbfaf8] px-5 py-12"
   >
@@ -163,11 +167,14 @@ const register = async () => {
                 'w-full !rounded-xl !border !px-3.5 !py-2.5 !text-stone-900 placeholder:!text-stone-400 focus:!outline-none',
                 errors.firstName
                   ? '!border-rose-400 !bg-rose-50/20 focus:!border-rose-600 focus:!ring-1 focus:!ring-rose-600'
-                  : '!border-stone-300 !bg-stone-50/50 focus:!border-stone-900 focus:!bg-white focus:!ring-1 focus:!ring-stone-900'
+                  : '!border-stone-300 !bg-stone-50/50 focus:!border-stone-900 focus:!bg-white focus:!ring-1 focus:!ring-stone-900',
               ]"
               @blur="validateField('firstName')"
             />
-            <p v-if="errors.firstName" class="text-xs font-medium text-rose-600">
+            <p
+              v-if="errors.firstName"
+              class="text-xs font-medium text-rose-600"
+            >
               {{ errors.firstName }}
             </p>
           </div>
@@ -188,7 +195,7 @@ const register = async () => {
                 'w-full !rounded-xl !border !px-3.5 !py-2.5 !text-stone-900 placeholder:!text-stone-400 focus:!outline-none',
                 errors.lastName
                   ? '!border-rose-400 !bg-rose-50/20 focus:!border-rose-600 focus:!ring-1 focus:!ring-rose-600'
-                  : '!border-stone-300 !bg-stone-50/50 focus:!border-stone-900 focus:!bg-white focus:!ring-1 focus:!ring-stone-900'
+                  : '!border-stone-300 !bg-stone-50/50 focus:!border-stone-900 focus:!bg-white focus:!ring-1 focus:!ring-stone-900',
               ]"
               @blur="validateField('lastName')"
             />
@@ -216,7 +223,7 @@ const register = async () => {
               'w-full !rounded-xl !border !px-3.5 !py-2.5 !text-stone-900 placeholder:!text-stone-400 focus:!outline-none',
               errors.email
                 ? '!border-rose-400 !bg-rose-50/20 focus:!border-rose-600 focus:!ring-1 focus:!ring-rose-600'
-                : '!border-stone-300 !bg-stone-50/50 focus:!border-stone-900 focus:!bg-white focus:!ring-1 focus:!ring-stone-900'
+                : '!border-stone-300 !bg-stone-50/50 focus:!border-stone-900 focus:!bg-white focus:!ring-1 focus:!ring-stone-900',
             ]"
             @blur="validateField('email')"
           />
@@ -244,7 +251,7 @@ const register = async () => {
                 'w-full rounded-xl border px-3.5 py-2.5 pr-10 text-stone-900 placeholder-stone-400 focus:outline-none',
                 errors.password
                   ? 'border-rose-400 bg-rose-50/20 focus:border-rose-600 focus:ring-1 focus:ring-rose-600'
-                  : 'border-stone-300 bg-stone-50/50 focus:border-stone-900 focus:bg-white focus:ring-1 focus:ring-stone-900'
+                  : 'border-stone-300 bg-stone-50/50 focus:border-stone-900 focus:bg-white focus:ring-1 focus:ring-stone-900',
               ]"
               @blur="validateField('password')"
             />
@@ -310,11 +317,14 @@ const register = async () => {
               'w-full !rounded-xl !border !px-3.5 !py-2.5 !text-stone-900 placeholder:!text-stone-400 focus:!outline-none',
               errors.businessName
                 ? '!border-rose-400 !bg-rose-50/20 focus:!border-rose-600 focus:!ring-1 focus:!ring-rose-600'
-                : '!border-stone-300 !bg-stone-50/50 focus:!border-stone-900 focus:!bg-white focus:!ring-1 focus:!ring-stone-900'
+                : '!border-stone-300 !bg-stone-50/50 focus:!border-stone-900 focus:!bg-white focus:!ring-1 focus:!ring-stone-900',
             ]"
             @blur="validateField('businessName')"
           />
-          <p v-if="errors.businessName" class="text-xs font-medium text-rose-600">
+          <p
+            v-if="errors.businessName"
+            class="text-xs font-medium text-rose-600"
+          >
             {{ errors.businessName }}
           </p>
         </div>
@@ -335,11 +345,14 @@ const register = async () => {
               'w-full !rounded-xl !border !px-3.5 !py-2.5 !text-stone-900 placeholder:!text-stone-400 focus:!outline-none',
               errors.businessSlug
                 ? '!border-rose-400 !bg-rose-50/20 focus:!border-rose-600 focus:!ring-1 focus:!ring-rose-600'
-                : '!border-stone-300 !bg-stone-50/50 focus:!border-stone-900 focus:!bg-white focus:!ring-1 focus:!ring-stone-900'
+                : '!border-stone-300 !bg-stone-50/50 focus:!border-stone-900 focus:!bg-white focus:!ring-1 focus:!ring-stone-900',
             ]"
             @blur="validateField('businessSlug')"
           />
-          <p v-if="errors.businessSlug" class="text-xs font-medium text-rose-600">
+          <p
+            v-if="errors.businessSlug"
+            class="text-xs font-medium text-rose-600"
+          >
             {{ errors.businessSlug }}
           </p>
           <p v-else class="text-xs text-stone-400">
@@ -381,4 +394,5 @@ const register = async () => {
       </div>
     </section>
   </main>
+  <Footer />
 </template>

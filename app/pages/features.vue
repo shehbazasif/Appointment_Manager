@@ -6,6 +6,7 @@ useHead({ title: "Features — RantevouOS" });
   <div
     class="min-h-screen bg-[radial-gradient(circle_at_80%_0%,#f8eee9_0,transparent_32rem),#fbfaf8]"
   >
+  
     <Header />
 
     <!-- Hero Section -->

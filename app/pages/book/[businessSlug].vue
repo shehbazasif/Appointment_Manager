@@ -35,6 +35,7 @@ const slots = [
   <div
     class="min-h-screen bg-[radial-gradient(circle_at_80%_0%,#f8eee9_0,transparent_32rem),#fbfaf8]"
   >
+    <Navbar />
     <main class="mx-auto max-w-280 px-5 pb-16 pt-8">
       <NuxtLink
         to="/"
@@ -216,5 +217,6 @@ const slots = [
         >
       </section>
     </main>
+    <Footer />
   </div>
 </template>

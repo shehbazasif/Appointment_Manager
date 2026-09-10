@@ -1,8 +1,9 @@
 <template>
   <div class="app-shell">
+    <Navbar />
     <main class="mx-auto w-full">
-      <Navbar />
       <slot />
     </main>
+    <Footer />
   </div>
 </template>

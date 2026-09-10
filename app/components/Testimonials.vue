@@ -23,7 +23,7 @@ withDefaults(defineProps<Props>(), {
   >
     <!-- Top Gradient Header Area -->
     <div
-      class="relative h-44 w-full overflow-hidden rounded-[2rem] bg-gradient-to-tr from-rose-500 via-amber-500 to-rose-600"
+      class="relative h-44 w-full overflow-hidden rounded-4xl bg-linear-to-tr from-rose-500 via-amber-500 to-rose-600"
     >
       <div
         class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.4),transparent_50%)]"

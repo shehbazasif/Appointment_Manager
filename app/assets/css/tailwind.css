@@ -1,0 +1,30 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600&display=swap");
+@import "tailwindcss";
+@config "../../../tailwind.config.ts";
+
+@layer base {
+  body {
+    @apply m-0 bg-paper font-sans text-ink antialiased;
+  }
+  button,
+  a,
+  input,
+  select {
+    font: inherit;
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply min-h-screen bg-[radial-gradient(circle_at_84%_0%,#f8eee9_0,transparent_29rem),#fbfaf8];
+  }
+  .surface {
+    @apply rounded-xl border border-stone-200 bg-white;
+  }
+  .eyebrow {
+    @apply mb-2 text-[11px] font-bold uppercase tracking-[1.3px] text-rose;
+  }
+  .status-tag {
+    @apply rounded-md px-2 py-1 text-[10px] font-bold tracking-wide;
+  }
+}

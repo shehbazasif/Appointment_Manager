@@ -1,0 +1,436 @@
+RantevouOS — MVP Product Requirements Document
+Greece-first Appointment Management SaaS | Build Specification for Codex / GitHub Copilot
+Document status: MVP build-ready specification
+Target market: Greece
+Initial vertical: salons, barbers, beauty studios, nail studios, spas and other appointment-based SMEs
+Primary product goal: working demo product that can later evolve into a commercial multi-tenant SaaS.
+1. Executive Summary
+RantevouOS is a Greece-first, web-based appointment management SaaS for appointment-based small businesses. The MVP must allow a business owner to configure their business, services, staff and working hours; publish a public booking page; accept customer appointments; manage them in a calendar; maintain a customer CRM; and send appointment notifications by email. SMS is an optional future integration and must be simulated in the demo rather than requiring paid SMS. WhatsApp is explicitly out of scope for the MVP and must not be required for core functionality.
+The MVP should be intentionally simple to deploy and operate. Use the latest stable Nuxt 4.x release available at implementation time, Vue 3, TypeScript, Nitro server APIs, PostgreSQL, Drizzle ORM and PrimeVue. Do not introduce microservices, Kubernetes, Kafka, RabbitMQ or a paid managed database for the MVP.
+2. Product Vision
+Positioning: 'Your business calendar, customers and reminders — in one place.' Long-term positioning: a WhatsApp-first operating system for appointment businesses in Greece.
+The product should eventually expand into WhatsApp messaging, automated rebooking, marketing automation, payments, multi-location management, AI receptionist and voice calling. These future capabilities must be considered in domain boundaries and database design but must not complicate the MVP.
+3. MVP Objectives
+•	Create a realistic demo that can be shown to Greek salons and appointment businesses.
+•	Prove the complete booking lifecycle from public booking page to business calendar and customer CRM.
+•	Use a low-cost/open-source-first architecture that can run on a VPS with self-hosted PostgreSQL.
+•	Keep the architecture modular so future notification, WhatsApp, billing and other services can be extracted without rewriting the core domain.
+•	Minimize custom UI work by using PrimeVue and established Vue libraries.
+4. Users and Roles
+•	SUPER_ADMIN: platform owner. Manages businesses and system/demo data. Basic MVP implementation only.
+•	OWNER: business owner. Full access to the business, calendar, appointments, customers, staff, services, settings and billing placeholder.
+•	MANAGER: manages day-to-day operations but cannot manage subscription/billing or platform settings.
+•	STAFF: sees and manages appointments assigned to them and limited customer information.
+•	CUSTOMER: public booking user. No account is required in MVP; name, phone and email are collected at booking.
+5. Target Business and Example
+Initial demo business: Maria Beauty Studio, Athens, Greece. Seed realistic data: 5 staff members, 8–12 services, at least 100 customers and several months of appointments. The demo must look populated and usable without requiring manual setup.
+6. Core User Journeys
+6.1 Business Onboarding
+1.	Register with email and password.
+2.	Create organization/business: name, slug, description, phone, email, address, city, country, timezone and currency.
+3.	Add services with name, duration, price and active/inactive status.
+4.	Add staff members and assign services.
+5.	Configure business working hours and optional staff-specific hours.
+6.	Publish/activate public booking page.
+7.	Configure email notification settings.
+8.	Show onboarding completion and public booking URL.
+6.2 Customer Booking
+9.	Customer opens /book/{businessSlug}.
+10.	Selects service.
+11.	Optionally selects staff or chooses 'Any available'.
+12.	Selects date.
+13.	System calculates available slots from business hours, staff availability, blocked times, existing appointments and service duration.
+14.	Customer selects a slot.
+15.	Customer enters name, phone and email.
+16.	System validates availability again server-side.
+17.	Create appointment atomically to prevent double booking.
+18.	Show confirmation page and send confirmation email.
+19.	Customer does not need to create an account.
+6.3 Appointment Management
+20.	Owner/staff can create an appointment manually.
+21.	Appointment can be confirmed, cancelled, rescheduled, checked-in and completed.
+22.	Support NO_SHOW.
+23.	Record status history.
+24.	Rescheduling must re-check availability.
+25.	Cancellation must release the time slot.
+26.	Completed appointments remain in customer history.
+6.4 Reminder Flow
+MVP notification lifecycle:
+•	Immediately after confirmation: appointment confirmation email.
+•	24 hours before appointment: reminder email.
+•	After completion: optional thank-you/review-request email.
+•	Notification jobs and delivery status must be stored in the database.
+•	SMS must have a 'Preview/Simulate Send' mode; do not call a paid SMS API in the demo.
+7. Functional Requirements
+7.1 Authentication
+•	Email/password registration and login.
+•	Secure password hashing using Argon2id or another modern password hashing implementation.
+•	Secure session-based authentication; do not store raw passwords.
+•	Logout.
+•	Protected dashboard routes.
+•	Role-based authorization.
+•	Organization/tenant must be attached to authenticated membership.
+7.2 Multi-Tenancy
+The application is multi-tenant from day one. Every business belongs to an organization. Business-owned records must contain organization_id directly or be safely reachable through an organization-owned parent.
+•	Never trust organization_id supplied by the browser.
+•	Resolve the active organization from the authenticated membership/session.
+•	Every protected query must enforce tenant isolation.
+•	Add tests proving Business A cannot access Business B data.
+•	Use a reusable authorization/data-access layer to reduce the chance of tenant leakage.
+7.3 Business Settings
+•	Business name, logo placeholder, description, phone, email, address, city, country.
+•	Default timezone: Europe/Athens for Greek demo businesses.
+•	Currency: EUR.
+•	Booking slug.
+•	Booking page active/inactive.
+•	Cancellation/rescheduling settings placeholder.
+7.4 Services
+•	Create/edit/archive service.
+•	Name, description, category, duration in minutes, price in EUR, active flag.
+•	Assign service to one or more staff members.
+•	Prevent inactive services from public booking.
+7.5 Staff
+•	Create/edit/deactivate staff.
+•	Name, email, phone, role.
+•	Assign services.
+•	Staff-specific working hours and blocked times.
+•	Staff can be filtered in calendar.
+7.6 Calendar
+Use FullCalendar's Vue integration for the scheduling surface and PrimeVue for dialogs, forms, filters and supporting UI.
+•	Day, week and month views.
+•	Filter by staff, service and status.
+•	Create appointment.
+•	Click event to open appointment details.
+•	Drag/drop or resize may be implemented if stable; it is optional for MVP.
+•	Color coding by status is allowed but keep the design accessible.
+•	Calendar must respect Europe/Athens timezone for Greek businesses.
+7.7 Customers / CRM
+•	Customer list with search, filtering and pagination.
+•	Customer profile.
+•	Contact details.
+•	Appointment history.
+•	Customer timeline.
+•	Total visits, completed visits, cancelled appointments and no-shows.
+•	Total spend may be displayed as an estimate only if payment data exists; otherwise do not invent payment records.
+7.8 Public Booking
+•	Public URL: /book/{businessSlug}.
+•	Mobile responsive.
+•	Business header and branding.
+•	Service selection.
+•	Staff selection.
+•	Date picker.
+•	Available time slots.
+•	Customer details form.
+•	Booking confirmation.
+•	Human-readable appointment summary.
+•	Never expose private business dashboard data.
+7.9 Notifications
+•	Create notification job when appointment is confirmed.
+•	Create reminder job for 24 hours before appointment.
+•	Record notification type, channel, recipient, status, scheduled_at, sent_at, provider_message_id and error.
+•	Email provider must be abstracted behind a service interface.
+•	Demo should support Resend or Brevo through environment variables.
+•	SMS provider must be abstracted and disabled by default.
+7.10 Email Templates
+Templates must support variables: {{customer_name}}, {{business_name}}, {{service}}, {{staff}}, {{date}}, {{time}}, {{location}}, {{booking_url}}.
+•	Appointment Confirmation
+•	Appointment Reminder
+•	Appointment Cancellation
+•	Appointment Rescheduled
+•	Thank You / Review Request
+8. Dashboard Requirements
+•	Today's appointments count.
+•	Confirmed count.
+•	Completed count.
+•	Cancelled count.
+•	No-show count.
+•	Today's schedule list.
+•	Upcoming appointments.
+•	Quick actions: New Appointment, Add Customer, Add Service, Open Booking Page.
+•	Onboarding completion indicator until setup is complete.
+9. UI/UX Requirements
+Use PrimeVue as the primary component library. Prefer existing components over custom implementations.
+•	PrimeVue: Button, InputText, Password, Select, MultiSelect, DatePicker, Dialog, Drawer, Menu, Tabs, DataTable, Paginator, Toast, ConfirmDialog, Avatar, Badge, Tag, Card, Skeleton, ProgressBar, Message and similar components as needed.
+•	Use PrimeVue Aura theme or the current stable free theme available at implementation time.
+•	Use FullCalendar for calendar scheduling.
+•	Use Tailwind CSS only for layout/spacing and small custom styling; do not rebuild PrimeVue components.
+•	Use Lucide Vue icons.
+•	Use VueUse for composables/utilities where appropriate.
+•	Use responsive desktop-first dashboard design with strong mobile responsiveness.
+•	Use accessible labels, keyboard navigation and clear focus states.
+•	Greek localization should be architecturally possible; MVP may initially use English UI with Greek-ready text resources.
+10. Technical Stack
+Framework: Nuxt 4.x, latest stable release at implementation time
+Frontend: Vue 3 + TypeScript
+Server: Nuxt Nitro server routes/API
+UI: PrimeVue + Aura theme
+Calendar: FullCalendar Vue
+Styling: Tailwind CSS
+Icons: Lucide Vue
+Utilities: VueUse
+Validation: Zod
+Date/time: Day.js or date-fns; use one consistently
+ORM: Drizzle ORM
+Database: PostgreSQL 16+ or current stable supported PostgreSQL
+Auth: Secure Nuxt-compatible session/auth implementation; use Argon2id for passwords if custom credentials are implemented
+Email: Provider abstraction; Resend or Brevo for demo
+SMS: Provider abstraction; Twilio later; simulated in MVP
+Storage: Local filesystem for demo or S3-compatible storage later
+Reverse proxy: Nginx
+Deployment: Docker Compose on a VPS
+DNS/WAF: Cloudflare optional
+Testing: Vitest + Playwright
+Lint/format: ESLint + Prettier
+Package manager: pnpm
+11. Database Strategy
+Use PostgreSQL from the beginning. For the demo, self-host PostgreSQL in Docker on a VPS or local development machine. Do not depend on a paid managed database. The application must be portable to any standard PostgreSQL server.
+Supabase Free and Cloudflare D1 can be useful for experiments, but they are not the primary database strategy for this project. Avoid building business logic that depends on a provider-specific database feature.
+12. Database Schema
+organizations: id, name, slug, description, email, phone, address, city, country, timezone, currency, status, created_at, updated_at
+users: id, email, password_hash, first_name, last_name, phone, status, created_at, updated_at
+memberships: id, organization_id, user_id, role, status, created_at
+locations: id, organization_id, name, address, city, timezone, active, created_at, updated_at
+staff: id, organization_id, user_id nullable, name, email, phone, active, created_at, updated_at
+service_categories: id, organization_id, name, active, created_at, updated_at
+services: id, organization_id, category_id nullable, name, description, duration_minutes, price_cents, active, created_at, updated_at
+staff_services: staff_id, service_id
+business_hours: id, organization_id, day_of_week, start_time, end_time, enabled
+staff_hours: id, staff_id, day_of_week, start_time, end_time, enabled
+blocked_times: id, organization_id, staff_id nullable, location_id nullable, start_at, end_at, reason, created_at
+customers: id, organization_id, first_name, last_name, email, phone, notes, created_at, updated_at
+appointments: id, organization_id, location_id nullable, customer_id, staff_id, service_id, start_at, end_at, status, notes, source, created_at, updated_at
+appointment_status_history: id, appointment_id, from_status, to_status, changed_by_user_id nullable, created_at
+notification_templates: id, organization_id nullable, type, channel, subject, body, active, created_at, updated_at
+notification_jobs: id, organization_id, appointment_id nullable, customer_id nullable, channel, type, scheduled_at, status, attempts, sent_at nullable, provider_message_id nullable, error nullable, created_at, updated_at
+notification_logs: id, notification_job_id, provider, status, response_summary, created_at
+reviews: id, organization_id, appointment_id nullable, customer_id nullable, rating, comment, status, created_at
+audit_logs: id, organization_id nullable, user_id nullable, action, entity_type, entity_id, metadata_json, created_at
+13. Appointment Status Model
+Allowed states: PENDING, CONFIRMED, CHECKED_IN, COMPLETED, CANCELLED, NO_SHOW, RESCHEDULED. Store status transitions in appointment_status_history. Do not hard-delete completed appointment history.
+14. Availability Algorithm
+27.	Determine business timezone.
+28.	Determine requested date in business timezone.
+29.	Check business hours.
+30.	Check staff hours.
+31.	Check staff/service assignment.
+32.	Remove blocked periods.
+33.	Remove existing appointments that overlap the requested interval.
+34.	Generate slots according to a configurable slot interval, default 15 minutes.
+35.	Return only slots that fit the full service duration.
+36.	On booking POST, repeat the availability check server-side inside a database transaction.
+37.	Prevent overlapping appointments using a PostgreSQL-safe strategy. Prefer a database constraint/exclusion strategy where practical; otherwise use transactional locking with a final overlap query.
+15. API Requirements
+POST /api/auth/register — Create user and initial organization
+POST /api/auth/login — Authenticate
+POST /api/auth/logout — End session
+GET /api/me — Current user and memberships
+GET /api/dashboard/summary — Dashboard metrics
+GET/POST /api/services — List/create services
+PATCH/DELETE /api/services/:id — Update/archive service
+GET/POST /api/staff — List/create staff
+PATCH/DELETE /api/staff/:id — Update/deactivate staff
+GET/POST /api/customers — List/create customers
+GET /api/customers/:id — Customer profile
+GET/POST /api/appointments — List/create appointments
+GET /api/appointments/:id — Appointment details
+PATCH /api/appointments/:id — Update appointment
+POST /api/appointments/:id/cancel — Cancel
+POST /api/appointments/:id/reschedule — Reschedule
+POST /api/appointments/:id/complete — Complete
+POST /api/appointments/:id/no-show — Mark no-show
+GET /api/calendar — Calendar events
+GET /api/public/:slug — Public business profile
+GET /api/public/:slug/availability — Public availability
+POST /api/public/:slug/book — Create public booking
+GET/PATCH /api/settings/business — Business settings
+GET/PATCH /api/settings/hours — Business/staff hours
+GET /api/notifications — Notification history
+POST /api/notifications/test-email — Send test email
+POST /api/notifications/test-sms — Simulate SMS
+16. API Rules
+•	All request bodies validated with Zod or equivalent schema validation.
+•	Return consistent JSON error format.
+•	Never trust client-provided organization_id.
+•	Use HTTP status codes correctly.
+•	Protect private endpoints with auth middleware.
+•	Public booking endpoint must be rate-limited.
+•	Do not expose internal database errors to customers.
+•	Use server-side date/time normalization.
+17. Security
+•	Argon2id password hashing.
+•	Secure, HttpOnly, SameSite cookies for sessions.
+•	CSRF protection where applicable.
+•	Rate limiting for login and public booking.
+•	Input validation on every mutation.
+•	Tenant isolation tests.
+•	Authorization checks on every protected resource.
+•	Audit important administrative actions.
+•	Do not log passwords, session tokens or full private customer data.
+•	Use environment variables for secrets.
+•	HTTPS in production.
+•	Prepare architecture for GDPR requirements: data export, deletion, retention and consent records.
+18. Email Architecture
+Create an EmailService interface so the rest of the application never directly depends on Resend/Brevo SDK calls.
+Example conceptual interface: sendAppointmentConfirmation(), sendAppointmentReminder(), sendCancellation(), sendReschedule(), sendReviewRequest(), sendTestEmail(). Provider selection comes from environment configuration.
+For the demo, use a verified sending domain if the provider requires it. Do not ask business owners for their Gmail password. Gmail should only be integrated later via OAuth if Google Calendar/Gmail integration becomes a requirement.
+19. SMS Architecture
+SMS is not required for MVP. Build SmsService as an interface with a MockSmsProvider. In demo mode, clicking Send SMS creates a log and shows the message preview without sending a paid SMS. Later implement Twilio or another provider without changing appointment business logic.
+20. WhatsApp — Explicitly Out of Scope for MVP
+Do not implement WhatsApp API, unofficial WhatsApp libraries, QR-based WhatsApp sessions or WhatsApp automation in MVP. Keep a NotificationChannel abstraction so WhatsApp can be added later through the official Meta WhatsApp Business Platform.
+21. Future Architecture
+MVP: Nuxt 4 + Nitro + Drizzle + PostgreSQL. Later add Redis for caching/queues. When traffic or operational requirements justify it, extract domains such as messaging, notifications, billing or AI into independent services. Do not start with microservices.
+22. Deployment
+•	Development: Docker Compose with Nuxt, PostgreSQL and optional Mailpit.
+•	Production demo: VPS with Docker Compose, Nginx and PostgreSQL.
+•	Use persistent PostgreSQL volume and automated backups.
+•	Use environment variables for DATABASE_URL, AUTH_SECRET, EMAIL_PROVIDER_KEY and other secrets.
+•	Build and deploy through GitHub Actions if practical.
+•	Cloudflare can sit in front of the VPS for DNS/WAF.
+23. Demo Mode
+•	/demo route or demo login.
+•	Seed Maria Beauty Studio in Athens.
+•	Seed realistic staff, services, customers and appointments.
+•	Demo should allow navigation without destructive actions.
+•	Provide a clearly visible 'Open Booking Page' button.
+•	Include notification preview/simulation so the demo works without paid SMS or WhatsApp.
+24. Marketing/Product Positioning — Future Commercial Version
+Initial niche: Greek salons, barbers, beauty studios, nail studios, spas and wellness businesses. Primary differentiator: appointment management plus customer retention and messaging, rather than merely a calendar.
+•	Free setup offer for first customers.
+•	14-day or 30-day free trial.
+•	Direct outreach to Athens businesses first, then Thessaloniki and other cities.
+•	Greek-language landing pages and onboarding.
+•	Instagram-focused acquisition.
+•	Google Ads for high-intent Greek appointment-booking searches.
+•	Referral program.
+•	Agency/reseller partnership program.
+•	Future positioning: booking + CRM + reminders + WhatsApp + rebooking automation.
+25. Future Pricing Model
+Illustrative, not part of MVP implementation:
+•	Starter: ~€19/month.
+•	Business: ~€39/month.
+•	Pro: ~€69/month.
+•	Enterprise/multi-location: custom.
+•	WhatsApp/SMS/voice usage should be treated as metered costs or included allowances rather than unlimited promises.
+26. Competitor Context
+•	Treatwell: strong beauty marketplace and salon-management competitor in Greece; differentiates through customer acquisition and marketplace distribution.
+•	Fresha: strong salon/beauty scheduling, POS, customer management and marketplace competitor.
+•	Booksy: strong barber/beauty booking and business-management competitor.
+•	SimplyBook.me: broad appointment-booking platform.
+•	Doctoranytime: important Greece healthcare booking platform.
+•	Bookapoint: Greek appointment-management competitor targeting businesses such as barbershops, salons, beauty studios and clinics.
+The product should not attempt to win by copying every competitor feature. MVP differentiation is simplicity, Greece-first UX, no booking commission as a core positioning principle, and a future WhatsApp/retention layer.
+27. Non-Goals for MVP
+•	WhatsApp API.
+•	Voice calls.
+•	AI receptionist.
+•	Mobile native app.
+•	Payments/deposits.
+•	Marketplace.
+•	Advanced marketing campaigns.
+•	Multi-location operational complexity.
+•	Microservices.
+•	Kubernetes.
+•	Kafka/RabbitMQ.
+•	Advanced analytics.
+•	Medical/healthcare-specific workflows.
+28. Acceptance Criteria
+•	User can register and create a business.
+•	User can add/edit/deactivate services.
+•	User can add/deactivate staff and assign services.
+•	User can configure working hours.
+•	Public booking page displays active services.
+•	Availability never shows slots outside business/staff hours.
+•	Availability respects existing appointments and blocked times.
+•	Two simultaneous bookings cannot create an overlapping appointment for the same staff member.
+•	Created appointment appears immediately on calendar.
+•	Appointment status transitions work.
+•	Customer profile contains appointment history.
+•	Confirmation email can be sent or previewed.
+•	Reminder job is created for confirmed appointments.
+•	SMS can be simulated without an external paid provider.
+•	Business A cannot access Business B data.
+•	Dashboard shows correct basic metrics.
+•	Application works in Europe/Athens timezone.
+•	Demo account is seeded and presentable.
+•	Application runs locally with Docker Compose.
+•	Application can be deployed to a VPS with self-hosted PostgreSQL.
+29. Testing Requirements
+•	Unit tests for availability calculation.
+•	Unit tests for appointment state transitions.
+•	Unit tests for tenant authorization.
+•	API tests for public booking.
+•	API test proving double booking is rejected.
+•	API test proving cross-tenant access is rejected.
+•	Playwright test: register → configure service/staff → public booking → appointment appears in dashboard.
+•	Playwright test: cancellation/rescheduling.
+•	Email provider should be mocked in automated tests.
+30. Coding Standards for Codex/Copilot
+•	Use current stable Nuxt/Vue APIs; do not use deprecated Nuxt 2 patterns.
+•	Prefer Composition API and <script setup>.
+•	Use TypeScript strictly.
+•	Do not duplicate business logic between pages and server routes.
+•	Keep domain/business logic in reusable server services/utils.
+•	Keep database access isolated behind repository/data-access functions.
+•	Use small, composable components.
+•	Do not create custom UI components when an appropriate PrimeVue component exists.
+•	Do not add dependencies unless they solve a real requirement.
+•	Do not introduce a complex architecture prematurely.
+•	Use clear naming and predictable file structure.
+•	Every new feature must include validation, authorization and tests where applicable.
+•	Never silently swallow errors.
+•	Do not make breaking changes to unrelated modules.
+31. Suggested Project Structure
+Use Nuxt 4's app/server/shared separation:
+•	app/components/ui — thin project-specific wrappers around PrimeVue only when useful.
+•	app/components/dashboard — dashboard widgets.
+•	app/components/calendar — FullCalendar wrappers and calendar dialogs.
+•	app/components/appointments — appointment components/forms.
+•	app/components/customers — CRM components.
+•	app/components/booking — public booking components.
+•	app/composables — reusable client composables.
+•	app/pages — routes.
+•	app/layouts — auth/default/dashboard layouts.
+•	app/middleware — auth/role middleware.
+•	server/api — HTTP API handlers.
+•	server/services — appointment, availability, notification, email and business services.
+•	server/repositories — database access.
+•	server/utils — auth, permissions, helpers.
+•	shared/types — types shared by client/server.
+•	shared/schemas — Zod schemas shared by client/server.
+•	db or server/db — Drizzle schema/migrations, depending on implementation preference.
+32. Implementation Order
+1. Initialize latest stable Nuxt 4.x project with TypeScript and pnpm.
+2. Install/configure PrimeVue, Tailwind, FullCalendar, Lucide, VueUse, Zod and Drizzle.
+3. Set up Docker Compose PostgreSQL.
+4. Create Drizzle schema and migrations.
+5. Implement authentication and sessions.
+6. Implement organizations/memberships/roles and tenant guard.
+7. Implement business onboarding.
+8. Implement services and staff.
+9. Implement working hours and blocked times.
+10. Implement availability algorithm.
+11. Implement appointments and status history.
+12. Implement calendar.
+13. Implement customers/CRM.
+14. Implement public booking.
+15. Implement email abstraction and confirmation/reminder jobs.
+16. Implement mock SMS.
+17. Create dashboard metrics.
+18. Seed demo data.
+19. Add tests.
+20. Build Docker image and deploy to VPS.
+21. Perform security and tenant-isolation review.
+22. Only after MVP is stable, consider real SMS, Google Calendar and WhatsApp.
+33. Future Roadmap
+•	V0.2: rescheduling/cancellation improvements, richer CRM, notification templates.
+•	V0.3: Google Calendar integration, real SMS, payment/deposit support.
+•	V1.0: official WhatsApp integration, WhatsApp inbox, automated rebooking and campaigns.
+•	V2.0: AI receptionist, voice calling, AI summaries, multi-location, loyalty, memberships and mobile app.
+•	Scaling: add Redis/BullMQ, then extract notification/messaging/billing/AI services only when justified by scale or operational isolation.
+34. Build Directive
+Build the MVP as a production-quality demo, not a throwaway prototype. However, do not over-engineer it. Prioritize correctness of tenant isolation, availability, appointment transactions, clean domain boundaries and a polished PrimeVue-based UI. All MVP features must work without WhatsApp, paid SMS or a paid managed database.
+When a third-party provider is optional, implement an interface and a mock/local provider first. When a feature is marked future/out-of-scope, create only the abstraction needed to avoid future rewrites; do not implement the feature.
+The final MVP should be runnable with one command after environment setup, document required environment variables, include database migrations and seed data, and include automated tests for the critical booking path.
+35. Reference Notes
+The architecture is based on current Nuxt 4 full-stack/Nitro capabilities, PrimeVue's Nuxt integration and FullCalendar's Vue integration. Current vendor plans/pricing can change and should be rechecked before commercial launch. This PRD intentionally avoids hard-coding third-party pricing into the product.
+Primary technical references to verify during implementation: Nuxt documentation (nuxt.com), PrimeVue documentation (primevue.org), FullCalendar Vue documentation (fullcalendar.io), Drizzle documentation (orm.drizzle.team), PostgreSQL documentation (postgresql.org).

@@ -1,9 +1,5 @@
 <template>
-  <div class="flex min-h-screen flex-col bg-slate-50 text-slate-900">
-    <MainNav />
-    <main class="flex-1">
-      <slot />
-    </main>
-    <SiteFooter />
+  <div class="app-shell">
+    <main class="mx-auto max-w-340 px-5 pb-10 lg:px-10"><slot /></main>
   </div>
 </template>

@@ -7,11 +7,30 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx server/db/seed.ts",
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@nuxt/ui": "^4.11.1",
+    "@primevue/nuxt-module": "^5.0.1",
+    "@vueuse/nuxt": "^14.4.0",
+    "argon2": "^0.45.1",
+    "drizzle-orm": "^0.45.2",
+    "lucide-vue-next": "^1.0.0",
     "nuxt": "^4.4.6",
+    "pg": "^8.23.0",
+    "primevue": "^5.0.1",
     "vue": "^3.5.34",
-    "vue-router": "^5.0.6"
+    "vue-router": "^5.0.6",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.23.13"
   }
 }

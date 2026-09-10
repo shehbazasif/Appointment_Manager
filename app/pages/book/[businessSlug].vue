@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { CalendarDays, Check, ChevronLeft, Clock3, MapPin } from "lucide-vue-next";
+import {
+  CalendarDays,
+  Check,
+  ChevronLeft,
+  Clock3,
+  MapPin,
+} from "lucide-vue-next";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
 import { demoBusiness, demoServices } from "#shared/data/demo";
@@ -8,7 +14,11 @@ const selectedService = ref(demoServices[0]!);
 const selectedDate = ref("Wed, 9 Sep");
 const selectedTime = ref("10:30");
 const booked = ref(false);
-const shareBooking = () => window.open(`https://wa.me/?text=${encodeURIComponent(`Book an appointment at ${demoBusiness.name}: ${window.location.href}`)}`, "_blank");
+const shareBooking = () =>
+  window.open(
+    `https://wa.me/?text=${encodeURIComponent(`Book an appointment at ${demoBusiness.name}: ${window.location.href}`)}`,
+    "_blank",
+  );
 const slots = [
   "09:00",
   "09:30",
@@ -25,21 +35,6 @@ const slots = [
   <div
     class="min-h-screen bg-[radial-gradient(circle_at_80%_0%,#f8eee9_0,transparent_32rem),#fbfaf8]"
   >
-    <header
-      class="flex h-19 items-center justify-between border-b border-stone-200 bg-paper/80 px-5 lg:px-[max(24px,calc((100vw-1120px)/2))]"
-    >
-      <NuxtLink
-        to="/"
-        class="flex items-center gap-2.5 text-lg font-bold tracking-tight"
-        ><span
-          class="grid size-8.5 place-items-center rounded-[10px] bg-ink text-white"
-          ><CalendarDays :size="19" /></span
-        ><span>rantevou<span class="text-rose">OS</span></span></NuxtLink
-      ><span class="hidden text-xs text-stone-500 sm:block"
-        >Simple booking · Athens</span
-      >
-      <button type="button" class="rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-teal" @click="shareBooking">Share on WhatsApp</button>
-    </header>
     <main class="mx-auto max-w-280 px-5 pb-16 pt-8">
       <NuxtLink
         to="/"

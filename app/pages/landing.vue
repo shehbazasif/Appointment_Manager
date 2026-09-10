@@ -95,6 +95,16 @@
         <h2 class="font-semibold">{{ item.title }}</h2>
         <p class="mt-2 text-sm leading-6 text-stone-500">{{ item.text }}</p>
       </article>
+      <!-- testimonial Section... -->
+      <!-- <section class="">
+        <div>
+          <h1 class="font-extrabold text-3xl text-center">
+            Business Testimonials
+          </h1>
+          <Testimonials />
+        </div>
+      </section> -->
     </section>
+    <Footer />
   </main>
 </template>

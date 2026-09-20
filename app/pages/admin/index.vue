@@ -1,17 +1,10 @@
 <script setup lang="ts">
-const session = ref<{
-  user?: { email: string; firstName: string };
-  organization?: { name: string };
-  role?: string;
-} | null>(null);
+const { refreshUser } = useSupabaseAuth();
 const denied = ref(false);
 onMounted(async () => {
-  try {
-    session.value = await $fetch("/api/me");
-    denied.value = session.value.role !== "SUPER_ADMIN";
-  } catch {
-    await navigateTo("/login");
-  }
+  const user = await refreshUser();
+  if (!user) return navigateTo("/login");
+  denied.value = user.app_metadata?.platform_role !== "SUPER_ADMIN";
 });
 </script>
 <template>

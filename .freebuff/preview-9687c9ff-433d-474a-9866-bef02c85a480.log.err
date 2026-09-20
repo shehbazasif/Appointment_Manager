@@ -1,0 +1,6 @@
+
+[43m[30m WARN [39m[49m Duplicated imports "useToast", the one from "C:/my/dev/Appointment_Manager/node_modules/@nuxt/ui/dist/runtime/composables/useToast" has been ignored and "primevue/usetoast" is used
+
+
+[43m[30m WARN [39m[49m Duplicated imports "useToast", the one from "C:/my/dev/Appointment_Manager/node_modules/@nuxt/ui/dist/runtime/composables/useToast" has been ignored and "primevue/usetoast" is used
+

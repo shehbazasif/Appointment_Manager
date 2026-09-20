@@ -3,10 +3,10 @@ import { readValidatedBody } from "h3";
 import { appointmentStatusSchema } from "#shared/schemas/appointments";
 import { appointments, appointmentStatusHistory } from "../../db/schema";
 import { requireDatabase } from "../../utils/database";
-import { requireSession } from "../../utils/session";
+import { requireTenant } from "../../utils/auth";
 
 export default defineEventHandler(async (event) => {
-  const { organizationId, userId } = requireSession(event);
+  const { organizationId, userId } = await requireTenant(event);
   const id = getRouterParam(event, "id");
   const { status } = await readValidatedBody(
     event,

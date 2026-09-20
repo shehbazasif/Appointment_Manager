@@ -8,11 +8,11 @@ import {
   services,
 } from "../../db/schema";
 import { requireDatabase } from "../../utils/database";
-import { requireSession } from "../../utils/session";
+import { requireTenant } from "../../utils/auth";
 import { queueAppointmentNotifications } from "../../services/notifications";
 
 export default defineEventHandler(async (event) => {
-  const { organizationId, userId } = requireSession(event);
+  const { organizationId, userId } = await requireTenant(event);
   const input = await readValidatedBody(event, appointmentSchema.parse);
   const database = requireDatabase();
   const service = await database.query.services.findFirst({

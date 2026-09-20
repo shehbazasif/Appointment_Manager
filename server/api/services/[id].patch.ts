@@ -3,10 +3,10 @@ import { readValidatedBody } from "h3";
 import { serviceSchema } from "#shared/schemas/business";
 import { services } from "../../db/schema";
 import { requireDatabase } from "../../utils/database";
-import { requireSession } from "../../utils/session";
+import { requireTenant } from "../../utils/auth";
 
 export default defineEventHandler(async (event) => {
-  const { organizationId } = requireSession(event);
+  const { organizationId } = await requireTenant(event);
   const id = getRouterParam(event, "id");
   if (!id)
     throw createError({

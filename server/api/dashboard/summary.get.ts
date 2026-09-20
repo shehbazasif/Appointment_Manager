@@ -1,10 +1,10 @@
 import { and, count, eq, gte, lt } from "drizzle-orm";
 import { appointments } from "../../db/schema";
 import { requireDatabase } from "../../utils/database";
-import { requireSession } from "../../utils/session";
+import { requireTenant } from "../../utils/auth";
 
 export default defineEventHandler(async (event) => {
-  const { organizationId } = requireSession(event);
+  const { organizationId } = await requireTenant(event);
   const database = requireDatabase();
   const start = new Date();
   start.setHours(0, 0, 0, 0);

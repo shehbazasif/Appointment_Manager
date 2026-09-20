@@ -1,6 +1,17 @@
 <script setup lang="ts">
-import { ref, reactive } from "vue";
+import { ref, reactive, onMounted } from "vue";
 import Button from "primevue/button";
+
+type MeResponse = {
+  user: { id: string; email: string; firstName: string; lastName: string };
+  organization: {
+    name: string;
+    slug: string;
+    description: string | null;
+    phone: string | null;
+    city: string | null;
+  } | null;
+};
 
 const categories = [
   { label: "Hair Salon", value: "hair" },
@@ -26,15 +37,60 @@ const form = reactive({
   city: "Athens",
 });
 
+const businessName = ref("");
+const bookingSlug = ref("");
 const saved = ref(false);
+const errorMessage = ref("");
 const isSubmitting = ref(false);
+const isPreparing = ref(true);
+
+const loadMe = () => $fetch<MeResponse>("/api/me");
+
+onMounted(async () => {
+  try {
+    let me = await loadMe();
+    if (!me.organization) {
+      // First visit after email confirmation: create the workspace from the
+      // details captured at signup.
+      await $fetch("/api/auth/bootstrap", { method: "POST" });
+      me = await loadMe();
+    }
+    if (me.organization) {
+      businessName.value = me.organization.name;
+      bookingSlug.value = me.organization.slug;
+      form.description = me.organization.description ?? "";
+      form.phone = me.organization.phone ?? "";
+      form.city = me.organization.city ?? "Athens";
+    }
+  } catch (error: any) {
+    errorMessage.value =
+      error?.data?.statusMessage ??
+      "Could not load your business profile. Please try again.";
+  } finally {
+    isPreparing.value = false;
+  }
+});
 
 const save = async () => {
   isSubmitting.value = true;
-  setTimeout(() => {
-    isSubmitting.value = false;
+  errorMessage.value = "";
+  try {
+    await $fetch("/api/onboarding", {
+      method: "PATCH",
+      body: {
+        description: form.description.trim() || undefined,
+        phone: form.phone.trim() || undefined,
+        city: form.city.trim() || undefined,
+      },
+    });
     saved.value = true;
-  }, 800);
+    await navigateTo("/dashboard");
+  } catch (error: any) {
+    errorMessage.value =
+      error?.data?.statusMessage ?? "Could not save your business details.";
+  } finally {
+    isSubmitting.value = false;
+  }
 };
 </script>
 
@@ -54,8 +110,23 @@ const save = async () => {
       <p class="mt-2 text-sm text-stone-500">
         This helps shape your workspace, service defaults, and booking page.
       </p>
+      <p
+        v-if="bookingSlug"
+        class="mt-3 rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 text-xs text-stone-500"
+      >
+        Booking page:
+        <strong class="text-stone-700">/book/{{ bookingSlug }}</strong>
+      </p>
 
-      <form class="mt-8 grid gap-6" @submit.prevent="save">
+      <div
+        v-if="isPreparing"
+        class="mt-8 text-sm text-stone-500"
+        role="status"
+      >
+        Preparing your workspace...
+      </div>
+
+      <form v-else class="mt-8 grid gap-6" @submit.prevent="save">
         <!-- Category Selection -->
         <div class="grid gap-2">
           <label class="text-xs font-semibold text-stone-700"
@@ -134,10 +205,18 @@ const save = async () => {
               v-model="form.city"
               type="text"
               placeholder="Athens"
-              class="w-full rounded-xl border border-stone-200/90 bg-white p-3 text-sm text-stone-400 outline-none transition-all placeholder:text-stone-400 focus:border-stone-900 focus:ring-1 focus:ring-stone-900"
+              class="w-full rounded-xl border border-stone-200/90 bg-white p-3 text-sm text-stone-900 outline-none transition-all placeholder:text-stone-400 focus:border-stone-900 focus:ring-1 focus:ring-stone-900"
             />
           </div>
         </div>
+
+        <!-- Error State Banner -->
+        <p
+          v-if="errorMessage"
+          class="rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-medium text-rose-700"
+        >
+          {{ errorMessage }}
+        </p>
 
         <!-- Submit Button -->
         <Button
@@ -145,7 +224,7 @@ const save = async () => {
           :loading="isSubmitting"
           label="Finish setup"
           icon="pi pi-check"
-          class="!mt-2 !w-full !rounded-xl !bg-stone-900 !py-3.5 !text-xs !font-bold !text-white hover:!bg-stone-800 active:!scale-[0.99]"
+          class="mt-2! w-full! rounded-xl! sbg-stone-900! py-3.5! text-xs! font-bold! text-white! hover:bg-stone-800! active:scale-[0.99]!"
         />
       </form>
     </section>

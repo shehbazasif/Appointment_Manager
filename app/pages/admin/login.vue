@@ -2,42 +2,30 @@
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
 import Password from "primevue/password";
+
+const { supabase, refreshUser } = useSupabaseAuth();
 const email = ref("");
 const password = ref("");
-const code = ref("");
-const challengeId = ref("");
-const previewCode = ref("");
 const errorMessage = ref("");
 const loading = ref(false);
-const request = async () => {
+
+const signIn = async () => {
   loading.value = true;
+  errorMessage.value = "";
   try {
-    const result = await $fetch<any>("/api/auth/request-code", {
-      method: "POST",
-      body: { email: email.value, password: password.value },
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.value.trim(),
+      password: password.value,
     });
-    challengeId.value = result.challengeId;
-    previewCode.value = result.previewCode ?? "";
-  } catch (error: any) {
-    errorMessage.value =
-      error?.data?.statusMessage ?? "Unable to authenticate.";
-  } finally {
-    loading.value = false;
-  }
-};
-const verify = async () => {
-  loading.value = true;
-  try {
-    await $fetch("/api/auth/verify-code", {
-      method: "POST",
-      body: { challengeId: challengeId.value, code: code.value },
-    });
-    const me = await $fetch<any>("/api/me");
-    if (me.role !== "SUPER_ADMIN") throw new Error("Admin access required.");
+    if (error) throw error;
+    const user = await refreshUser();
+    if (user?.app_metadata?.platform_role !== "SUPER_ADMIN") {
+      await supabase.auth.signOut();
+      throw new Error("Admin access required.");
+    }
     await navigateTo("/admin");
   } catch (error: any) {
-    errorMessage.value =
-      error?.data?.statusMessage ?? error.message ?? "Admin access denied.";
+    errorMessage.value = error?.message ?? "Unable to authenticate.";
   } finally {
     loading.value = false;
   }
@@ -83,12 +71,8 @@ const verify = async () => {
         </h1>
       </header>
 
-      <!-- Step 1: Request Code Form -->
-      <form
-        v-if="!challengeId"
-        class="mt-8 space-y-5"
-        @submit.prevent="request"
-      >
+      <!-- Sign In Form -->
+      <form class="mt-8 space-y-5" @submit.prevent="signIn">
         <div class="space-y-2">
           <label
             class="block text-xs font-semibold uppercase tracking-wider text-white/60"
@@ -121,46 +105,10 @@ const verify = async () => {
 
         <Button
           type="submit"
-          label="Send verification code"
+          label="Sign in"
           severity="contrast"
           :loading="loading"
           class="!mt-7 !w-full !py-3 !font-semibold !rounded-lg transition-transform active:scale-[0.99]"
-        />
-      </form>
-
-      <!-- Step 2: Verify Code Form -->
-      <form v-else class="mt-8 space-y-5" @submit.prevent="verify">
-        <p class="text-sm leading-relaxed text-white/70">
-          Enter the six-digit code sent to your admin email.
-        </p>
-
-        <p
-          v-if="previewCode"
-          class="rounded-lg border border-amber-400/20 bg-amber-400/10 p-3.5 text-xs font-mono text-amber-200"
-        >
-          Development preview:
-          <span class="font-bold tracking-widest text-amber-300">{{
-            previewCode
-          }}</span>
-        </p>
-
-        <div class="space-y-2">
-          <InputText
-            v-model="code"
-            inputmode="numeric"
-            maxlength="6"
-            placeholder="000000"
-            required
-            class="w-full text-center font-mono text-2xl tracking-[0.75em] !bg-white/5 !border-white/10 !text-white placeholder:!text-white/20 focus:!border-rose-300/50 focus:!ring-1 focus:!ring-rose-300/50 !py-3 !rounded-lg"
-          />
-        </div>
-
-        <Button
-          type="submit"
-          label="Enter admin console"
-          severity="contrast"
-          :loading="loading"
-          class="!w-full !py-3 !font-semibold !rounded-lg transition-transform active:scale-[0.99]"
         />
       </form>
 

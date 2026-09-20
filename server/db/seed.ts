@@ -1,5 +1,4 @@
 import "dotenv/config";
-import argon2 from "argon2";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Client } from "pg";
@@ -14,50 +13,55 @@ import {
 } from "./schema";
 
 const databaseUrl = process.env.DATABASE_URL;
-const adminPassword = process.env.ADMIN_PASSWORD;
-const businessPassword = process.env.BUSINESS_PASSWORD;
+const adminUserId = process.env.SUPABASE_ADMIN_USER_ID;
+const businessUserId = process.env.SUPABASE_BUSINESS_USER_ID;
 
 if (!databaseUrl) throw new Error("DATABASE_URL is required.");
-if (!adminPassword || !businessPassword)
-  throw new Error("ADMIN_PASSWORD and BUSINESS_PASSWORD are required.");
+if (!adminUserId || !businessUserId)
+  throw new Error(
+    "SUPABASE_ADMIN_USER_ID and SUPABASE_BUSINESS_USER_ID are required. Create the two users in Supabase (Auth → Users) and copy their UUIDs.",
+  );
 
-const client = new Client({ connectionString: databaseUrl });
+const client = new Client({
+  connectionString: databaseUrl,
+  ssl: /supabase/.test(databaseUrl) ? { rejectUnauthorized: false } : undefined,
+});
 await client.connect();
 const database = drizzle(client);
 
 try {
   const adminEmail = "m.shahbazasif512@gmail.com";
   const businessEmail = "riders@feroferto.gr";
-  const [adminHash, businessHash] = await Promise.all([
-    argon2.hash(adminPassword, { type: argon2.argon2id }),
-    argon2.hash(businessPassword, { type: argon2.argon2id }),
-  ]);
 
+  // Credentials are managed by Supabase Auth; create matching users there with
+  // the same emails and copy their auth uids into the env vars above.
   const [admin] = await database
     .insert(users)
     .values({
+      id: adminUserId,
       email: adminEmail,
-      passwordHash: adminHash,
+      passwordHash: "supabase-managed",
       firstName: "M.",
       lastName: "Shahbazasif",
     })
     .onConflictDoUpdate({
-      target: users.email,
-      set: { passwordHash: adminHash, updatedAt: new Date(), status: "ACTIVE" },
+      target: users.id,
+      set: { email: adminEmail, updatedAt: new Date(), status: "ACTIVE" },
     })
     .returning();
   const [businessOwner] = await database
     .insert(users)
     .values({
+      id: businessUserId,
       email: businessEmail,
-      passwordHash: businessHash,
+      passwordHash: "supabase-managed",
       firstName: "Fero",
       lastName: "Ferto",
     })
     .onConflictDoUpdate({
-      target: users.email,
+      target: users.id,
       set: {
-        passwordHash: businessHash,
+        email: businessEmail,
         updatedAt: new Date(),
         status: "ACTIVE",
       },

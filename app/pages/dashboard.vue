@@ -1,14 +1,34 @@
 <script setup lang="ts">
-const session = ref<{
-  user?: { firstName: string };
-  organization?: { name: string };
-  role?: string;
-} | null>(null);
+import { ref, onMounted } from "vue";
+
+type MeResponse = {
+  user: { id: string; email: string; firstName: string; lastName: string };
+  organization: {
+    name: string;
+    slug: string;
+    bookingActive: boolean;
+  } | null;
+  role: string | null;
+};
+
+const { user } = useSupabaseAuth();
+const me = ref<MeResponse | null>(null);
+const isLoading = ref(true);
+
 onMounted(async () => {
   try {
-    session.value = await $fetch("/api/me");
-  } catch {
-    await navigateTo("/login");
+    me.value = await $fetch<MeResponse>("/api/me");
+    if (!me.value.organization) {
+      await navigateTo("/onboarding", { replace: true });
+      return;
+    }
+  } catch (error: any) {
+    if (error?.statusCode === 401) {
+      await navigateTo("/login", { replace: true });
+      return;
+    }
+  } finally {
+    isLoading.value = false;
   }
 });
 </script>
@@ -22,12 +42,19 @@ onMounted(async () => {
         <p class="eyebrow">Business workspace</p>
         <h1 class="font-display text-4xl">
           Welcome{{
-            session?.user?.firstName ? `, ${session.user.firstName}` : ""
+            user?.user_metadata?.first_name
+              ? `, ${user.user_metadata.first_name}`
+              : ""
           }}.
         </h1>
         <p class="mt-2 text-sm text-stone-500">
-          {{ session?.organization?.name ?? "Your business" }} ·
-          {{ session?.role ?? "OWNER" }}
+          <template v-if="me?.organization">
+            {{ me.organization.name }} ·
+            <span class="text-stone-400">/book/{{ me.organization.slug }}</span>
+          </template>
+          <template v-else>
+            {{ user?.email ?? "Your Supabase account" }}
+          </template>
         </p>
       </div>
       <div class="flex gap-2">
@@ -35,14 +62,24 @@ onMounted(async () => {
           to="/onboarding"
           class="rounded-lg border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold"
           >Business setup</NuxtLink
-        ><NuxtLink
+        >
+        <NuxtLink
+          v-if="me?.organization?.bookingActive"
+          :to="`/book/${me.organization.slug}`"
+          class="rounded-lg border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold"
+          >Open booking page</NuxtLink
+        >
+        <NuxtLink
           to="/logout"
           class="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white"
           >Sign out</NuxtLink
         >
       </div>
     </section>
-    <section class="grid gap-4 sm:grid-cols-3">
+    <p v-if="isLoading" class="text-sm text-stone-500" role="status">
+      Loading your workspace...
+    </p>
+    <section v-else class="grid gap-4 sm:grid-cols-3">
       <NuxtLink
         v-for="item in [
           {
@@ -65,10 +102,8 @@ onMounted(async () => {
         :to="item.to"
         class="surface p-5 transition hover:-translate-y-0.5"
         ><h2 class="font-semibold">{{ item.title }}</h2>
-        <p class="mt-2 text-sm leading-6 text-stone-500">
-          {{ item.text }}
-        </p></NuxtLink
-      >
+        <p class="mt-2 text-sm leading-6 text-stone-500">{{ item.text }}</p>
+      </NuxtLink>
     </section>
   </div>
 </template>

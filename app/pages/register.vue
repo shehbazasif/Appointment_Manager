@@ -32,7 +32,9 @@ const touched = reactive<Record<string, boolean>>({
 
 const loading = ref(false);
 const errorMessage = ref("");
+const confirmationMessage = ref("");
 const showPassword = ref(false);
+const { supabase } = useSupabaseAuth();
 
 // Auto-generate slug from business name if user hasn't edited slug manually
 watch(
@@ -97,12 +99,49 @@ const register = async () => {
 
   loading.value = true;
   errorMessage.value = "";
+  confirmationMessage.value = "";
   try {
-    await $fetch("/api/auth/register", { method: "POST", body: form });
-    await navigateTo("/onboarding");
+    const { data, error } = await supabase.auth.signUp({
+      email: form.email.trim(),
+      password: form.password,
+      options: {
+        // Send the confirmation link back to the app's callback page.
+        emailRedirectTo: `${window.location.origin}/confirm`,
+        data: {
+          first_name: form.firstName.trim(),
+          last_name: form.lastName.trim(),
+          pending_business_name: form.businessName.trim(),
+          pending_business_slug: form.businessSlug.trim(),
+        },
+      },
+    });
+    if (error) throw error;
+    if (data.session) {
+      // Provision the tenant workspace (user row, organization, OWNER
+      // membership) with the verified Supabase session.
+      try {
+        await $fetch("/api/auth/bootstrap", {
+          method: "POST",
+          body: {
+            firstName: form.firstName.trim(),
+            lastName: form.lastName.trim(),
+            businessName: form.businessName.trim(),
+            businessSlug: form.businessSlug.trim(),
+          },
+        });
+      } catch (bootstrapError: any) {
+        errorMessage.value =
+          bootstrapError?.data?.statusMessage ??
+          "Your account was created, but the business workspace could not be set up. Complete setup from the onboarding page.";
+        return;
+      }
+      await navigateTo("/onboarding");
+      return;
+    }
+    confirmationMessage.value =
+      "Check your email to confirm your account, then sign in to finish setting up your business.";
   } catch (error: any) {
-    errorMessage.value =
-      error?.data?.statusMessage ?? "Unable to create your account.";
+    errorMessage.value = error?.message ?? "Unable to create your account.";
   } finally {
     loading.value = false;
   }
@@ -366,6 +405,12 @@ const register = async () => {
           class="rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-medium text-rose-700"
         >
           {{ errorMessage }}
+        </div>
+        <div
+          v-if="confirmationMessage"
+          class="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs font-medium text-emerald-700"
+        >
+          {{ confirmationMessage }}
         </div>
 
         <!-- Submit Button -->

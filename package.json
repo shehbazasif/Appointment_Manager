@@ -15,9 +15,10 @@
   },
   "dependencies": {
     "@nuxt/ui": "^4.11.1",
+    "@nuxtjs/supabase": "^2.0.10",
     "@primevue/nuxt-module": "^5.0.1",
+    "@supabase/supabase-js": "^2.116.0",
     "@vueuse/nuxt": "^14.4.0",
-    "argon2": "^0.45.1",
     "drizzle-orm": "^0.45.2",
     "lucide-vue-next": "^1.0.0",
     "nuxt": "^4.4.6",

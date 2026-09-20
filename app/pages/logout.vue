@@ -1,6 +1,13 @@
 <script setup lang="ts">
-await $fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
-await navigateTo("/login");
+const { signOut } = useSupabaseAuth();
+
+onMounted(async () => {
+  try {
+    await signOut();
+  } finally {
+    await navigateTo("/login");
+  }
+});
 </script>
 
 <template>

@@ -2,10 +2,10 @@ import { and, eq, gte, lt } from "drizzle-orm";
 import { getQuery } from "h3";
 import { appointments, customers, services, staff } from "../../db/schema";
 import { requireDatabase } from "../../utils/database";
-import { requireSession } from "../../utils/session";
+import { requireTenant } from "../../utils/auth";
 
 export default defineEventHandler(async (event) => {
-  const { organizationId } = requireSession(event);
+  const { organizationId } = await requireTenant(event);
   const query = getQuery(event);
   const start = query.start
     ? new Date(String(query.start))

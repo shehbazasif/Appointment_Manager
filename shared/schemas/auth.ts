@@ -1,24 +1,26 @@
 import { z } from "zod";
 
-export const registerSchema = z.object({
-  email: z.string().trim().email().max(254),
-  password: z.string().min(10).max(128),
-  firstName: z.string().trim().min(1).max(80),
-  lastName: z.string().trim().min(1).max(80),
-  businessName: z.string().trim().min(2).max(120),
-  businessSlug: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-    .min(3)
-    .max(80),
+const slugSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase letters, numbers and hyphens only.")
+  .min(3)
+  .max(80);
+
+export const bootstrapSchema = z.object({
+  firstName: z.string().trim().min(1).max(80).optional(),
+  lastName: z.string().trim().min(1).max(80).optional(),
+  businessName: z.string().trim().min(2).max(120).optional(),
+  businessSlug: slugSchema.optional(),
 });
 
-export const loginSchema = z.object({
-  email: z.string().trim().email().max(254),
-  password: z.string().min(1).max(128),
+export const onboardingSchema = z.object({
+  name: z.string().trim().min(2).max(120).optional(),
+  description: z.string().trim().max(2000).optional(),
+  phone: z.string().trim().max(40).optional(),
+  city: z.string().trim().max(80).optional(),
 });
 
-export type RegisterInput = z.infer<typeof registerSchema>;
-export type LoginInput = z.infer<typeof loginSchema>;
+export type BootstrapInput = z.infer<typeof bootstrapSchema>;
+export type OnboardingInput = z.infer<typeof onboardingSchema>;

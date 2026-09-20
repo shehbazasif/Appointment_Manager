@@ -6,7 +6,7 @@ import { CalendarDays, ChevronDown, Info, HelpCircle } from "lucide-vue-next";
 const navLinks = [
   { name: "Features", to: "/features" },
   { name: "Pricing", to: "/pricing" },
-  { name: "Contact Us", to: "/contact" },
+  { name: "Contact Us", to: "/contactus" },
 ];
 
 // Dropdown Sub-links for Company / Information
@@ -35,7 +35,7 @@ const isDropdownOpen = ref(false);
   >
     <!-- Brand Logo -->
     <NuxtLink
-      to="/landing"
+      to="/"
       class="inline-flex items-center gap-2.5 text-xl font-bold tracking-tight text-stone-900 transition-opacity hover:opacity-90"
     >
       <span

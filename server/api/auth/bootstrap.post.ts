@@ -1,9 +1,7 @@
-import { eq } from "drizzle-orm";
 import { readValidatedBody, setResponseStatus } from "h3";
 import { bootstrapSchema } from "#shared/schemas/auth";
-import { memberships, organizations, users } from "../../db/schema";
-import { requireDatabase } from "../../utils/database";
 import { requireAuthUser } from "../../utils/auth";
+import { getSupabaseAdmin } from "../../utils/supabase";
 
 const metadataString = (value: unknown) =>
   typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -15,7 +13,6 @@ const metadataString = (value: unknown) =>
  */
 export default defineEventHandler(async (event) => {
   const authUser = await requireAuthUser(event);
-  // Body is optional: onboarding retries bootstrap with the signup metadata.
   const body = await readValidatedBody(event, (raw) =>
     bootstrapSchema.parse(raw && typeof raw === "object" ? raw : {}),
   );
@@ -33,13 +30,17 @@ export default defineEventHandler(async (event) => {
     metadataString(metadata.pending_business_slug) ??
     metadataString(metadata.business_slug);
 
-  const database = requireDatabase();
+  const sb = getSupabaseAdmin();
 
-  const existingMembership = await database.query.memberships.findFirst({
-    where: eq(memberships.userId, authUser.id),
-    with: { organization: true },
-  });
-  if (existingMembership && existingMembership.status === "ACTIVE")
+  // Check if membership already exists
+  const { data: existingMembership } = await sb
+    .from("memberships")
+    .select("*, organization:organizations(*)")
+    .eq("user_id", authUser.id)
+    .eq("status", "ACTIVE")
+    .maybeSingle();
+
+  if (existingMembership)
     return {
       created: false,
       user: { id: authUser.id, email: authUser.email },
@@ -54,68 +55,63 @@ export default defineEventHandler(async (event) => {
       data: { code: "MISSING_BUSINESS_DETAILS" },
     });
 
-  const slugConflict = await database.query.organizations.findFirst({
-    where: eq(organizations.slug, businessSlug),
-  });
-  if (slugConflict && slugConflict.id !== existingMembership?.organizationId)
+  // Check slug uniqueness
+  const { data: slugConflict } = await sb
+    .from("organizations")
+    .select("id")
+    .eq("slug", businessSlug)
+    .maybeSingle();
+
+  if (slugConflict)
     throw createError({
       statusCode: 409,
       statusMessage: "This booking slug is already in use.",
     });
 
-  const result = await database.transaction(async (transaction) => {
-    const [userRow] = await transaction
-      .insert(users)
-      .values({
-        // Tenant user id mirrors the Supabase auth uid.
-        id: authUser.id,
-        email: authUser.email,
-        // Credentials are managed by Supabase Auth; the legacy column stays
-        // satisfied with a non-secret placeholder.
-        passwordHash: "supabase-managed",
-        firstName: firstName || "Business",
-        lastName: lastName || "Owner",
-      })
-      // A database trigger or a retried request may have already mirrored the
-      // auth user into the tenant table — upsert keeps it in sync either way.
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          email: authUser.email,
-          firstName: firstName || "Business",
-          lastName: lastName || "Owner",
-          status: "ACTIVE",
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
+  // Upsert user row (mirrors Supabase auth uid into tenant users table)
+  await sb.from("users").upsert(
+    {
+      id: authUser.id,
+      email: authUser.email,
+      password_hash: "supabase-managed",
+      first_name: firstName || "Business",
+      last_name: lastName || "Owner",
+      status: "ACTIVE",
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "id" }
+  );
 
-    const [organization] = await transaction
-      .insert(organizations)
-      .values({
-        name: businessName,
-        slug: businessSlug,
-        email: authUser.email,
-        bookingActive: false,
-      })
-      .returning();
+  // Create organization
+  const { data: organization, error: orgError } = await sb
+    .from("organizations")
+    .insert({
+      name: businessName,
+      slug: businessSlug,
+      email: authUser.email,
+      booking_active: false,
+    })
+    .select()
+    .single();
 
-    await transaction
-      .insert(memberships)
-      .values({
-        organizationId: organization.id,
-        userId: userRow.id,
-        role: "OWNER",
-      })
-      .onConflictDoNothing();
+  if (orgError)
+    throw createError({ statusCode: 500, statusMessage: orgError.message });
 
-    return { user: userRow, organization };
-  });
+  // Create OWNER membership
+  await sb.from("memberships").upsert(
+    {
+      organization_id: organization.id,
+      user_id: authUser.id,
+      role: "OWNER",
+      status: "ACTIVE",
+    },
+    { onConflict: "organization_id,user_id" }
+  );
 
   setResponseStatus(event, 201);
   return {
     created: true,
-    user: { id: result.user.id, email: result.user.email },
-    organization: result.organization,
+    user: { id: authUser.id, email: authUser.email },
+    organization,
   };
 });

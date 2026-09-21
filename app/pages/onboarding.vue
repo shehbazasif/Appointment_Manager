@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from "vue";
-import Button from "primevue/button";
 
 type MeResponse = {
   user: { id: string; email: string; firstName: string; lastName: string };
@@ -50,10 +49,14 @@ onMounted(async () => {
   try {
     let me = await loadMe();
     if (!me.organization) {
-      // First visit after email confirmation: create the workspace from the
-      // details captured at signup.
-      await $fetch("/api/auth/bootstrap", { method: "POST" });
-      me = await loadMe();
+      try {
+        // First visit after email confirmation: try to bootstrap from metadata
+        await $fetch("/api/auth/bootstrap", { method: "POST" });
+        me = await loadMe();
+      } catch (e) {
+        // Bootstrap might fail if metadata didn't have business name or tables need setup
+        console.warn("Bootstrap attempt deferred:", e);
+      }
     }
     if (me.organization) {
       businessName.value = me.organization.name;
@@ -63,21 +66,24 @@ onMounted(async () => {
       form.city = me.organization.city ?? "Athens";
     }
   } catch (error: any) {
-    errorMessage.value =
-      error?.data?.statusMessage ??
-      "Could not load your business profile. Please try again.";
+    console.warn("loadMe error:", error);
   } finally {
     isPreparing.value = false;
   }
 });
 
 const save = async () => {
+  if (!bookingSlug.value && !businessName.value.trim()) {
+    errorMessage.value = "Please enter your business name.";
+    return;
+  }
   isSubmitting.value = true;
   errorMessage.value = "";
   try {
     await $fetch("/api/onboarding", {
       method: "PATCH",
       body: {
+        businessName: businessName.value.trim() || undefined,
         description: form.description.trim() || undefined,
         phone: form.phone.trim() || undefined,
         city: form.city.trim() || undefined,
@@ -92,6 +98,8 @@ const save = async () => {
     isSubmitting.value = false;
   }
 };
+
+const skip = () => navigateTo("/dashboard");
 </script>
 
 <template>
@@ -127,6 +135,20 @@ const save = async () => {
       </div>
 
       <form v-else class="mt-8 grid gap-6" @submit.prevent="save">
+        <!-- Business Name (when setting up new workspace) -->
+        <div v-if="!bookingSlug" class="grid gap-1.5">
+          <label class="text-xs font-semibold text-stone-700">
+            Business Name <span class="text-rose-500">*</span>
+          </label>
+          <input
+            v-model="businessName"
+            type="text"
+            required
+            placeholder="e.g. Maria Beauty Studio"
+            class="w-full rounded-xl border border-stone-200/90 bg-white p-3 text-sm text-stone-900 outline-none transition-all placeholder:text-stone-400 focus:border-stone-900 focus:ring-1 focus:ring-stone-900"
+          />
+        </div>
+
         <!-- Category Selection -->
         <div class="grid gap-2">
           <label class="text-xs font-semibold text-stone-700"
@@ -218,14 +240,29 @@ const save = async () => {
           {{ errorMessage }}
         </p>
 
-        <!-- Submit Button -->
-        <Button
-          type="submit"
-          :loading="isSubmitting"
-          label="Finish setup"
-          icon="pi pi-check"
-          class="mt-2! w-full! rounded-xl! sbg-stone-900! py-3.5! text-xs! font-bold! text-white! hover:bg-stone-800! active:scale-[0.99]!"
-        />
+        <!-- Action Buttons -->
+        <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <button
+            type="submit"
+            :disabled="isSubmitting"
+            class="flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 px-6 py-3.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-stone-800 active:scale-[0.99] disabled:opacity-60"
+          >
+            <svg v-if="isSubmitting" class="size-4 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25" />
+              <path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" stroke-linecap="round" class="opacity-75" />
+            </svg>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            Finish setup
+          </button>
+          <button
+            type="button"
+            @click="skip"
+            class="flex w-full items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-6 py-3.5 text-sm font-semibold text-stone-600 transition-all hover:bg-stone-50 hover:text-stone-900 active:scale-[0.99] sm:w-auto sm:min-w-[120px]"
+          >
+            Skip for now
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </div>
       </form>
     </section>
   </main>

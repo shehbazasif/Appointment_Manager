@@ -1,36 +1,110 @@
-import { and, count, eq, gte, lt } from "drizzle-orm";
-import { appointments } from "../../db/schema";
-import { requireDatabase } from "../../utils/database";
 import { requireTenant } from "../../utils/auth";
+import { getSupabaseAdmin } from "../../utils/supabase";
 
 export default defineEventHandler(async (event) => {
   const { organizationId } = await requireTenant(event);
-  const database = requireDatabase();
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-  const rows = await database
-    .select({ status: appointments.status, total: count() })
-    .from(appointments)
-    .where(
-      and(
-        eq(appointments.organizationId, organizationId),
-        gte(appointments.startAt, start),
-        lt(appointments.startAt, end),
-      ),
-    )
-    .groupBy(appointments.status);
-  const metrics = Object.fromEntries(
-    rows.map((row) => [row.status.toLowerCase(), Number(row.total)]),
-  );
+  const sb = getSupabaseAdmin();
+
+  const now = new Date();
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(startOfToday);
+  endOfToday.setDate(endOfToday.getDate() + 1);
+
+  // Status counts for today
+  const { data: todayAppts } = await sb
+    .from("appointments")
+    .select("status")
+    .eq("organization_id", organizationId)
+    .gte("start_at", startOfToday.toISOString())
+    .lt("start_at", endOfToday.toISOString());
+
+  const statusCounts: Record<string, number> = {};
+  for (const row of todayAppts ?? []) {
+    statusCounts[row.status.toLowerCase()] = (statusCounts[row.status.toLowerCase()] ?? 0) + 1;
+  }
+
+  // Today's appointments with joined data
+  const { data: todayAppointments } = await sb
+    .from("appointments")
+    .select("*, customer:customers(*), service:services(*), staff:staff(*)")
+    .eq("organization_id", organizationId)
+    .gte("start_at", startOfToday.toISOString())
+    .lt("start_at", endOfToday.toISOString())
+    .order("start_at", { ascending: true });
+
+  // Upcoming appointments
+  const { data: upcomingAppointments } = await sb
+    .from("appointments")
+    .select("*, customer:customers(*), service:services(*), staff:staff(*)")
+    .eq("organization_id", organizationId)
+    .gte("start_at", now.toISOString())
+    .order("start_at", { ascending: true })
+    .limit(10);
+
+  // Unassigned count
+  const { count: unassignedCount } = await sb
+    .from("appointments")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+    .is("staff_id", null);
+
+  // Total customers
+  const { count: totalCustomers } = await sb
+    .from("customers")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId);
+
+  // Total active staff
+  const { count: totalStaff } = await sb
+    .from("staff")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+    .eq("active", true);
+
+  // Total active services
+  const { count: totalServices } = await sb
+    .from("services")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+    .eq("active", true);
+
+  const mapRow = (row: any) => ({
+    appointment: {
+      id: row.id,
+      organizationId: row.organization_id,
+      customerId: row.customer_id,
+      staffId: row.staff_id,
+      serviceId: row.service_id,
+      startAt: row.start_at,
+      endAt: row.end_at,
+      status: row.status,
+      source: row.source,
+      notes: row.notes,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    },
+    customer: row.customer,
+    service: row.service,
+    staff: row.staff,
+  });
+
+  const totalToday = Object.values(statusCounts).reduce((s, n) => s + n, 0);
+
   return {
-    date: start.toISOString().slice(0, 10),
-    total: rows.reduce((sum, row) => sum + Number(row.total), 0),
-    confirmed: metrics.confirmed ?? 0,
-    completed: metrics.completed ?? 0,
-    cancelled: metrics.cancelled ?? 0,
-    noShow: metrics.no_show ?? 0,
-    pending: metrics.pending ?? 0,
+    date: startOfToday.toISOString().slice(0, 10),
+    totalToday,
+    confirmedToday: statusCounts.confirmed ?? 0,
+    completedToday: statusCounts.completed ?? 0,
+    cancelledToday: statusCounts.cancelled ?? 0,
+    noShowToday: statusCounts.no_show ?? 0,
+    pendingToday: statusCounts.pending ?? 0,
+    checkedInToday: statusCounts.checked_in ?? 0,
+    unassignedCount: unassignedCount ?? 0,
+    totalCustomers: totalCustomers ?? 0,
+    totalStaff: totalStaff ?? 0,
+    totalServices: totalServices ?? 0,
+    todayAppointments: (todayAppointments ?? []).map(mapRow),
+    upcomingAppointments: (upcomingAppointments ?? []).map(mapRow),
   };
 });

@@ -1,8 +1,8 @@
 import { notificationJobs } from "../db/schema";
-import type { Database } from "../db";
+import type { DbClient } from "../db";
 
 export const queueAppointmentNotifications = async (
-  database: Database,
+  database: DbClient,
   input: {
     organizationId: string;
     appointmentId: string;
@@ -38,7 +38,7 @@ export const queueAppointmentNotifications = async (
 };
 
 export const simulateSms = async (
-  database: Database,
+  database: DbClient,
   input: {
     organizationId: string;
     customerId: string;

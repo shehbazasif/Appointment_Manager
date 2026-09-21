@@ -17,6 +17,8 @@ export const bootstrapSchema = z.object({
 
 export const onboardingSchema = z.object({
   name: z.string().trim().min(2).max(120).optional(),
+  businessName: z.string().trim().min(2).max(120).optional(),
+  businessSlug: slugSchema.optional(),
   description: z.string().trim().max(2000).optional(),
   phone: z.string().trim().max(40).optional(),
   city: z.string().trim().max(80).optional(),

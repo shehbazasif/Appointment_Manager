@@ -37,3 +37,5 @@ export const getDatabase = () => {
 };
 
 export type Database = NonNullable<ReturnType<typeof getDatabase>>;
+export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+export type DbClient = Database | Transaction;

@@ -1,27 +1,26 @@
-import { and, eq } from "drizzle-orm";
 import { readValidatedBody } from "h3";
 import { serviceSchema } from "#shared/schemas/business";
-import { services } from "../../db/schema";
-import { requireDatabase } from "../../utils/database";
 import { requireTenant } from "../../utils/auth";
+import { getSupabaseAdmin } from "../../utils/supabase";
 
 export default defineEventHandler(async (event) => {
   const { organizationId } = await requireTenant(event);
   const id = getRouterParam(event, "id");
-  if (!id)
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Service id is required.",
-    });
+  if (!id) throw createError({ statusCode: 400, statusMessage: "Service id is required." });
+
   const input = await readValidatedBody(event, serviceSchema.partial().parse);
-  const [service] = await requireDatabase()
-    .update(services)
-    .set({ ...input, updatedAt: new Date() })
-    .where(
-      and(eq(services.id, id), eq(services.organizationId, organizationId)),
-    )
-    .returning();
-  if (!service)
+  const sb = getSupabaseAdmin();
+
+  const { data: service, error } = await sb
+    .from("services")
+    .update({ ...input, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("organization_id", organizationId)
+    .select()
+    .single();
+
+  if (error || !service)
     throw createError({ statusCode: 404, statusMessage: "Service not found." });
+
   return service;
 });

@@ -25,7 +25,33 @@ export const staffSchema = z.object({
 export const customerSchema = z.object({
   firstName: z.string().trim().min(1).max(80),
   lastName: z.string().trim().min(1).max(80),
-  email: z.string().email().max(254).optional(),
+  email: z.string().email().max(254).optional().nullable(),
   phone: z.string().trim().min(5).max(40),
-  notes: z.string().trim().max(1000).optional(),
+  notes: z.string().trim().max(1000).optional().nullable(),
 });
+
+export const organizationSettingsSchema = z.object({
+  name: z.string().trim().min(2).max(120).optional(),
+  slug: z.string().trim().min(2).max(80).regex(/^[a-z0-9-]+$/i, "Slug must be URL-safe").optional(),
+  description: z.string().trim().max(1000).optional().nullable(),
+  email: z.string().email().max(254).optional(),
+  phone: z.string().trim().max(40).optional().nullable(),
+  address: z.string().trim().max(200).optional().nullable(),
+  city: z.string().trim().max(100).optional().nullable(),
+  country: z.string().trim().max(100).optional(),
+  timezone: z.string().trim().max(100).optional(),
+  currency: z.string().trim().max(10).optional(),
+  bookingActive: z.boolean().optional(),
+});
+
+export const dayHoursSchema = z.object({
+  dayOfWeek: z.number().int().min(0).max(6),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/),
+  enabled: z.boolean().default(true),
+});
+
+export const businessHoursBatchSchema = z.object({
+  hours: z.array(dayHoursSchema),
+});
+

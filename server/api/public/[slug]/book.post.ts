@@ -1,4 +1,4 @@
-import { and, eq, gt, lt, ne } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { readValidatedBody, setResponseStatus } from "h3";
 import { publicBookingSchema } from "#shared/schemas/appointments";
 import {
@@ -8,8 +8,9 @@ import {
   organizations,
   services,
 } from "../../../db/schema";
-import { calculateAvailability } from "../../../services/availability";
+import { calculatePublicAvailability } from "../../../services/availability";
 import { requireDatabase } from "../../../utils/database";
+import { getSupabaseAdmin } from "../../../utils/supabase";
 import { queueAppointmentNotifications } from "../../../services/notifications";
 
 export default defineEventHandler(async (event) => {
@@ -20,15 +21,18 @@ export default defineEventHandler(async (event) => {
       statusCode: 400,
       statusMessage: "Business slug is required.",
     });
+
   const database = requireDatabase();
   const business = await database.query.organizations.findFirst({
     where: eq(organizations.slug, slug),
   });
+
   if (!business || !business.bookingActive)
     throw createError({
       statusCode: 404,
-      statusMessage: "Booking page not found.",
+      statusMessage: "Booking page not found or inactive.",
     });
+
   const service = await database.query.services.findFirst({
     where: and(
       eq(services.id, input.serviceId),
@@ -36,33 +40,42 @@ export default defineEventHandler(async (event) => {
       eq(services.active, true),
     ),
   });
+
   if (!service)
-    throw createError({ statusCode: 404, statusMessage: "Service not found." });
-  const availability = await calculateAvailability(
-    database,
+    throw createError({ statusCode: 404, statusMessage: "Service not found or inactive." });
+
+  // Re-verify availability
+  const sb = getSupabaseAdmin();
+  const availability = await calculatePublicAvailability(
+    sb,
     business.id,
     input.startAt,
     input.serviceId,
-    input.staffId,
   );
+
   const selected = availability.find(
     (slot) => new Date(slot.startAt).getTime() === input.startAt.getTime(),
   );
+
   if (!selected)
     throw createError({
       statusCode: 409,
-      statusMessage: "That time is no longer available.",
+      statusMessage: "That time slot is no longer available. Please choose another time.",
     });
+
   const endAt = new Date(
     input.startAt.getTime() + service.durationMinutes * 60000,
   );
+
   const result = await database.transaction(async (transaction) => {
+    // Find or create customer
     const existingCustomer = await transaction.query.customers.findFirst({
       where: and(
         eq(customers.organizationId, business.id),
         eq(customers.email, input.email.toLowerCase()),
       ),
     });
+
     const customer =
       existingCustomer ??
       (
@@ -74,41 +87,46 @@ export default defineEventHandler(async (event) => {
             lastName: input.lastName,
             email: input.email.toLowerCase(),
             phone: input.phone,
+            notes: input.notes ?? null,
           })
           .returning()
       )[0];
-    const overlap = await transaction.query.appointments.findFirst({
-      where: and(
-        eq(appointments.organizationId, business.id),
-        eq(appointments.staffId, selected.staffId),
-        ne(appointments.status, "CANCELLED"),
-        ne(appointments.status, "NO_SHOW"),
-        lt(appointments.startAt, endAt),
-        gt(appointments.endAt, input.startAt),
-      ),
-    });
-    if (overlap)
+
+    if (!customer) {
       throw createError({
-        statusCode: 409,
-        statusMessage: "That time is no longer available.",
+        statusCode: 500,
+        statusMessage: "Failed to create or retrieve customer record.",
       });
+    }
+
+    // Save appointment with staff_id = NULL
     const [appointment] = await transaction
       .insert(appointments)
       .values({
         organizationId: business.id,
         customerId: customer.id,
-        staffId: selected.staffId,
+        staffId: null, // Customer-created bookings default to staff_id = NULL
         serviceId: service.id,
         startAt: input.startAt,
         endAt,
         status: "CONFIRMED",
         source: "ONLINE",
+        notes: input.notes ?? null,
       })
       .returning();
+
+    if (!appointment) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: "Failed to create appointment record.",
+      });
+    }
+
     await transaction
       .insert(appointmentStatusHistory)
       .values({ appointmentId: appointment.id, toStatus: "CONFIRMED" });
-    if (customer.email)
+
+    if (customer.email) {
       await queueAppointmentNotifications(transaction, {
         organizationId: business.id,
         appointmentId: appointment.id,
@@ -116,8 +134,26 @@ export default defineEventHandler(async (event) => {
         recipient: customer.email,
         startAt: appointment.startAt,
       });
-    return { appointment, customer };
+    }
+
+    return {
+      appointment,
+      customer,
+      service: {
+        id: service.id,
+        name: service.name,
+        durationMinutes: service.durationMinutes,
+        priceCents: service.priceCents,
+      },
+      business: {
+        name: business.name,
+        city: business.city,
+        country: business.country,
+        phone: business.phone,
+      },
+    };
   });
+
   setResponseStatus(event, 201);
   return result;
 });

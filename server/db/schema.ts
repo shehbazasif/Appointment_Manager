@@ -196,7 +196,6 @@ export const appointments = pgTable("appointments", {
     .notNull()
     .references(() => customers.id),
   staffId: uuid("staff_id")
-    .notNull()
     .references(() => staff.id),
   serviceId: uuid("service_id")
     .notNull()

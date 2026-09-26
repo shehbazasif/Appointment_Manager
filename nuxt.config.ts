@@ -22,7 +22,7 @@ export default defineNuxtConfig({
       login: "/login",
       callback: "/confirm",
       // Routes that require an authenticated Supabase session.
-      include: ["/dashboard", "/dashboard/**", "/onboarding", "/admin", "/admin/**"],
+      include: ["/dashboard", "/dashboard/**", "/admin", "/admin/**"],
       exclude: ["/admin/login"],
     },
   },

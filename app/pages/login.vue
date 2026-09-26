@@ -27,7 +27,7 @@ const login = async () => {
       password: form.password,
     });
     if (error) throw error;
-    // The dashboard redirects to onboarding when no business exists yet.
+    // The dashboard self-heals provisioning when no business exists yet.
     await navigateTo("/dashboard");
   } catch (error: any) {
     errorMessage.value =

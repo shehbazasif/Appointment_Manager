@@ -3,7 +3,8 @@ import { getUserClient } from "../utils/supabase";
 
 /**
  * Returns the authenticated Supabase user plus their tenant context.
- * `organization` is null when the user has not finished business onboarding.
+ * `organization` is null when the user's workspace is still provisioning
+ * (bootstrap runs automatically on signup and self-heals on the dashboard).
  * (Field name kept as `organization` for UI compatibility.)
  */
 export default defineEventHandler(async (event) => {

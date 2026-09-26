@@ -9,8 +9,6 @@ const mapSettingsToColumns = (input: Record<string, unknown>) => {
   if (input.slug !== undefined) updates.slug = String(input.slug).toLowerCase();
   if (input.description !== undefined) updates.description = input.description;
   if (input.logoUrl !== undefined) updates.logo_url = input.logoUrl;
-  if (input.businessType !== undefined) updates.business_type = input.businessType;
-  if (input.monthlyRevenue !== undefined) updates.monthly_revenue = input.monthlyRevenue;
   if (input.email !== undefined) updates.email = input.email;
   if (input.phone !== undefined) updates.phone = input.phone;
   if (input.address !== undefined) updates.address = input.address;

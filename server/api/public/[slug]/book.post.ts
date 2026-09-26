@@ -1,6 +1,7 @@
 import { readValidatedBody, setResponseStatus } from "h3";
 import { publicBookingSchema } from "#shared/schemas/appointments";
 import { getAnonClient } from "../../../utils/supabase";
+import { sendEmail, buildConfirmationEmail, isEmailConfigured } from "../../../services/notifications";
 
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, "slug");
@@ -58,6 +59,37 @@ export default defineEventHandler(async (event) => {
       statusCode: conflict ? 409 : 400,
       statusMessage: message,
     });
+  }
+
+  // Send the real confirmation email via SMTP (never fails the booking).
+  // Logging goes through the SECURITY DEFINER RPC because the anon client
+  // has no RLS write access to `notifications`.
+  try {
+    const mail = buildConfirmationEmail({
+      businessName: business.name,
+      serviceName: service.name,
+      startAt: input.startAt,
+      customerName: `${input.firstName} ${input.lastName}`.trim(),
+    });
+    if (isEmailConfigured()) {
+      const result = await sendEmail({
+        to: input.email,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+      });
+      await sb.rpc("log_public_booking_email", {
+        p_business_id: business.id,
+        p_appointment_id: appointmentId as string,
+        p_recipient: input.email,
+        p_subject: mail.subject,
+        p_status: result.ok ? "SENT" : "FAILED",
+        p_error: result.error ?? null,
+        p_message_id: result.messageId ?? null,
+      });
+    }
+  } catch (notifyError: any) {
+    console.warn("[booking] notification failed (booking still valid):", notifyError?.message);
   }
 
   setResponseStatus(event, 201);

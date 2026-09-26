@@ -16,9 +16,9 @@ const toSlug = (text: string) =>
 
 /**
  * Idempotent tenant provisioning for a freshly registered Supabase user.
- * Creates the `profiles` row (id = Supabase auth uid), the `businesses` row,
- * the OWNER row in `business_members` and default `business_settings`.
- * Safe to call multiple times.
+ * Creates the `profiles` row (id = Supabase auth uid), the `businesses` row
+ * (slug derived from the business name), the OWNER row in `business_members`
+ * and default `business_settings`. Safe to call multiple times.
  */
 export default defineEventHandler(async (event) => {
   const authUser = await requireAuthUser(event);
@@ -31,16 +31,12 @@ export default defineEventHandler(async (event) => {
   const lastName = metadataString(metadata.last_name) ?? body.lastName ?? "Owner";
   const businessName =
     body.businessName ??
-    metadataString(metadata.pending_business_name) ??
-    metadataString(metadata.business_name);
+    metadataString(metadata.business_name) ??
+    metadataString(metadata.pending_business_name);
   const businessSlug =
     body.businessSlug ??
-    metadataString(metadata.pending_business_slug) ??
-    metadataString(metadata.business_slug);
-  const businessType =
-    typeof metadata.pending_business_type === "string"
-      ? metadata.pending_business_type
-      : undefined;
+    metadataString(metadata.business_slug) ??
+    metadataString(metadata.pending_business_slug);
 
   const sb = await getUserClient(event);
 
@@ -59,16 +55,21 @@ export default defineEventHandler(async (event) => {
       business: existingMembership.business,
     };
 
-  if (!businessName || !businessSlug)
+  if (!businessName)
     throw createError({
       statusCode: 422,
-      statusMessage:
-        "Business name and slug are required to create your workspace.",
+      statusMessage: "Business name is required to create your workspace.",
       data: { code: "MISSING_BUSINESS_DETAILS" },
     });
 
+  // The booking slug is derived dynamically from the business name
+  // (e.g. "Maria Beauty Studio" -> /book/maria-beauty-studio) unless one
+  // was explicitly provided.
+  let slug = businessSlug ?? toSlug(businessName);
+  // Guard: non-latin business names (e.g. Greek) can slug to an empty string
+  if (!slug) slug = `studio-${Math.random().toString(36).slice(2, 8)}`;
+
   // Ensure unique slug
-  let slug = businessSlug;
   const { data: slugConflict } = await sb
     .from("businesses")
     .select("id")
@@ -101,7 +102,6 @@ export default defineEventHandler(async (event) => {
       name: businessName,
       slug,
       email: authUser.email,
-      business_type: businessType,
       status: "ACTIVE",
     })
     .select()

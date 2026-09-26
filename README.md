@@ -24,8 +24,8 @@ The app uses Supabase for **authentication** (email/password) and its Postgres d
 
 - `/` — public landing page (first flow).
 - `/register` — business signs up via Supabase Auth; the workspace (profile, business, OWNER membership, default settings) is provisioned by `POST /api/auth/bootstrap`.
-- `/onboarding` — business profile details saved to the organization.
-- `/login` — existing users sign in; unauthenticated visits to `/dashboard`, `/onboarding`, `/admin` redirect here.
+- `/register` — signup captures business name; slug is derived dynamically from it and the workspace (business + owner membership + settings) is provisioned instantly.
+- `/login` — existing users sign in; unauthenticated visits to `/dashboard`, `/admin` redirect here.
 - `/book/{businessSlug}` — public booking page, no account needed.
 
 Protected API routes verify the Supabase JWT (`server/utils/auth.ts`) and resolve the tenant business from the `business_members` table — the business id is never trusted from the client.

@@ -132,10 +132,10 @@ const register = async () => {
       } catch (bootstrapError: any) {
         errorMessage.value =
           bootstrapError?.data?.statusMessage ??
-          "Your account was created, but the business workspace could not be set up. Complete setup from the onboarding page.";
+          "Your account was created, but the business workspace could not be set up. Contact support so we can finish it for you.";
         return;
       }
-      await navigateTo("/onboarding");
+      await navigateTo("/dashboard");
       return;
     }
     confirmationMessage.value =

@@ -80,7 +80,6 @@ try {
         country: "Greece",
         timezone: "Europe/Athens",
         currency: "EUR",
-        booking_active: true,
       },
       { onConflict: "slug" },
     )

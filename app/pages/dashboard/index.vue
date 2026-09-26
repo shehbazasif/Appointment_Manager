@@ -199,7 +199,7 @@ const getStatusBadge = (status: string) => {
       <div v-for="i in 4" :key="i" class="h-28 rounded-2xl bg-stone-200/60 animate-pulse"></div>
     </div>
 
-    <!-- Incomplete Setup State (Skipped Onboarding) -->
+    <!-- Workspace Not Ready Yet -->
     <div
       v-else-if="errorMessage && errorMessage.includes('No active business')"
       class="rounded-3xl border border-stone-200/90 bg-white p-8 text-center shadow-sm max-w-xl mx-auto my-8"
@@ -207,18 +207,19 @@ const getStatusBadge = (status: string) => {
       <div class="mx-auto flex size-14 items-center justify-center rounded-2xl bg-stone-100 text-stone-700 mb-4">
         <Sparkles :size="28" />
       </div>
-      <h3 class="font-display text-xl font-bold text-stone-900">Welcome to RantevouOS!</h3>
+      <h3 class="font-display text-xl font-bold text-stone-900">Preparing your workspace…</h3>
       <p class="mt-2 text-sm text-stone-500 leading-relaxed">
-        You skipped onboarding. To start managing your appointments, services, calendar, and staff, configure your business profile.
+        Your business is being provisioned. This usually takes a moment — try again in a few seconds.
       </p>
       <div class="mt-6 flex items-center justify-center gap-3">
-        <NuxtLink
-          to="/onboarding"
+        <button
+          type="button"
+          @click="loadDashboard"
           class="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm"
         >
-          <span>Finish Setting Up Business</span>
+          <span>Retry</span>
           <ArrowRight :size="14" />
-        </NuxtLink>
+        </button>
       </div>
     </div>
 

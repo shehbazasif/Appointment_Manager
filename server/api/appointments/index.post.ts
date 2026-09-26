@@ -5,7 +5,7 @@ import { getUserClient } from "../../utils/supabase";
 import { queueAppointmentNotifications } from "../../services/notifications";
 
 export default defineEventHandler(async (event) => {
-  const { businessId, userId } = await requireTenant(event);
+  const { businessId, userId, business } = await requireTenant(event);
   const input = await readValidatedBody(event, appointmentSchema.parse);
   const sb = await getUserClient(event);
 
@@ -88,10 +88,10 @@ export default defineEventHandler(async (event) => {
     changed_by: userId,
   });
 
-  // Queue notification jobs
+  // Queue notification jobs (sends the real confirmation email via SMTP)
   const { data: customer } = await sb
     .from("customers")
-    .select("id, email")
+    .select("id, email, first_name, last_name")
     .eq("id", input.customerId)
     .single();
 
@@ -102,6 +102,9 @@ export default defineEventHandler(async (event) => {
       customerId: customer.id,
       recipient: customer.email,
       startAt,
+      businessName: (business as any)?.name ?? undefined,
+      serviceName: service.name,
+      customerName: [customer.first_name, customer.last_name].filter(Boolean).join(" ") || undefined,
     });
   }
 

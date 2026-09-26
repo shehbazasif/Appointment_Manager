@@ -148,8 +148,6 @@ export const serializeBusiness = (
   name: b.name,
   slug: b.slug,
   description: b.description ?? null,
-  businessType: b.business_type ?? null,
-  monthlyRevenue: b.monthly_revenue ?? null,
   email: b.email ?? "",
   phone: b.phone ?? null,
   website: b.website ?? null,
@@ -161,7 +159,7 @@ export const serializeBusiness = (
   currency: b.currency ?? settings?.currency ?? "EUR",
   logoUrl: b.logo_url ?? null,
   status: b.status ?? "ACTIVE",
-  bookingActive: settings?.online_booking_enabled ?? b.booking_active ?? false,
+  bookingActive: settings?.online_booking_enabled ?? false,
   createdAt: b.created_at,
   updatedAt: b.updated_at,
 });

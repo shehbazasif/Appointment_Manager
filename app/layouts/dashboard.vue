@@ -64,8 +64,30 @@ const loadMe = async () => {
   }
 };
 
+// Self-healing: if the user has no workspace yet (e.g. signup happened over
+// email confirmation), provisioning happens here automatically.
+const ensureWorkspace = async () => {
+  if (!me.value) await loadMe();
+  if (me.value?.organization) return;
+  try {
+    await $fetch("/api/auth/bootstrap", { method: "POST", body: {} });
+    await loadMe();
+  } catch {
+    // Banner offers a manual retry
+  }
+};
+
+const retryBootstrap = async () => {
+  try {
+    await $fetch("/api/auth/bootstrap", { method: "POST", body: {} });
+    await loadMe();
+  } catch {
+    // Banner stays visible
+  }
+};
+
 onMounted(() => {
-  loadMe();
+  ensureWorkspace();
 });
 
 const bookingUrl = computed(() => {
@@ -188,21 +210,22 @@ provide("businessProfile", me);
       </div>
     </header>
 
-    <!-- Onboarding Incomplete / Skipped Banner -->
+    <!-- Workspace Pending Banner (bootstrap failed or pending email confirmation) -->
     <div
       v-if="!isLoading && !me?.organization"
       class="border-b border-amber-200/80 bg-amber-50/90 px-4 py-2.5 text-xs text-amber-800 flex items-center justify-between backdrop-blur-sm"
     >
       <div class="flex items-center gap-2">
         <span class="inline-flex size-2 rounded-full bg-amber-500 animate-pulse"></span>
-        <span>Your business workspace setup is pending or was skipped.</span>
+        <span>Your business workspace is being set up. Retrying automatically...</span>
       </div>
-      <NuxtLink
-        to="/onboarding"
+      <button
+        type="button"
         class="font-semibold text-amber-900 underline hover:text-amber-950 ml-4 shrink-0"
+        @click="retryBootstrap"
       >
-        Complete Onboarding &rarr;
-      </NuxtLink>
+        Retry now
+      </button>
     </div>
 
     <div class="flex flex-1">

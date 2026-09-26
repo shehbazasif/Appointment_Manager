@@ -1,22 +1,28 @@
 import { readValidatedBody, setResponseStatus } from "h3";
 import { staffSchema } from "#shared/schemas/business";
 import { requireTenant } from "../../utils/auth";
-import { getSupabaseAdmin } from "../../utils/supabase";
+import { getUserClient } from "../../utils/supabase";
 
 export default defineEventHandler(async (event) => {
-  const { organizationId } = await requireTenant(event);
+  const { businessId } = await requireTenant(event);
   const input = await readValidatedBody(event, staffSchema.parse);
-  const sb = getSupabaseAdmin();
+  const sb = await getUserClient(event);
+
+  // The UI submits a single `name`; split it into the two real columns
+  const nameParts = input.name.trim().split(/\s+/);
+  const firstName = nameParts[0] ?? "";
+  const lastName = nameParts.slice(1).join(" ") || "";
 
   const { data: member, error } = await sb
     .from("staff")
     .insert({
-      organization_id: organizationId,
-      name: input.name,
-      email: input.email,
-      phone: input.phone,
-      role: input.role,
-      active: input.active ?? true,
+      business_id: businessId,
+      first_name: firstName,
+      last_name: lastName,
+      email: input.email ?? null,
+      phone: input.phone ?? null,
+      job_title: input.role,
+      status: input.active ? "ACTIVE" : "INACTIVE",
     })
     .select()
     .single();
@@ -29,10 +35,22 @@ export default defineEventHandler(async (event) => {
         staff_id: member.id,
         service_id: serviceId,
       })),
-      { onConflict: "staff_id,service_id" }
+      { onConflict: "staff_id,service_id" },
     );
   }
 
   setResponseStatus(event, 201);
-  return { ...member, serviceIds: input.serviceIds ?? [] };
+  return {
+    id: member.id,
+    businessId: member.business_id,
+    userId: member.user_id ?? null,
+    name: [member.first_name, member.last_name].filter(Boolean).join(" "),
+    firstName: member.first_name ?? "",
+    lastName: member.last_name ?? "",
+    email: member.email ?? null,
+    phone: member.phone ?? null,
+    role: member.job_title ?? "Staff",
+    active: member.status === "ACTIVE",
+    serviceIds: input.serviceIds ?? [],
+  };
 });

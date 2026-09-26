@@ -34,6 +34,15 @@ export const organizationSettingsSchema = z.object({
   name: z.string().trim().min(2).max(120).optional(),
   slug: z.string().trim().min(2).max(80).regex(/^[a-z0-9-]+$/i, "Slug must be URL-safe").optional(),
   description: z.string().trim().max(1000).optional().nullable(),
+  logoUrl: z.string().trim().url().max(2000).optional().nullable(),
+  businessType: z
+    .enum(["hair", "barber", "beauty", "spa", "massage", "other"])
+    .optional()
+    .nullable(),
+  monthlyRevenue: z
+    .enum(["<2k", "2k-5k", "5k-10k", "10k+"])
+    .optional()
+    .nullable(),
   email: z.string().email().max(254).optional(),
   phone: z.string().trim().max(40).optional().nullable(),
   address: z.string().trim().max(200).optional().nullable(),

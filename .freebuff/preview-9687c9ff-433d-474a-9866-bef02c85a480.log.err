@@ -4,3 +4,59 @@
 
 [43m[30m WARN [39m[49m Duplicated imports "useToast", the one from "C:/my/dev/Appointment_Manager/node_modules/@nuxt/ui/dist/runtime/composables/useToast" has been ignored and "primevue/usetoast" is used
 
+
+[90m[[90mnitro[90m][39m [41m[30m ERROR [39m[49m Error: Transform failed with 1 error:
+C:\my\dev\Appointment_Manager\server\api\organization\index.patch.ts:24:37: ERROR: "await" can only be used inside an "async" function
+
+
+"await" can only be used inside an "async" function
+
+
+[90m[[90mnitro[90m][39m [41m[30m ERROR [39m[49m Error: Transform failed with 1 error:
+C:\my\dev\Appointment_Manager\server\api\organization\index.patch.ts:24:37: ERROR: "await" can only be used inside an "async" function
+
+
+"await" can only be used inside an "async" function
+
+
+[90m[[90mnitro[90m][39m [41m[30m ERROR [39m[49m Error: Transform failed with 1 error:
+C:\my\dev\Appointment_Manager\server\api\organization\index.patch.ts:24:37: ERROR: "await" can only be used inside an "async" function
+
+
+"await" can only be used inside an "async" function
+
+
+[90m[[90mnitro[90m][39m [41m[30m ERROR [39m[49m Error: Transform failed with 1 error:
+C:\my\dev\Appointment_Manager\server\api\organization\index.patch.ts:24:37: ERROR: "await" can only be used inside an "async" function
+
+
+"await" can only be used inside an "async" function
+
+
+[90m[[90mnitro[90m][39m [41m[30m ERROR [39m[49m Error: Transform failed with 1 error:
+C:\my\dev\Appointment_Manager\server\api\organization\index.patch.ts:24:37: ERROR: "await" can only be used inside an "async" function
+
+
+"await" can only be used inside an "async" function
+
+
+[90m[[90mnitro[90m][39m [41m[30m ERROR [39m[49m Error: Transform failed with 1 error:
+C:\my\dev\Appointment_Manager\server\api\organization\index.patch.ts:24:37: ERROR: "await" can only be used inside an "async" function
+
+
+"await" can only be used inside an "async" function
+
+
+[90m[[90mnitro[90m][39m [41m[30m ERROR [39m[49m Error: Transform failed with 1 error:
+C:\my\dev\Appointment_Manager\server\api\organization\index.patch.ts:24:37: ERROR: "await" can only be used inside an "async" function
+
+
+"await" can only be used inside an "async" function
+
+
+[90m[[90mnitro[90m][39m [41m[30m ERROR [39m[49m Error: Transform failed with 1 error:
+C:\my\dev\Appointment_Manager\server\api\organization\index.patch.ts:24:37: ERROR: "await" can only be used inside an "async" function
+
+
+"await" can only be used inside an "async" function
+

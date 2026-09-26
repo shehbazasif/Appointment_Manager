@@ -1,15 +1,32 @@
 import { requireTenant } from "../../utils/auth";
-import { getSupabaseAdmin } from "../../utils/supabase";
+import { getUserClient } from "../../utils/supabase";
+
+const serializeStaff = (m: any, serviceIds: string[] = []) => ({
+  id: m.id,
+  businessId: m.business_id,
+  userId: m.user_id ?? null,
+  name: [m.first_name, m.last_name].filter(Boolean).join(" ") || m.email || "Staff",
+  firstName: m.first_name ?? "",
+  lastName: m.last_name ?? "",
+  email: m.email ?? null,
+  phone: m.phone ?? null,
+  role: m.job_title ?? "Staff",
+  active: m.status === "ACTIVE",
+  status: m.status ?? "ACTIVE",
+  serviceIds,
+  createdAt: m.created_at,
+  updatedAt: m.updated_at,
+});
 
 export default defineEventHandler(async (event) => {
-  const { organizationId } = await requireTenant(event);
-  const sb = getSupabaseAdmin();
+  const { businessId } = await requireTenant(event);
+  const sb = await getUserClient(event);
 
   const { data: staffRows, error } = await sb
     .from("staff")
     .select("*")
-    .eq("organization_id", organizationId)
-    .order("name", { ascending: true });
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: true });
 
   if (error) throw createError({ statusCode: 500, statusMessage: error.message });
 
@@ -24,8 +41,7 @@ export default defineEventHandler(async (event) => {
     servicesByStaff.set(ss.staff_id, list);
   }
 
-  return (staffRows ?? []).map((member: any) => ({
-    ...member,
-    serviceIds: servicesByStaff.get(member.id) ?? [],
-  }));
+  return (staffRows ?? []).map((member: any) =>
+    serializeStaff(member, servicesByStaff.get(member.id) ?? []),
+  );
 });

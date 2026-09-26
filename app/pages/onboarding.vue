@@ -79,11 +79,12 @@ const save = async () => {
   }
   isSubmitting.value = true;
   errorMessage.value = "";
-  try {
-    await $fetch("/api/onboarding", {
+  try {      await $fetch("/api/onboarding", {
       method: "PATCH",
       body: {
         businessName: businessName.value.trim() || undefined,
+        businessType: form.category,
+        monthlyRevenue: form.revenue,
         description: form.description.trim() || undefined,
         phone: form.phone.trim() || undefined,
         city: form.city.trim() || undefined,

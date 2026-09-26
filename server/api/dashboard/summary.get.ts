@@ -1,9 +1,29 @@
 import { requireTenant } from "../../utils/auth";
-import { getSupabaseAdmin } from "../../utils/supabase";
+import { getUserClient } from "../../utils/supabase";
+
+const mapRow = (row: any) => ({
+  appointment: {
+    id: row.id,
+    organizationId: row.business_id,
+    customerId: row.customer_id,
+    staffId: row.staff_id,
+    serviceId: row.service_id,
+    startAt: row.start_at,
+    endAt: row.end_at,
+    status: row.status,
+    source: row.booking_source,
+    notes: row.notes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  },
+  customer: row.customer,
+  service: row.service,
+  staff: row.staff,
+});
 
 export default defineEventHandler(async (event) => {
-  const { organizationId } = await requireTenant(event);
-  const sb = getSupabaseAdmin();
+  const { businessId } = await requireTenant(event);
+  const sb = await getUserClient(event);
 
   const now = new Date();
   const startOfToday = new Date(now);
@@ -15,20 +35,21 @@ export default defineEventHandler(async (event) => {
   const { data: todayAppts } = await sb
     .from("appointments")
     .select("status")
-    .eq("organization_id", organizationId)
+    .eq("business_id", businessId)
     .gte("start_at", startOfToday.toISOString())
     .lt("start_at", endOfToday.toISOString());
 
   const statusCounts: Record<string, number> = {};
   for (const row of todayAppts ?? []) {
-    statusCounts[row.status.toLowerCase()] = (statusCounts[row.status.toLowerCase()] ?? 0) + 1;
+    statusCounts[row.status?.toLowerCase()] =
+      (statusCounts[row.status?.toLowerCase()] ?? 0) + 1;
   }
 
   // Today's appointments with joined data
   const { data: todayAppointments } = await sb
     .from("appointments")
     .select("*, customer:customers(*), service:services(*), staff:staff(*)")
-    .eq("organization_id", organizationId)
+    .eq("business_id", businessId)
     .gte("start_at", startOfToday.toISOString())
     .lt("start_at", endOfToday.toISOString())
     .order("start_at", { ascending: true });
@@ -37,7 +58,7 @@ export default defineEventHandler(async (event) => {
   const { data: upcomingAppointments } = await sb
     .from("appointments")
     .select("*, customer:customers(*), service:services(*), staff:staff(*)")
-    .eq("organization_id", organizationId)
+    .eq("business_id", businessId)
     .gte("start_at", now.toISOString())
     .order("start_at", { ascending: true })
     .limit(10);
@@ -46,48 +67,28 @@ export default defineEventHandler(async (event) => {
   const { count: unassignedCount } = await sb
     .from("appointments")
     .select("id", { count: "exact", head: true })
-    .eq("organization_id", organizationId)
+    .eq("business_id", businessId)
     .is("staff_id", null);
 
   // Total customers
   const { count: totalCustomers } = await sb
     .from("customers")
     .select("id", { count: "exact", head: true })
-    .eq("organization_id", organizationId);
+    .eq("business_id", businessId);
 
   // Total active staff
   const { count: totalStaff } = await sb
     .from("staff")
     .select("id", { count: "exact", head: true })
-    .eq("organization_id", organizationId)
-    .eq("active", true);
+    .eq("business_id", businessId)
+    .eq("status", "ACTIVE");
 
   // Total active services
   const { count: totalServices } = await sb
     .from("services")
     .select("id", { count: "exact", head: true })
-    .eq("organization_id", organizationId)
-    .eq("active", true);
-
-  const mapRow = (row: any) => ({
-    appointment: {
-      id: row.id,
-      organizationId: row.organization_id,
-      customerId: row.customer_id,
-      staffId: row.staff_id,
-      serviceId: row.service_id,
-      startAt: row.start_at,
-      endAt: row.end_at,
-      status: row.status,
-      source: row.source,
-      notes: row.notes,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    },
-    customer: row.customer,
-    service: row.service,
-    staff: row.staff,
-  });
+    .eq("business_id", businessId)
+    .eq("status", "ACTIVE");
 
   const totalToday = Object.values(statusCounts).reduce((s, n) => s + n, 0);
 

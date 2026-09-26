@@ -1,34 +1,30 @@
-import { getSupabaseAdmin } from "../../utils/supabase";
+import { getAnonClient } from "../../utils/supabase";
 
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, "slug");
   if (!slug)
     throw createError({ statusCode: 400, statusMessage: "Business slug is required." });
 
-  const sb = getSupabaseAdmin();
-  const { data: business } = await sb
-    .from("organizations")
-    .select("*")
-    .eq("slug", slug)
-    .single();
+  const sb = getAnonClient();
 
-  if (!business || !business.booking_active)
+  // Narrow SECURITY DEFINER RPC — anon cannot read the tables directly
+  const { data: business, error } = await sb
+    .rpc("public_business_by_slug", { p_slug: slug })
+    .maybeSingle();
+
+  if (error)
+    throw createError({ statusCode: 500, statusMessage: error.message });
+
+  if (!business)
     throw createError({
       statusCode: 404,
       statusMessage: "This booking page is currently unavailable or inactive.",
     });
 
-  const { data: activeServices } = await sb
-    .from("services")
-    .select("*")
-    .eq("organization_id", business.id)
-    .eq("active", true);
-
-  const { data: hours } = await sb
-    .from("business_hours")
-    .select("*")
-    .eq("organization_id", business.id)
-    .order("day_of_week", { ascending: true });
+  const [{ data: activeServices }, { data: hours }] = await Promise.all([
+    sb.rpc("public_services_for_business", { p_business_id: business.id }),
+    sb.rpc("public_hours_for_business", { p_business_id: business.id }),
+  ]);
 
   return {
     business: {
@@ -41,17 +37,23 @@ export default defineEventHandler(async (event) => {
       email: business.email,
       timezone: business.timezone,
       currency: business.currency,
-      bookingActive: business.booking_active,
+      logoUrl: (business as any).logo_url ?? null,
+      bookingActive: true,
     },
     services: (activeServices ?? []).map((s: any) => ({
       id: s.id,
       name: s.name,
       description: s.description,
-      category: s.category,
+      category: "General",
       durationMinutes: s.duration_minutes,
-      priceCents: s.price_cents,
-      accent: s.accent,
+      priceCents: s.price != null ? Math.round(Number(s.price) * 100) : 0,
+      accent: "#ca7481",
     })),
-    hours: hours ?? [],
+    hours: (hours ?? []).map((h: any) => ({
+      dayOfWeek: h.day_of_week,
+      startTime: String(h.start_time ?? "").slice(0, 5),
+      endTime: String(h.end_time ?? "").slice(0, 5),
+      enabled: !h.is_closed,
+    })),
   };
 });

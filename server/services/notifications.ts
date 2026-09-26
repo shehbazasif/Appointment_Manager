@@ -1,62 +1,41 @@
-import { notificationJobs } from "../db/schema";
-import type { DbClient } from "../db";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+type SupabaseLike = Pick<SupabaseClient, "from">;
 
 export const queueAppointmentNotifications = async (
-  database: DbClient,
+  sb: SupabaseLike,
   input: {
-    organizationId: string;
+    businessId: string;
     appointmentId: string;
-    customerId: string;
+    customerId: string | null;
     recipient: string;
     startAt: Date;
   },
 ) => {
   const reminderAt = new Date(input.startAt.getTime() - 24 * 60 * 60 * 1000);
-  return database
-    .insert(notificationJobs)
-    .values([
-      {
-        organizationId: input.organizationId,
-        appointmentId: input.appointmentId,
-        customerId: input.customerId,
-        channel: "email",
-        type: "APPOINTMENT_CONFIRMATION",
-        recipient: input.recipient,
-        scheduledAt: new Date(),
-      },
-      {
-        organizationId: input.organizationId,
-        appointmentId: input.appointmentId,
-        customerId: input.customerId,
-        channel: "email",
-        type: "APPOINTMENT_REMINDER",
-        recipient: input.recipient,
-        scheduledAt: reminderAt,
-      },
-    ])
-    .returning();
-};
-
-export const simulateSms = async (
-  database: DbClient,
-  input: {
-    organizationId: string;
-    customerId: string;
-    recipient: string;
-    message: string;
-  },
-) => {
-  const [job] = await database
-    .insert(notificationJobs)
-    .values({
-      organizationId: input.organizationId,
-      customerId: input.customerId,
-      channel: "sms",
-      type: "SIMULATED_SMS",
-      recipient: input.recipient,
-      scheduledAt: new Date(),
-      status: "SIMULATED",
-    })
-    .returning();
-  return { job, preview: input.message };
+  const rows = [
+    {
+      business_id: input.businessId,
+      appointment_id: input.appointmentId,
+      customer_id: input.customerId,
+      channel: "EMAIL",
+      type: "APPOINTMENT_CONFIRMATION",
+      recipient_email: input.recipient,
+      scheduled_for: new Date().toISOString(),
+      status: "QUEUED",
+    },
+    {
+      business_id: input.businessId,
+      appointment_id: input.appointmentId,
+      customer_id: input.customerId,
+      channel: "EMAIL",
+      type: "APPOINTMENT_REMINDER",
+      recipient_email: input.recipient,
+      scheduled_for: reminderAt.toISOString(),
+      status: "QUEUED",
+    },
+  ];
+  const { error } = await sb.from("notifications").insert(rows);
+  if (error) console.warn("Failed to queue notifications:", error.message);
+  return rows;
 };

@@ -1,7 +1,7 @@
 import { readValidatedBody, setResponseStatus } from "h3";
 import { z } from "zod";
 import { requireTenant } from "../../utils/auth";
-import { getSupabaseAdmin } from "../../utils/supabase";
+import { getUserClient } from "../../utils/supabase";
 
 const sendCommunicationSchema = z.object({
   customerId: z.string().uuid().optional(),
@@ -13,17 +13,17 @@ const sendCommunicationSchema = z.object({
 });
 
 export default defineEventHandler(async (event) => {
-  const { organizationId } = await requireTenant(event);
+  const { businessId } = await requireTenant(event);
   const input = await readValidatedBody(event, sendCommunicationSchema.parse);
-  const sb = getSupabaseAdmin();
+  const sb = await getUserClient(event);
 
-  // If customerId is passed, verify it belongs to tenant
+  // If customerId is passed, verify it belongs to this business
   if (input.customerId) {
     const { data: customer } = await sb
       .from("customers")
       .select("id")
       .eq("id", input.customerId)
-      .eq("organization_id", organizationId)
+      .eq("business_id", businessId)
       .single();
 
     if (!customer)
@@ -31,20 +31,23 @@ export default defineEventHandler(async (event) => {
   }
 
   const now = new Date().toISOString();
+  const row: Record<string, unknown> = {
+    business_id: businessId,
+    customer_id: input.customerId ?? null,
+    appointment_id: input.appointmentId ?? null,
+    channel: input.channel,
+    type: input.subject ? `MANUAL_MESSAGE: ${input.subject}` : "MANUAL_MESSAGE",
+    scheduled_for: now,
+    status: "SENT",
+    sent_at: now,
+  };
+  // notifications table stores the recipient by channel
+  if (input.channel === "EMAIL") row.recipient_email = input.recipient;
+  else row.recipient_phone = input.recipient;
+
   const { data: job, error } = await sb
-    .from("notification_jobs")
-    .insert({
-      organization_id: organizationId,
-      customer_id: input.customerId ?? null,
-      appointment_id: input.appointmentId ?? null,
-      channel: input.channel,
-      type: input.subject ? `MANUAL_MESSAGE: ${input.subject}` : "MANUAL_MESSAGE",
-      recipient: input.recipient,
-      scheduled_at: now,
-      status: "SENT",
-      sent_at: now,
-      error: null,
-    })
+    .from("notifications")
+    .insert(row)
     .select("id")
     .single();
 

@@ -27,6 +27,7 @@ type MeResponse = {
     name: string;
     slug: string;
     bookingActive: boolean;
+    logoUrl?: string | null;
     city?: string;
     currency?: string;
   } | null;
@@ -112,12 +113,26 @@ provide("businessProfile", me);
         </button>
 
         <NuxtLink to="/dashboard" class="flex items-center gap-2.5">
-          <div class="flex size-9 items-center justify-center rounded-xl bg-gradient-to-tr from-[#24262d] to-[#40434f] text-white shadow-sm">
+          <!-- Business logo when set, platform mark otherwise -->
+          <img
+            v-if="me?.organization?.logoUrl"
+            :src="me.organization.logoUrl"
+            :alt="me.organization.name"
+            class="size-9 rounded-xl object-cover border border-stone-200 shadow-sm"
+          />
+          <div
+            v-else
+            class="flex size-9 items-center justify-center rounded-xl bg-gradient-to-tr from-[#24262d] to-[#40434f] text-white shadow-sm"
+          >
             <CalendarCheck :size="20" />
           </div>
           <div>
-            <span class="font-display text-lg font-bold tracking-tight text-stone-900 block leading-none">RantevouOS</span>
-            <span class="text-[10px] font-semibold text-rose-600 uppercase tracking-wider block mt-0.5">Studio Hub</span>
+            <span class="font-display text-lg font-bold tracking-tight text-stone-900 block leading-none">
+              {{ me?.organization?.name ?? "RantevouOS" }}
+            </span>
+            <span class="text-[10px] font-semibold text-rose-600 uppercase tracking-wider block mt-0.5">
+              {{ me?.organization?.slug ? `/book/${me.organization.slug}` : "Studio Hub" }}
+            </span>
           </div>
         </NuxtLink>
 
@@ -251,10 +266,21 @@ provide("businessProfile", me);
         <div class="space-y-6">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2.5">
-              <div class="flex size-8 items-center justify-center rounded-xl bg-stone-900 text-white">
+              <img
+                v-if="me?.organization?.logoUrl"
+                :src="me.organization.logoUrl"
+                :alt="me.organization.name"
+                class="size-8 rounded-xl object-cover border border-stone-200"
+              />
+              <div
+                v-else
+                class="flex size-8 items-center justify-center rounded-xl bg-stone-900 text-white"
+              >
                 <CalendarCheck :size="18" />
               </div>
-              <span class="font-display font-bold text-stone-900 text-lg">RantevouOS</span>
+              <span class="font-display font-bold text-stone-900 text-lg">
+                {{ me?.organization?.name ?? "RantevouOS" }}
+              </span>
             </div>
             <button
               type="button"

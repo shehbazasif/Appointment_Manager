@@ -26,6 +26,7 @@ interface OrgSettings {
   name: string;
   slug: string;
   description?: string | null;
+  logoUrl?: string | null;
   email: string;
   phone?: string | null;
   address?: string | null;
@@ -47,6 +48,7 @@ const form = reactive({
   name: "",
   slug: "",
   description: "",
+  logoUrl: "",
   email: "",
   phone: "",
   address: "",
@@ -65,6 +67,7 @@ const loadSettings = async () => {
     form.name = data.name;
     form.slug = data.slug;
     form.description = data.description ?? "";
+    form.logoUrl = data.logoUrl ?? "";
     form.email = data.email;
     form.phone = data.phone ?? "";
     form.address = data.address ?? "";
@@ -122,6 +125,7 @@ const saveSettings = async () => {
         name: form.name.trim(),
         slug: form.slug.trim().toLowerCase(),
         description: form.description.trim() || null,
+        logoUrl: form.logoUrl.trim() || null,
         email: form.email.trim().toLowerCase(),
         phone: form.phone.trim() || null,
         address: form.address.trim() || null,
@@ -277,6 +281,36 @@ const saveSettings = async () => {
             placeholder="Tell customers what sets your studio apart..."
             class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
           ></textarea>
+        </div>
+
+        <!-- Branding: logo preview + URL -->
+        <div class="sm:col-span-2 rounded-2xl border border-stone-200 bg-stone-50/50 p-4">
+          <div class="flex items-center gap-4">
+            <img
+              v-if="form.logoUrl"
+              :src="form.logoUrl"
+              alt="Logo preview"
+              class="size-16 rounded-2xl object-cover border border-stone-200 bg-white shadow-sm"
+            />
+            <div
+              v-else
+              class="flex size-16 items-center justify-center rounded-2xl border border-dashed border-stone-300 bg-white text-stone-400"
+            >
+              <Building2 :size="24" />
+            </div>
+            <div class="flex-1">
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Logo URL</label>
+              <input
+                v-model="form.logoUrl"
+                type="url"
+                placeholder="https://example.com/logo.png"
+                class="w-full rounded-xl border border-stone-200 bg-white p-3 text-xs outline-none focus:border-stone-900"
+              />
+              <p class="mt-1.5 text-[11px] text-stone-500">
+                Paste a link to your logo image (from your website, Google Drive public link, etc.). Shown in the dashboard header.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 

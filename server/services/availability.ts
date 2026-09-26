@@ -1,4 +1,4 @@
-import type { SupabaseAdmin } from "../utils/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const toMinutes = (value: string) => {
   const [hours, minutes] = value.split(":").map(Number);
@@ -23,8 +23,8 @@ export interface PublicSlot {
 }
 
 export const calculatePublicAvailability = async (
-  sb: SupabaseAdmin,
-  organizationId: string,
+  sb: SupabaseClient,
+  businessId: string,
   date: Date,
   serviceId: string,
 ): Promise<PublicSlot[]> => {
@@ -32,8 +32,7 @@ export const calculatePublicAvailability = async (
     .from("services")
     .select("duration_minutes")
     .eq("id", serviceId)
-    .eq("organization_id", organizationId)
-    .eq("active", true)
+    .eq("business_id", businessId)
     .single();
 
   if (!service) {
@@ -44,22 +43,22 @@ export const calculatePublicAvailability = async (
   const { data: hours } = await sb
     .from("business_hours")
     .select("*")
-    .eq("organization_id", organizationId)
+    .eq("business_id", businessId)
     .eq("day_of_week", weekday)
     .single();
 
   // Closed day
-  if (hours && !hours.enabled) return [];
+  if (hours && hours.is_closed) return [];
 
-  const startMinutes = hours ? toMinutes(hours.start_time) : 9 * 60;
-  const endMinutes = hours ? toMinutes(hours.end_time) : 19 * 60;
+  let startMinutes = hours ? toMinutes(hours.start_time) : 9 * 60;
+  let endMinutes = hours ? toMinutes(hours.end_time) : 19 * 60;
 
   // Active staff count defines concurrency capacity
   const { count: activeStaffCount } = await sb
     .from("staff")
     .select("id", { count: "exact", head: true })
-    .eq("organization_id", organizationId)
-    .eq("active", true);
+    .eq("business_id", businessId)
+    .eq("status", "ACTIVE");
 
   const capacity = Math.max(activeStaffCount ?? 1, 1);
 
@@ -69,28 +68,34 @@ export const calculatePublicAvailability = async (
   const { data: existing } = await sb
     .from("appointments")
     .select("start_at, end_at, status")
-    .eq("organization_id", organizationId)
+    .eq("business_id", businessId)
     .gt("end_at", dayStart.toISOString())
     .lt("start_at", dayEnd.toISOString());
 
-  const { data: blocked } = await sb
-    .from("blocked_times")
-    .select("start_at, end_at, staff_id")
-    .eq("organization_id", organizationId)
-    .gt("end_at", dayStart.toISOString())
-    .lt("start_at", dayEnd.toISOString());
+  // business_schedule_exceptions close (or extend) specific dates
+  const { data: exceptions } = await sb
+    .from("business_schedule_exceptions")
+    .select("is_closed, start_time, end_time")
+    .eq("business_id", businessId)
+    .eq("date", date.toISOString().slice(0, 10));
+
+  for (const exception of exceptions ?? []) {
+    if (exception.is_closed) return [];
+    if (exception.start_time) startMinutes = toMinutes(exception.start_time);
+    if (exception.end_time) endMinutes = toMinutes(exception.end_time);
+  }
 
   const slots: PublicSlot[] = [];
   const now = new Date();
   const stepMinutes = 30;
 
   for (
-    let minute = startMinutes;
-    minute + service.duration_minutes <= endMinutes;
+    let minute = startMinutesOverride;
+    minute + (service.duration_minutes ?? 30) <= endMinutesOverride;
     minute += stepMinutes
   ) {
     const startAt = dateAtMinutes(date, minute);
-    const endAt = new Date(startAt.getTime() + service.duration_minutes * 60000);
+    const endAt = new Date(startAt.getTime() + (service.duration_minutes ?? 30) * 60000);
 
     if (startAt.getTime() <= now.getTime()) continue;
 
@@ -102,14 +107,7 @@ export const calculatePublicAvailability = async (
         new Date(appt.end_at) > startAt,
     );
 
-    const isGeneralBlocked = (blocked ?? []).some(
-      (period) =>
-        !period.staff_id &&
-        new Date(period.start_at) < endAt &&
-        new Date(period.end_at) > startAt,
-    );
-
-    if (overlappingAppointments.length < capacity && !isGeneralBlocked) {
+    if (overlappingAppointments.length < capacity) {
       slots.push({ time: formatTimeLabel(minute), startAt: startAt.toISOString() });
     }
   }

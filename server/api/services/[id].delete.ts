@@ -1,18 +1,18 @@
 import { requireTenant } from "../../utils/auth";
-import { getSupabaseAdmin } from "../../utils/supabase";
+import { getUserClient } from "../../utils/supabase";
 
 export default defineEventHandler(async (event) => {
-  const { organizationId } = await requireTenant(event);
+  const { businessId } = await requireTenant(event);
   const id = getRouterParam(event, "id");
   if (!id) throw createError({ statusCode: 400, statusMessage: "Service id is required." });
 
-  const sb = getSupabaseAdmin();
+  const sb = await getUserClient(event);
 
   const { data: service, error } = await sb
     .from("services")
-    .update({ active: false, updated_at: new Date().toISOString() })
+    .update({ status: "INACTIVE", updated_at: new Date().toISOString() })
     .eq("id", id)
-    .eq("organization_id", organizationId)
+    .eq("business_id", businessId)
     .select("id")
     .single();
 

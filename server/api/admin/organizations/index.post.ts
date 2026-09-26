@@ -1,7 +1,7 @@
 import { readValidatedBody, setResponseStatus } from "h3";
 import { z } from "zod";
-import { requireSuperAdmin } from "../../../utils/auth";
-import { getSupabaseAdmin } from "../../../utils/supabase";
+import { requireSuperAdmin, serializeBusiness } from "../../../utils/auth";
+import { getUserClient } from "../../../utils/supabase";
 
 const createOrgSchema = z.object({
   name: z.string().min(2).max(120),
@@ -17,10 +17,10 @@ const createOrgSchema = z.object({
 export default defineEventHandler(async (event) => {
   await requireSuperAdmin(event);
   const input = await readValidatedBody(event, createOrgSchema.parse);
-  const sb = getSupabaseAdmin();
+  const sb = await getUserClient(event);
 
-  const { data: org, error } = await sb
-    .from("organizations")
+  const { data: business, error } = await sb
+    .from("businesses")
     .insert({
       name: input.name,
       slug: input.slug.toLowerCase(),
@@ -29,12 +29,20 @@ export default defineEventHandler(async (event) => {
       city: input.city ?? "Athens",
       country: input.country ?? "Greece",
       description: input.description ?? null,
-      booking_active: input.bookingActive,
+      status: "ACTIVE",
     })
     .select()
     .single();
 
   if (error) throw createError({ statusCode: 500, statusMessage: error.message });
+
+  await sb
+    .from("business_settings")
+    .upsert(
+      { business_id: business.id, currency: "EUR", timezone: "Europe/Athens", online_booking_enabled: input.bookingActive },
+      { onConflict: "business_id" },
+    );
+
   setResponseStatus(event, 201);
-  return org;
+  return serializeBusiness(business, { online_booking_enabled: input.bookingActive });
 });

@@ -1,9 +1,9 @@
 import { requireSuperAdmin } from "../../utils/auth";
-import { getSupabaseAdmin } from "../../utils/supabase";
+import { getUserClient } from "../../utils/supabase";
 
 export default defineEventHandler(async (event) => {
   await requireSuperAdmin(event);
-  const sb = getSupabaseAdmin();
+  const sb = await getUserClient(event);
 
   const [
     { count: orgCount },
@@ -13,9 +13,9 @@ export default defineEventHandler(async (event) => {
     { count: staffCount },
     { count: servCount },
   ] = await Promise.all([
-    sb.from("organizations").select("id", { count: "exact", head: true }),
+    sb.from("businesses").select("id", { count: "exact", head: true }),
     sb.from("appointments").select("id", { count: "exact", head: true }),
-    sb.from("users").select("id", { count: "exact", head: true }),
+    sb.from("profiles").select("id", { count: "exact", head: true }),
     sb.from("customers").select("id", { count: "exact", head: true }),
     sb.from("staff").select("id", { count: "exact", head: true }),
     sb.from("services").select("id", { count: "exact", head: true }),

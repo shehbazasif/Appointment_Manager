@@ -1,18 +1,18 @@
-import { requireTenant } from "../../utils/auth";
-import { getSupabaseAdmin } from "../../utils/supabase";
+import { requireTenant, serializeBusiness } from "../../utils/auth";
+import { getUserClient } from "../../utils/supabase";
 
 export default defineEventHandler(async (event) => {
-  const { organizationId } = await requireTenant(event);
-  const sb = getSupabaseAdmin();
+  const { businessId, settings } = await requireTenant(event);
+  const sb = await getUserClient(event);
 
-  const { data: organization, error } = await sb
-    .from("organizations")
+  const { data: business, error } = await sb
+    .from("businesses")
     .select("*")
-    .eq("id", organizationId)
+    .eq("id", businessId)
     .single();
 
-  if (error || !organization)
+  if (error || !business)
     throw createError({ statusCode: 404, statusMessage: "Business profile not found." });
 
-  return organization;
+  return serializeBusiness(business, settings);
 });

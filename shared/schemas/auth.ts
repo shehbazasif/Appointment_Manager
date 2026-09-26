@@ -19,6 +19,12 @@ export const onboardingSchema = z.object({
   name: z.string().trim().min(2).max(120).optional(),
   businessName: z.string().trim().min(2).max(120).optional(),
   businessSlug: slugSchema.optional(),
+  businessType: z
+    .enum(["hair", "barber", "beauty", "spa", "massage", "other"])
+    .optional(),
+  monthlyRevenue: z
+    .enum(["<2k", "2k-5k", "5k-10k", "10k+"])
+    .optional(),
   description: z.string().trim().max(2000).optional(),
   phone: z.string().trim().max(40).optional(),
   city: z.string().trim().max(80).optional(),

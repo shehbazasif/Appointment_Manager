@@ -19,9 +19,11 @@ const signIn = async () => {
     });
     if (error) throw error;
     const user = await refreshUser();
-    if (user?.app_metadata?.platform_role !== "SUPER_ADMIN") {
+    const meta = (user as any)?.app_metadata ?? {};
+    const userMeta = (user as any)?.user_metadata ?? {};
+    if (meta.platform_role !== "SUPER_ADMIN" && userMeta.platform_role !== "SUPER_ADMIN") {
       await supabase.auth.signOut();
-      throw new Error("Admin access required.");
+      throw new Error("This account does not have platform admin access. Set app_metadata.platform_role = 'SUPER_ADMIN' on your user in Supabase → Auth → Users first.");
     }
     await navigateTo("/admin");
   } catch (error: any) {

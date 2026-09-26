@@ -1,23 +1,23 @@
 import { readValidatedBody } from "h3";
 import { updateAppointmentSchema } from "#shared/schemas/appointments";
 import { requireTenant } from "../../utils/auth";
-import { getSupabaseAdmin } from "../../utils/supabase";
+import { getUserClient } from "../../utils/supabase";
 
 export default defineEventHandler(async (event) => {
-  const { organizationId, userId } = await requireTenant(event);
+  const { businessId, userId } = await requireTenant(event);
   const id = getRouterParam(event, "id");
   if (!id)
     throw createError({ statusCode: 400, statusMessage: "Appointment id is required." });
 
   const input = await readValidatedBody(event, updateAppointmentSchema.parse);
-  const sb = getSupabaseAdmin();
+  const sb = await getUserClient(event);
 
   // Fetch current appointment
   const { data: current } = await sb
     .from("appointments")
     .select("*")
     .eq("id", id)
-    .eq("organization_id", organizationId)
+    .eq("business_id", businessId)
     .single();
 
   if (!current)
@@ -39,7 +39,7 @@ export default defineEventHandler(async (event) => {
       .from("services")
       .select("duration_minutes")
       .eq("id", serviceId)
-      .eq("organization_id", organizationId)
+      .eq("business_id", businessId)
       .single();
     if (service) durationMinutes = service.duration_minutes;
   }
@@ -67,20 +67,21 @@ export default defineEventHandler(async (event) => {
       .from("staff")
       .select("id")
       .eq("id", targetStaffId)
-      .eq("organization_id", organizationId)
-      .eq("active", true)
+      .eq("business_id", businessId)
+      .eq("status", "ACTIVE")
       .single();
 
     if (!staffMember)
       throw createError({
         statusCode: 400,
-        statusMessage: "Assigned staff member is not active or not in this organization.",
+        statusMessage:
+          "Assigned staff member is not active or not in this business.",
       });
 
     const { data: overlap } = await sb
       .from("appointments")
       .select("id")
-      .eq("organization_id", organizationId)
+      .eq("business_id", businessId)
       .eq("staff_id", targetStaffId)
       .neq("id", id)
       .not("status", "in", '("CANCELLED","NO_SHOW")')
@@ -91,7 +92,8 @@ export default defineEventHandler(async (event) => {
     if (overlap)
       throw createError({
         statusCode: 409,
-        statusMessage: "That staff member has a conflicting appointment at this time.",
+        statusMessage:
+          "That staff member has a conflicting appointment at this time.",
       });
   }
 
@@ -107,13 +109,26 @@ export default defineEventHandler(async (event) => {
   if (error) throw createError({ statusCode: 500, statusMessage: error.message });
 
   if (statusChanged && input.status) {
-    await sb.from("appointment_status_history").insert({
+    await sb.from("appointment_history").insert({
+      business_id: businessId,
       appointment_id: id,
-      from_status: current.status,
-      to_status: input.status,
-      changed_by_user_id: userId,
+      action: `STATUS_${input.status}`,
+      previous_status: current.status,
+      new_status: input.status,
+      changed_by: userId,
     });
   }
 
-  return updated;
+  return {
+    id: updated.id,
+    organizationId: updated.business_id,
+    customerId: updated.customer_id,
+    staffId: updated.staff_id,
+    serviceId: updated.service_id,
+    startAt: updated.start_at,
+    endAt: updated.end_at,
+    status: updated.status,
+    source: updated.booking_source,
+    notes: updated.notes,
+  };
 });

@@ -1,17 +1,6 @@
-import { and, eq } from "drizzle-orm";
 import { readValidatedBody, setResponseStatus } from "h3";
 import { publicBookingSchema } from "#shared/schemas/appointments";
-import {
-  appointments,
-  appointmentStatusHistory,
-  customers,
-  organizations,
-  services,
-} from "../../../db/schema";
-import { calculatePublicAvailability } from "../../../services/availability";
-import { requireDatabase } from "../../../utils/database";
-import { getSupabaseAdmin } from "../../../utils/supabase";
-import { queueAppointmentNotifications } from "../../../services/notifications";
+import { getAnonClient } from "../../../utils/supabase";
 
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, "slug");
@@ -22,138 +11,69 @@ export default defineEventHandler(async (event) => {
       statusMessage: "Business slug is required.",
     });
 
-  const database = requireDatabase();
-  const business = await database.query.organizations.findFirst({
-    where: eq(organizations.slug, slug),
-  });
+  const sb = getAnonClient();
 
-  if (!business || !business.bookingActive)
+  const endAt = new Date(input.startAt.getTime() + 60 * 60000); // refined below
+
+  // Service duration is needed for the end time — read via the public RPC
+  const { data: business } = await sb
+    .rpc("public_business_by_slug", { p_slug: slug })
+    .maybeSingle();
+  if (!business)
     throw createError({
       statusCode: 404,
       statusMessage: "Booking page not found or inactive.",
     });
 
-  const service = await database.query.services.findFirst({
-    where: and(
-      eq(services.id, input.serviceId),
-      eq(services.organizationId, business.id),
-      eq(services.active, true),
-    ),
+  const { data: services } = await sb.rpc("public_services_for_business", {
+    p_business_id: business.id,
   });
-
+  const service = (services ?? []).find((s: any) => s.id === input.serviceId);
   if (!service)
     throw createError({ statusCode: 404, statusMessage: "Service not found or inactive." });
 
-  // Re-verify availability
-  const sb = getSupabaseAdmin();
-  const availability = await calculatePublicAvailability(
-    sb,
-    business.id,
-    input.startAt,
-    input.serviceId,
+  const realEndAt = new Date(
+    input.startAt.getTime() + (service.duration_minutes ?? 30) * 60000,
   );
+  void endAt;
 
-  const selected = availability.find(
-    (slot) => new Date(slot.startAt).getTime() === input.startAt.getTime(),
-  );
-
-  if (!selected)
-    throw createError({
-      statusCode: 409,
-      statusMessage: "That time slot is no longer available. Please choose another time.",
-    });
-
-  const endAt = new Date(
-    input.startAt.getTime() + service.durationMinutes * 60000,
-  );
-
-  const result = await database.transaction(async (transaction) => {
-    // Find or create customer
-    const existingCustomer = await transaction.query.customers.findFirst({
-      where: and(
-        eq(customers.organizationId, business.id),
-        eq(customers.email, input.email.toLowerCase()),
-      ),
-    });
-
-    const customer =
-      existingCustomer ??
-      (
-        await transaction
-          .insert(customers)
-          .values({
-            organizationId: business.id,
-            firstName: input.firstName,
-            lastName: input.lastName,
-            email: input.email.toLowerCase(),
-            phone: input.phone,
-            notes: input.notes ?? null,
-          })
-          .returning()
-      )[0];
-
-    if (!customer) {
-      throw createError({
-        statusCode: 500,
-        statusMessage: "Failed to create or retrieve customer record.",
-      });
-    }
-
-    // Save appointment with staff_id = NULL
-    const [appointment] = await transaction
-      .insert(appointments)
-      .values({
-        organizationId: business.id,
-        customerId: customer.id,
-        staffId: null, // Customer-created bookings default to staff_id = NULL
-        serviceId: service.id,
-        startAt: input.startAt,
-        endAt,
-        status: "CONFIRMED",
-        source: "ONLINE",
-        notes: input.notes ?? null,
-      })
-      .returning();
-
-    if (!appointment) {
-      throw createError({
-        statusCode: 500,
-        statusMessage: "Failed to create appointment record.",
-      });
-    }
-
-    await transaction
-      .insert(appointmentStatusHistory)
-      .values({ appointmentId: appointment.id, toStatus: "CONFIRMED" });
-
-    if (customer.email) {
-      await queueAppointmentNotifications(transaction, {
-        organizationId: business.id,
-        appointmentId: appointment.id,
-        customerId: customer.id,
-        recipient: customer.email,
-        startAt: appointment.startAt,
-      });
-    }
-
-    return {
-      appointment,
-      customer,
-      service: {
-        id: service.id,
-        name: service.name,
-        durationMinutes: service.durationMinutes,
-        priceCents: service.priceCents,
-      },
-      business: {
-        name: business.name,
-        city: business.city,
-        country: business.country,
-        phone: business.phone,
-      },
-    };
+  // Everything (business check, service check, customer find-or-create,
+  // overlap check, inserts) happens inside the SECURITY DEFINER function
+  const { data: appointmentId, error } = await sb.rpc("public_book_appointment", {
+    p_business_slug: slug,
+    p_service_id: input.serviceId,
+    p_start_at: input.startAt.toISOString(),
+    p_end_at: realEndAt.toISOString(),
+    p_first_name: input.firstName,
+    p_last_name: input.lastName,
+    p_email: input.email,
+    p_phone: input.phone,
+    p_notes: input.notes ?? null,
   });
 
+  if (error) {
+    const message = error.message ?? "Booking failed.";
+    const conflict = /no longer available|not found or inactive/i.test(message);
+    throw createError({
+      statusCode: conflict ? 409 : 400,
+      statusMessage: message,
+    });
+  }
+
   setResponseStatus(event, 201);
-  return result;
+  return {
+    appointment: { id: appointmentId, status: "CONFIRMED", source: "ONLINE" },
+    service: {
+      id: service.id,
+      name: service.name,
+      durationMinutes: service.duration_minutes,
+      priceCents: Math.round(Number(service.price) * 100),
+    },
+    business: {
+      name: business.name,
+      city: business.city,
+      country: business.country,
+      phone: business.phone,
+    },
+  };
 });

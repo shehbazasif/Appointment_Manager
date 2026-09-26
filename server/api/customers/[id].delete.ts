@@ -1,12 +1,12 @@
 import { requireTenant } from "../../utils/auth";
-import { getSupabaseAdmin } from "../../utils/supabase";
+import { getUserClient } from "../../utils/supabase";
 
 export default defineEventHandler(async (event) => {
-  const { organizationId } = await requireTenant(event);
+  const { businessId } = await requireTenant(event);
   const id = getRouterParam(event, "id");
   if (!id) throw createError({ statusCode: 400, statusMessage: "Customer ID is required." });
 
-  const sb = getSupabaseAdmin();
+  const sb = await getUserClient(event);
 
   // Anonymize customer data — soft delete preserving foreign keys
   const { data: anonymized, error } = await sb
@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)
-    .eq("organization_id", organizationId)
+    .eq("business_id", businessId)
     .select("id")
     .single();
 

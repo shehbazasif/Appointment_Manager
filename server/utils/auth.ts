@@ -1,6 +1,6 @@
 import type { H3Event } from "h3";
 import { serverSupabaseUser } from "#supabase/server";
-import { getSupabaseAdmin } from "./supabase";
+import { getUserClient } from "./supabase";
 
 type SupabaseClaims = {
   sub?: string;
@@ -17,17 +17,18 @@ export type AuthUser = {
 
 export type TenantContext = AuthUser & {
   userId: string;
-  organizationId: string;
+  businessId: string;
   role: string;
-  organization: Record<string, unknown>;
+  business: Record<string, unknown> & { id: string };
+  settings: Record<string, any> | null;
 };
 
-const findMembership = async (userId: string) => {
+const findMembership = async (event: H3Event, userId: string) => {
   try {
-    const sb = getSupabaseAdmin();
+    const sb = await getUserClient(event);
     const { data, error } = await sb
-      .from("memberships")
-      .select("*, organization:organizations(*)")
+      .from("business_members")
+      .select("*, business:businesses(*)")
       .eq("user_id", userId)
       .eq("status", "ACTIVE")
       .order("created_at", { ascending: false })
@@ -37,7 +38,14 @@ const findMembership = async (userId: string) => {
       console.warn("findMembership query error:", error.message);
       return null;
     }
-    return data;
+    if (!data) return null;
+    // Booking on/off lives in business_settings.online_booking_enabled, not on businesses
+    const { data: settings } = await sb
+      .from("business_settings")
+      .select("*")
+      .eq("business_id", data.business_id)
+      .maybeSingle();
+    return { ...data, settings: settings ?? null };
   } catch (err: any) {
     console.warn("findMembership exception:", err?.message);
     return null;
@@ -50,9 +58,10 @@ const toTenantContext = (
 ): TenantContext => ({
   ...authUser,
   userId: membership.user_id,
-  organizationId: membership.organization_id,
-  role: membership.role,
-  organization: membership.organization as Record<string, unknown>,
+  businessId: membership.business_id,
+  role: membership.role ?? "OWNER",
+  business: (membership.business ?? {}) as TenantContext["business"],
+  settings: (membership as any).settings ?? null,
 });
 
 /**
@@ -74,17 +83,17 @@ export const requireAuthUser = async (event: H3Event) => {
 };
 
 /**
- * Resolves the tenant (organization) from the authenticated user's ACTIVE
- * membership. The organization id is never read from the client.
+ * Resolves the tenant (business) from the authenticated user's ACTIVE
+ * membership in `business_members`. The business id is never read from the client.
  */
 export const requireTenant = async (event: H3Event) => {
   const authUser = await requireAuthUser(event);
-  const membership = await findMembership(authUser.id);
-  if (!membership || membership.status !== "ACTIVE")
+  const membership = await findMembership(event, authUser.id);
+  if (!membership || !membership.business_id)
     throw createError({
       statusCode: 403,
       statusMessage: "No active business found for this account.",
-      data: { code: "NO_ORGANIZATION" },
+      data: { code: "NO_BUSINESS" },
     });
   return toTenantContext(authUser, membership);
 };
@@ -92,13 +101,17 @@ export const requireTenant = async (event: H3Event) => {
 /** Same as requireTenant but returns null instead of throwing. */
 export const getTenantContext = async (event: H3Event) => {
   const authUser = await requireAuthUser(event);
-  const membership = await findMembership(authUser.id);
-  if (!membership || membership.status !== "ACTIVE") return null;
+  const membership = await findMembership(event, authUser.id);
+  if (!membership || !membership.business_id) return null;
   return toTenantContext(authUser, membership);
 };
 
 /**
- * Ensures the authenticated user has platform super-admin privileges.
+ * Platform super-admin check. Under RLS a SUPER_ADMIN's powers come from
+ * policies/membership rows, so the server only verifies the claim here.
+ * Grant by setting app_metadata.platform_role = 'SUPER_ADMIN' on the user
+ * (Supabase Dashboard → Auth → Users) or by an OWNER row in the platform
+ * business — verified via the user-scoped membership query.
  */
 export const requireSuperAdmin = async (event: H3Event) => {
   const authUser = await requireAuthUser(event);
@@ -110,19 +123,45 @@ export const requireSuperAdmin = async (event: H3Event) => {
 
   if (isPlatformAdmin) return authUser;
 
-  const sb = getSupabaseAdmin();
-  const { data: adminMembership } = await sb
-    .from("memberships")
+  const sb = await getUserClient(event);
+  const { data: adminRow } = await sb
+    .from("business_members")
     .select("role")
     .eq("user_id", authUser.id)
-    .single();
+    .eq("role", "SUPER_ADMIN")
+    .maybeSingle();
 
-  if (adminMembership?.role === "SUPER_ADMIN") {
-    return authUser;
-  }
+  if (adminRow) return authUser;
 
   throw createError({
     statusCode: 403,
     statusMessage: "Access restricted to platform administrators.",
   });
 };
+
+/** Serializes a `businesses` row + optional `business_settings` row into the camelCase shape the UI expects. */
+export const serializeBusiness = (
+  b: Record<string, any>,
+  settings?: Record<string, any> | null,
+) => ({
+  id: b.id,
+  name: b.name,
+  slug: b.slug,
+  description: b.description ?? null,
+  businessType: b.business_type ?? null,
+  monthlyRevenue: b.monthly_revenue ?? null,
+  email: b.email ?? "",
+  phone: b.phone ?? null,
+  website: b.website ?? null,
+  address: b.address ?? null,
+  city: b.city ?? null,
+  country: b.country ?? null,
+  postcode: b.postcode ?? null,
+  timezone: b.timezone ?? settings?.timezone ?? "Europe/Athens",
+  currency: b.currency ?? settings?.currency ?? "EUR",
+  logoUrl: b.logo_url ?? null,
+  status: b.status ?? "ACTIVE",
+  bookingActive: settings?.online_booking_enabled ?? b.booking_active ?? false,
+  createdAt: b.created_at,
+  updatedAt: b.updated_at,
+});

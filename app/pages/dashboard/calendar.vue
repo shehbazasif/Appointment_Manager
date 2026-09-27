@@ -134,17 +134,12 @@ const filteredAppointments = computed(() => {
   return appointments.value;
 });
 
-// Week View Days calculation
+// Week View Days calculation — rolling 7-day window starting from the current day
 const weekDays = computed(() => {
-  const d = new Date(currentDate.value);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday (monday start)
-  const monday = new Date(d.setDate(diff));
-
   const days = [];
   for (let i = 0; i < 7; i++) {
-    const nextDay = new Date(monday);
-    nextDay.setDate(monday.getDate() + i);
+    const nextDay = new Date(currentDate.value);
+    nextDay.setDate(currentDate.value.getDate() + i);
     days.push(nextDay);
   }
   return days;

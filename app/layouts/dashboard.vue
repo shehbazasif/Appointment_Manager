@@ -121,9 +121,13 @@ provide("businessProfile", me);
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#faf9f6] text-[#24262d] flex flex-col antialiased">
+  <div
+    class="h-dvh overflow-hidden bg-[#faf9f6] text-[#24262d] flex flex-col antialiased"
+  >
     <!-- Top Bar for Mobile & Desktop -->
-    <header class="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-stone-200 bg-white/95 px-4 backdrop-blur-md lg:px-8">
+    <header
+      class="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-stone-200 bg-white/95 px-4 backdrop-blur-md lg:px-8"
+    >
       <div class="flex items-center gap-3">
         <button
           type="button"
@@ -149,26 +153,42 @@ provide("businessProfile", me);
             <CalendarCheck :size="20" />
           </div>
           <div>
-            <span class="font-display text-lg font-bold tracking-tight text-stone-900 block leading-none">
+            <span
+              class="font-display text-lg font-bold tracking-tight text-stone-900 block leading-none"
+            >
               {{ me?.organization?.name ?? "RantevouOS" }}
             </span>
-            <span class="text-[10px] font-semibold text-rose-600 uppercase tracking-wider block mt-0.5">
-              {{ me?.organization?.slug ? `/book/${me.organization.slug}` : "Studio Hub" }}
+            <span
+              class="text-[10px] font-semibold text-rose-600 uppercase tracking-wider block mt-0.5"
+            >
+              {{
+                me?.organization?.slug
+                  ? `/book/${me.organization.slug}`
+                  : "Studio Hub"
+              }}
             </span>
           </div>
         </NuxtLink>
 
         <!-- Business Name Tag -->
-        <div v-if="me?.organization" class="hidden items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs sm:flex ml-4">
+        <div
+          v-if="me?.organization"
+          class="hidden items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs sm:flex ml-4"
+        >
           <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span class="font-semibold text-stone-800">{{ me.organization.name }}</span>
+          <span class="font-semibold text-stone-800">{{
+            me.organization.name
+          }}</span>
         </div>
       </div>
 
       <!-- Header Actions -->
       <div class="flex items-center gap-2.5">
         <!-- Public Booking Link Controls -->
-        <div v-if="me?.organization?.slug" class="hidden sm:flex items-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50/80 p-1">
+        <div
+          v-if="me?.organization?.slug"
+          class="hidden sm:flex items-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50/80 p-1"
+        >
           <button
             type="button"
             @click="copyBookingLink"
@@ -194,9 +214,15 @@ provide("businessProfile", me);
         <div class="flex items-center gap-2 pl-2 border-l border-stone-200">
           <div class="hidden text-right text-xs md:block">
             <div class="font-semibold text-stone-900">
-              {{ user?.user_metadata?.first_name ? `${user.user_metadata.first_name} ${user?.user_metadata?.last_name ?? ''}` : (user?.email ?? 'User') }}
+              {{
+                user?.user_metadata?.first_name
+                  ? `${user.user_metadata.first_name} ${user?.user_metadata?.last_name ?? ""}`
+                  : (user?.email ?? "User")
+              }}
             </div>
-            <div class="text-[10px] text-stone-400 uppercase tracking-wider">{{ me?.role ?? 'Owner' }}</div>
+            <div class="text-[10px] text-stone-400 uppercase tracking-wider">
+              {{ me?.role ?? "Owner" }}
+            </div>
           </div>
           <button
             type="button"
@@ -216,8 +242,13 @@ provide("businessProfile", me);
       class="border-b border-amber-200/80 bg-amber-50/90 px-4 py-2.5 text-xs text-amber-800 flex items-center justify-between backdrop-blur-sm"
     >
       <div class="flex items-center gap-2">
-        <span class="inline-flex size-2 rounded-full bg-amber-500 animate-pulse"></span>
-        <span>Your business workspace is being set up. Retrying automatically...</span>
+        <span
+          class="inline-flex size-2 rounded-full bg-amber-500 animate-pulse"
+        ></span>
+        <span
+          >Your business workspace is being set up. Retrying
+          automatically...</span
+        >
       </div>
       <button
         type="button"
@@ -228,16 +259,19 @@ provide("businessProfile", me);
       </button>
     </div>
 
-    <div class="flex flex-1">
+    <div class="flex flex-1 min-h-0">
       <!-- Sidebar Desktop -->
-      <aside class="hidden w-64 shrink-0 flex-col justify-between border-r border-stone-200 bg-white p-4 lg:flex">
+      <aside
+        class="hidden w-64 shrink-0 flex-col justify-between border-r border-stone-200 bg-white p-4 lg:flex min-h-0 overflow-y-auto"
+      >
         <nav class="space-y-1">
           <NuxtLink
             v-for="item in navItems"
             :key="item.to"
             :to="item.to"
             :class="[
-              route.path === item.to || (item.to !== '/dashboard' && route.path.startsWith(item.to))
+              route.path === item.to ||
+              (item.to !== '/dashboard' && route.path.startsWith(item.to))
                 ? 'bg-stone-900 text-white shadow-sm font-semibold'
                 : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900 font-medium',
               'flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition',
@@ -249,7 +283,9 @@ provide("businessProfile", me);
         </nav>
 
         <!-- Sidebar Footer -->
-        <div class="rounded-2xl border border-stone-200 bg-stone-50/70 p-3.5 text-xs">
+        <div
+          class="rounded-2xl border border-stone-200 bg-stone-50/70 p-3.5 text-xs"
+        >
           <div class="flex items-center justify-between">
             <span class="font-semibold text-stone-800">Booking status</span>
             <span
@@ -321,7 +357,8 @@ provide("businessProfile", me);
               :to="item.to"
               @click="mobileMenuOpen = false"
               :class="[
-                route.path === item.to || (item.to !== '/dashboard' && route.path.startsWith(item.to))
+                route.path === item.to ||
+                (item.to !== '/dashboard' && route.path.startsWith(item.to))
                   ? 'bg-stone-900 text-white shadow-sm font-semibold'
                   : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900 font-medium',
                 'flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition',
@@ -340,7 +377,9 @@ provide("businessProfile", me);
             class="w-full flex items-center justify-center gap-2 rounded-xl border border-stone-200 bg-stone-50 py-2.5 text-xs font-semibold text-stone-700"
           >
             <Copy :size="14" />
-            <span>{{ copied ? "Copied Booking Link!" : "Copy Booking Link" }}</span>
+            <span>{{
+              copied ? "Copied Booking Link!" : "Copy Booking Link"
+            }}</span>
           </button>
           <button
             type="button"
@@ -353,8 +392,10 @@ provide("businessProfile", me);
         </div>
       </aside>
 
-      <!-- Main Content Area -->
-      <main class="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+      <!-- Main Content Area (the only scrolling region) -->
+      <main
+        class="flex-1 min-w-0 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full"
+      >
         <slot />
       </main>
     </div>

@@ -157,9 +157,17 @@ export const serializeBusiness = (
   postcode: b.postcode ?? null,
   timezone: b.timezone ?? settings?.timezone ?? "Europe/Athens",
   currency: b.currency ?? settings?.currency ?? "EUR",
-  logoUrl: b.logo_url ?? null,
+  // Cache-bust the logo on every save — storage objects are overwritten in place.
+  logoUrl:
+    b.logo_url
+      ? `${b.logo_url}${b.logo_url.includes("?") ? "&" : "?"}v=${encodeURIComponent(String(b.updated_at ?? ""))}`
+      : null,
   status: b.status ?? "ACTIVE",
   bookingActive: settings?.online_booking_enabled ?? false,
+  // Name-change security limiter (2 free changes, then a 14-day cooldown)
+  nameChangeCount: b.name_change_count ?? 0,
+  nameChangedAt: b.name_changed_at ?? null,
+  nameCooldownUntil: b.name_cooldown_until ?? null,
   createdAt: b.created_at,
   updatedAt: b.updated_at,
 });

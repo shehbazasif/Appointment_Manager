@@ -9,6 +9,7 @@ import {
   Sparkles,
   Clock,
   Settings,
+  Share2,
   ExternalLink,
   Copy,
   Check,
@@ -49,8 +50,10 @@ const navItems = [
   { name: "Staff", to: "/dashboard/staff", icon: UserCheck },
   { name: "Services", to: "/dashboard/services", icon: Sparkles },
   { name: "Working Hours", to: "/dashboard/hours", icon: Clock },
-  { name: "Settings", to: "/dashboard/settings", icon: Settings },
+  { name: "Share Booking Link", to: "/dashboard/managebookinglink", icon: Share2 },
 ];
+
+const settingsLink = "/dashboard/settings";
 
 const loadMe = async () => {
   try {
@@ -118,6 +121,8 @@ const handleSignOut = async () => {
 
 // Provide tenant context to child pages
 provide("businessProfile", me);
+// Child pages can trigger a header refresh (e.g. after logo/email changes)
+provide("refreshBusinessProfile", loadMe);
 </script>
 
 <template>
@@ -264,27 +269,49 @@ provide("businessProfile", me);
       <aside
         class="hidden w-64 shrink-0 flex-col justify-between border-r border-stone-200 bg-white p-4 lg:flex min-h-0 overflow-y-auto"
       >
-        <nav class="space-y-1">
-          <NuxtLink
-            v-for="item in navItems"
-            :key="item.to"
-            :to="item.to"
-            :class="[
-              route.path === item.to ||
-              (item.to !== '/dashboard' && route.path.startsWith(item.to))
-                ? 'bg-stone-900 text-white shadow-sm font-semibold'
-                : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900 font-medium',
-              'flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition',
-            ]"
-          >
-            <component :is="item.icon" :size="18" />
-            <span>{{ item.name }}</span>
-          </NuxtLink>
-        </nav>
+        <div class="flex flex-col min-h-0">
+          <nav class="space-y-1">
+            <NuxtLink
+              v-for="item in navItems"
+              :key="item.to"
+              :to="item.to"
+              :class="[
+                route.path === item.to ||
+                (item.to !== '/dashboard' && route.path.startsWith(item.to))
+                  ? 'bg-stone-900 text-white shadow-sm font-semibold'
+                  : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900 font-medium',
+                'flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition',
+              ]"
+            >
+              <component :is="item.icon" :size="18" />
+              <span>{{ item.name }}</span>
+            </NuxtLink>
+          </nav>
+
+          <!-- Pinned Settings shortcut (bottom of the nav group) -->
+          <div class="mt-auto pt-4">
+            <NuxtLink
+              :to="settingsLink"
+              :class="[
+                route.path === settingsLink
+                  ? 'bg-stone-900 text-white shadow-sm font-semibold'
+                  : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900 font-medium',
+                'flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition border-t border-stone-100',
+              ]"
+            >
+              <Settings :size="18" />
+              <span>Settings</span>
+              <ChevronRight
+                :size="14"
+                class="ml-auto opacity-50"
+              />
+            </NuxtLink>
+          </div>
+        </div>
 
         <!-- Sidebar Footer -->
         <div
-          class="rounded-2xl border border-stone-200 bg-stone-50/70 p-3.5 text-xs"
+          class="rounded-2xl border border-stone-200 bg-stone-50/70 p-3.5 text-xs mt-4"
         >
           <div class="flex items-center justify-between">
             <span class="font-semibold text-stone-800">Booking status</span>
@@ -303,10 +330,10 @@ provide("businessProfile", me);
             Customers can book appointments directly via your public link.
           </p>
           <NuxtLink
-            to="/dashboard/settings"
+            :to="settingsLink"
             class="mt-3 block text-center rounded-lg bg-white border border-stone-200 py-1.5 font-semibold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
           >
-            Manage rules
+            Settings
           </NuxtLink>
         </div>
       </aside>
@@ -322,7 +349,7 @@ provide("businessProfile", me);
         v-if="mobileMenuOpen"
         class="fixed inset-y-0 left-0 z-50 w-72 flex-col justify-between border-r border-stone-200 bg-white p-5 shadow-2xl flex lg:hidden"
       >
-        <div class="space-y-6">
+        <div class="space-y-6 flex flex-col min-h-0">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2.5">
               <img
@@ -366,6 +393,21 @@ provide("businessProfile", me);
             >
               <component :is="item.icon" :size="18" />
               <span>{{ item.name }}</span>
+            </NuxtLink>
+
+            <!-- Settings pinned at the bottom of the mobile drawer -->
+            <NuxtLink
+              :to="settingsLink"
+              @click="mobileMenuOpen = false"
+              :class="[
+                route.path === settingsLink
+                  ? 'bg-stone-900 text-white shadow-sm font-semibold'
+                  : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900 font-medium',
+                'flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition mt-2 border-t border-stone-100 pt-4',
+              ]"
+            >
+              <Settings :size="18" />
+              <span>Settings</span>
             </NuxtLink>
           </nav>
         </div>

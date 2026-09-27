@@ -2,6 +2,13 @@
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
+  experimental: { tasks: true },
+  nitro: {
+    // Automatic reminder emails: the worker sweeps the queue every 5 minutes.
+    scheduledTasks: {
+      "*/5 * * * *": ["notifications:reminders"],
+    },
+  },
   modules: [
     "@nuxt/ui",
     "@primevue/nuxt-module",
@@ -9,6 +16,16 @@ export default defineNuxtConfig({
     "@nuxtjs/supabase",
   ],
   css: ["~/assets/css/tailwind.css"],
+  nitro: {
+    // Automatic appointment reminder emails — runs the worker every 5 minutes
+    // (server/tasks/notifications/reminders.ts). No external cron needed.
+    scheduledTasks: {
+      "*/5 * * * *": ["notifications:reminders"],
+    },
+    experimental: {
+      tasks: true,
+    },
+  },
   runtimeConfig: {
     public: {
       PRIMEUI_LICENSE:

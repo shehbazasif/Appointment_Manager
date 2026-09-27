@@ -2,6 +2,7 @@ import { readValidatedBody, setResponseStatus } from "h3";
 import { z } from "zod";
 import { requireTenant } from "../../utils/auth";
 import { getUserClient } from "../../utils/supabase";
+import { isEmailConfigured, sendEmail } from "../../services/notifications";
 
 const sendCommunicationSchema = z.object({
   customerId: z.string().uuid().optional(),
@@ -31,6 +32,33 @@ export default defineEventHandler(async (event) => {
   }
 
   const now = new Date().toISOString();
+
+  // EMAIL is a real send via the studio's mailbox (bookings@...).
+  // SMS / WHATSAPP are opened client-side (wa.me / sms: links) — the API only
+  // records them in history, so the status stays honest as SENT.
+  let emailResult: { ok: boolean; messageId?: string; error?: string } | null = null;
+  if (input.channel === "EMAIL") {
+    if (!isEmailConfigured())
+      throw createError({
+        statusCode: 503,
+        statusMessage: "Email is not configured. Add SMTP_HOST, SMTP_USER and SMTP_PASSWORD in .env.",
+      });
+    emailResult = await sendEmail({
+      to: input.recipient,
+      subject: input.subject?.trim() || "Message from our studio",
+      text: input.message,
+      html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#24262d;white-space:pre-wrap;font-size:14px;line-height:1.6">${input.message
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")}</div>`,
+    });
+    if (!emailResult.ok)
+      throw createError({
+        statusCode: 502,
+        statusMessage: `Email could not be sent: ${emailResult.error ?? "unknown error"}`,
+      });
+  }
+
   const row: Record<string, unknown> = {
     business_id: businessId,
     customer_id: input.customerId ?? null,
@@ -40,6 +68,7 @@ export default defineEventHandler(async (event) => {
     scheduled_for: now,
     status: "SENT",
     sent_at: now,
+    provider_message_id: emailResult?.messageId ?? null,
   };
   // notifications table stores the recipient by channel
   if (input.channel === "EMAIL") row.recipient_email = input.recipient;

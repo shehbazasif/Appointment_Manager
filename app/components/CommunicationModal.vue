@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, watch } from "vue";
+import { ref, reactive, computed, watch } from "vue";
 import { Mail, MessageSquare, Phone, Send, Check, X, Sparkles } from "lucide-vue-next";
 
 const props = defineProps<{
@@ -60,6 +60,57 @@ watch(activeChannel, () => {
   updateRecipient();
 });
 
+// Digits-only phone for wa.me / sms links (e.g. +30 69... -> 3069...)
+const digitsOnly = (phone: string) => phone.replace(/[^0-9]/g, "");
+
+const externalLink = computed(() => {
+  const phone = digitsOnly(form.recipient.trim());
+  const text = encodeURIComponent(form.message.trim());
+  if (activeChannel.value === "WHATSAPP") return phone ? `https://wa.me/${phone}?text=${text}` : "";
+  if (activeChannel.value === "SMS") return phone ? `sms:${form.recipient.trim()}?body=${text}` : "";
+  return "";
+});
+
+const primaryLabel = computed(() => {
+  if (activeChannel.value === "EMAIL") return isSubmitting.value ? "Sending..." : "Send Email";
+  if (activeChannel.value === "WHATSAPP") return "Open WhatsApp";
+  return "Open SMS App";
+});
+
+/**
+ * WHATSAPP / SMS open the customer's chat app with the message pre-filled —
+ * no WhatsApp/SMS API costs. The conversation is logged to history via the
+ * API, but the actual delivery happens in WhatsApp / the SMS app.
+ */
+const sendExternal = async () => {
+  // Open synchronously inside the click (popup blockers reject delayed opens).
+  window.open(externalLink.value, "_blank", "noopener,noreferrer");
+
+  // Log the conversation for history. History-only: never block on errors.
+  try {
+    if (props.customer?.id) {
+      await $fetch("/api/communications/send", {
+        method: "POST",
+        body: {
+          customerId: props.customer.id,
+          appointmentId: props.appointmentId,
+          channel: activeChannel.value,
+          recipient: form.recipient.trim(),
+          message: form.message.trim(),
+        },
+      });
+    }
+  } catch (err: any) {
+    console.warn("[communication] history log failed:", err?.data?.statusMessage ?? err?.message);
+  }
+
+  successMsg.value =
+    activeChannel.value === "WHATSAPP"
+      ? "WhatsApp opened with your message pre-filled — press send there to deliver it."
+      : "SMS app opened with your message pre-filled — press send there to deliver it.";
+  emit("sent");
+};
+
 const send = async () => {
   if (!form.recipient.trim()) {
     errorMsg.value = "Recipient is required.";
@@ -71,6 +122,16 @@ const send = async () => {
   }
   if (activeChannel.value === "EMAIL" && !form.subject.trim()) {
     errorMsg.value = "Email subject is required.";
+    return;
+  }
+  if (activeChannel.value !== "EMAIL" && digitsOnly(form.recipient.trim()).length < 6) {
+    errorMsg.value = "Please enter a valid phone number (with country code, e.g. +30 69...).";
+    return;
+  }
+
+  if (activeChannel.value !== "EMAIL") {
+    errorMsg.value = "";
+    await sendExternal();
     return;
   }
 
@@ -91,7 +152,7 @@ const send = async () => {
       },
     });
 
-    successMsg.value = `${activeChannel.value} message sent successfully!`;
+    successMsg.value = "Email sent successfully!";
     setTimeout(() => {
       emit("sent");
       emit("update:modelValue", false);
@@ -174,6 +235,17 @@ const send = async () => {
 
       <!-- Form Inputs -->
       <form @submit.prevent="send" class="space-y-4">
+        <p
+          v-if="activeChannel !== 'EMAIL'"
+          class="rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs text-stone-600"
+        >
+          <template v-if="activeChannel === 'WHATSAPP'">
+            We'll open the customer's WhatsApp chat with your message already written — just press send there. No WhatsApp API costs.
+          </template>
+          <template v-else>
+            We'll open the customer's SMS app with your message pre-filled (message body support varies by device).
+          </template>
+        </p>
         <div>
           <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
             {{ activeChannel === "EMAIL" ? "Email Address" : "Phone Number" }}
@@ -244,7 +316,7 @@ const send = async () => {
             class="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50 transition"
           >
             <Send :size="14" />
-            <span>{{ isSubmitting ? "Sending..." : `Send ${activeChannel}` }}</span>
+            <span>{{ primaryLabel }}</span>
           </button>
         </div>
       </form>

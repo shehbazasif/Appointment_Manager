@@ -104,6 +104,7 @@ export default defineEventHandler(async (event) => {
       startAt,
       businessName: (business as any)?.name ?? undefined,
       serviceName: service.name,
+      timezone: (business as any)?.timezone ?? undefined,
       customerName: [customer.first_name, customer.last_name].filter(Boolean).join(" ") || undefined,
     });
   }

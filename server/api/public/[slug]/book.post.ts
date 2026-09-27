@@ -1,7 +1,13 @@
 import { readValidatedBody, setResponseStatus } from "h3";
 import { publicBookingSchema } from "#shared/schemas/appointments";
 import { getAnonClient } from "../../../utils/supabase";
-import { sendEmail, buildConfirmationEmail, isEmailConfigured } from "../../../services/notifications";
+import {
+  sendEmail,
+  buildConfirmationEmail,
+  buildOwnerAlertEmail,
+  isEmailConfigured,
+  computeReminderAt,
+} from "../../../services/notifications";
 
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, "slug");
@@ -61,17 +67,20 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Send the real confirmation email via SMTP (never fails the booking).
-  // Logging goes through the SECURITY DEFINER RPC because the anon client
-  // has no RLS write access to `notifications`.
+  // Emails never fail the booking. Logging goes through SECURITY DEFINER RPCs
+  // because the anon client has no RLS write access to `notifications`.
   try {
-    const mail = buildConfirmationEmail({
-      businessName: business.name,
-      serviceName: service.name,
-      startAt: input.startAt,
-      customerName: `${input.firstName} ${input.lastName}`.trim(),
-    });
+    const customerName = `${input.firstName} ${input.lastName}`.trim();
+
+    // 1. Confirmation to the CUSTOMER.
     if (isEmailConfigured()) {
+      const mail = buildConfirmationEmail({
+        businessName: business.name,
+        serviceName: service.name,
+        startAt: input.startAt,
+        customerName,
+        timezone: (business as any).timezone,
+      });
       const result = await sendEmail({
         to: input.email,
         subject: mail.subject,
@@ -87,6 +96,51 @@ export default defineEventHandler(async (event) => {
         p_error: result.error ?? null,
         p_message_id: result.messageId ?? null,
       });
+    }
+
+    // 2. "New booking" alert to the BUSINESS OWNER (contact email on the
+    //    business profile). Skipped silently when the owner booked for
+    //    themselves online.
+    const ownerEmail = ((business as any).email ?? "").trim();
+    if (isEmailConfigured() && ownerEmail && ownerEmail.toLowerCase() !== input.email.toLowerCase()) {
+      const alert = buildOwnerAlertEmail({
+        businessName: business.name,
+        serviceName: service.name,
+        startAt: input.startAt,
+        customerName,
+        customerEmail: input.email,
+        customerPhone: input.phone,
+        timezone: (business as any).timezone,
+      });
+      const alertResult = await sendEmail({
+        to: ownerEmail,
+        subject: alert.subject,
+        html: alert.html,
+        text: alert.text,
+      });
+      await sb.rpc("log_owner_booking_email", {
+        p_business_id: business.id,
+        p_appointment_id: appointmentId as string,
+        p_recipient: ownerEmail,
+        p_subject: alert.subject,
+        p_status: alertResult.ok ? "SENT" : "FAILED",
+        p_error: alertResult.error ?? null,
+        p_message_id: alertResult.messageId ?? null,
+      });
+    }
+
+    // 3. Automatic reminder: 24h before the appointment, or 5h before when
+    //    the booking is for tomorrow / short notice.
+    const reminderAt = computeReminderAt(input.startAt);
+    if (reminderAt) {
+      const { error: reminderError } = await sb.rpc("queue_appointment_reminder", {
+        p_business_id: business.id,
+        p_appointment_id: appointmentId as string,
+        p_customer_id: null,
+        p_recipient: input.email,
+        p_reminder_at: reminderAt.toISOString(),
+      });
+      if (reminderError) console.warn("[booking] reminder queue failed:", reminderError.message);
     }
   } catch (notifyError: any) {
     console.warn("[booking] notification failed (booking still valid):", notifyError?.message);

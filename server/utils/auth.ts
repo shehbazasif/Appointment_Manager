@@ -1,6 +1,6 @@
 import type { H3Event } from "h3";
 import { serverSupabaseUser } from "#supabase/server";
-import { getUserClient } from "./supabase";
+import { getBearerToken, getUserClient } from "./supabase";
 
 type SupabaseClaims = {
   sub?: string;
@@ -64,12 +64,30 @@ const toTenantContext = (
   settings: (membership as any).settings ?? null,
 });
 
+/** Verified token claims: Bearer token (Android app) or session cookies (website). */
+const getClaims = async (event: H3Event) => {
+  const token = getBearerToken(event);
+  if (!token) return (await serverSupabaseUser(event)) as SupabaseClaims | null;
+  try {
+    const sb = await getUserClient(event);
+    const { data, error } = await sb.auth.getClaims(token);
+    if (error) throw error;
+    return (data?.claims ?? null) as SupabaseClaims | null;
+  } catch {
+    // Invalid/expired token (or Supabase unreachable) => not logged in.
+    throw createError({
+      statusCode: 401,
+      statusMessage: "Authentication required.",
+    });
+  }
+};
+
 /**
  * Resolves the authenticated Supabase user from the session cookies set by
  * the @nuxtjs/supabase module. The JWT is verified before the request continues.
  */
 export const requireAuthUser = async (event: H3Event) => {
-  const claims = (await serverSupabaseUser(event)) as SupabaseClaims | null;
+  const claims = await getClaims(event);
   if (!claims?.sub)
     throw createError({
       statusCode: 401,
@@ -115,7 +133,7 @@ export const getTenantContext = async (event: H3Event) => {
  */
 export const requireSuperAdmin = async (event: H3Event) => {
   const authUser = await requireAuthUser(event);
-  const claims = (await serverSupabaseUser(event)) as SupabaseClaims | null;
+  const claims = await getClaims(event);
   const isPlatformAdmin =
     claims?.app_metadata?.platform_role === "SUPER_ADMIN" ||
     claims?.app_metadata?.role === "SUPER_ADMIN" ||

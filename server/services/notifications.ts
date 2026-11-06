@@ -22,6 +22,23 @@ const SMTP_FROM =
 
 export const senderAddress = () => SMTP_FROM || SMTP_USER;
 
+// Only the DISPLAY NAME changes per business; the address stays on our verified
+// domain so emails keep passing spam checks (SPF/DKIM).
+const FROM_ADDRESS = (
+  (/<([^>]+)>/.exec(process.env.SMTP_FROM ?? "")?.[1] ?? process.env.SMTP_FROM ?? "").trim() ||
+  process.env.BOOKINGS_EMAIL ||
+  SMTP_USER
+).trim();
+
+const cleanSenderName = (name: string) =>
+  name.replace(/[\r\n"<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+
+/** "Business name <bookings@...>"; falls back to the default sender when no name is given. */
+export const buildFrom = (fromName?: string | null) => {
+  const name = cleanSenderName(fromName ?? "");
+  return name && FROM_ADDRESS ? { name, address: FROM_ADDRESS } : SMTP_FROM || SMTP_USER;
+};
+
 export const isEmailConfigured = () => Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
 
 let transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
@@ -44,6 +61,10 @@ export const sendEmail = async (opts: {
   subject: string;
   html: string;
   text?: string;
+  /** Shown as the sender name, e.g. the business name. */
+  fromName?: string | null;
+  /** Where the customer's reply goes (e.g. the business's own email). */
+  replyTo?: string | null;
 }): Promise<{ ok: boolean; messageId?: string; error?: string }> => {
   if (!isEmailConfigured()) {
     console.warn("[email] SMTP not configured — skipping real send.");
@@ -51,7 +72,8 @@ export const sendEmail = async (opts: {
   }
   try {
     const info = await getTransporter().sendMail({
-      from: SMTP_FROM || SMTP_USER,
+      from: buildFrom(opts.fromName),
+      ...(opts.replyTo ? { replyTo: opts.replyTo } : {}),
       to: opts.to,
       subject: opts.subject,
       text: opts.text,
@@ -235,6 +257,7 @@ export const queueAppointmentNotifications = async (
         subject: mail.subject,
         html: mail.html,
         text: mail.text,
+        fromName: input.businessName,
       });
       await sb
         .from("notifications")
@@ -339,6 +362,7 @@ export const processDueReminders = async (
       subject: mail.subject,
       html: mail.html,
       text: mail.text,
+      fromName: job.business_name,
     });
 
     await sb.rpc("complete_reminder", {

@@ -4,7 +4,7 @@ import { requireTenant } from "../../utils/auth";
 import { getUserClient } from "../../utils/supabase";
 
 export default defineEventHandler(async (event) => {
-  const { businessId, userId } = await requireTenant(event);
+  const { businessId, userId, settings } = await requireTenant(event);
   const id = getRouterParam(event, "id");
   if (!id)
     throw createError({ statusCode: 400, statusMessage: "Appointment id is required." });
@@ -99,6 +99,19 @@ export default defineEventHandler(async (event) => {
 
   if (input.notes !== undefined) updateData.notes = input.notes;
 
+  // On-location workflow: Assigned -> On the way -> On location
+  if (input.fieldStatus !== undefined) {
+    if (input.fieldStatus && !targetStaffId)
+      throw createError({
+        statusCode: 400,
+        statusMessage: "Assign a staff member before setting the on-location status.",
+      });
+    updateData.field_status = input.fieldStatus;
+  } else if (input.staffId !== undefined && settings?.on_location_enabled) {
+    // assigning (or re-assigning) staff starts the workflow; removing staff resets it
+    updateData.field_status = input.staffId ? "ASSIGNED" : null;
+  }
+
   const { data: updated, error } = await sb
     .from("appointments")
     .update(updateData)
@@ -130,5 +143,6 @@ export default defineEventHandler(async (event) => {
     status: updated.status,
     source: updated.booking_source,
     notes: updated.notes,
+    fieldStatus: updated.field_status ?? null,
   };
 });

@@ -25,6 +25,8 @@ export const updateAppointmentSchema = z.object({
     ])
     .optional(),
   notes: z.string().trim().max(1000).optional().nullable(),
+  // On-location workflow step (only used when the business enabled on-location service)
+  fieldStatus: z.enum(["ASSIGNED", "ON_THE_WAY", "ON_LOCATION"]).nullable().optional(),
 });
 
 export const publicBookingSchema = z.object({
@@ -32,9 +34,28 @@ export const publicBookingSchema = z.object({
   startAt: z.coerce.date(),
   firstName: z.string().trim().min(1).max(80),
   lastName: z.string().trim().min(1).max(80),
-  email: z.string().email().max(254),
-  phone: z.string().trim().min(5).max(40),
+  // Email is optional: an empty value means "not provided".
+  email: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.string().trim().email().max(254).optional().nullable(),
+  ),
+  // Digits only, with country code: +<country code><number> (spaces/dashes are ignored).
+  phone: z
+    .string()
+    .trim()
+    .transform((s) => s.replace(/[\s\-().]/g, ""))
+    .pipe(z.string().regex(/^\+[1-9]\d{6,14}$/, "Enter a valid phone number with its country code.")),
   notes: z.string().trim().max(1000).optional().nullable(),
+  // One-time current location (on-location businesses only)
+  location: z
+    .object({
+      lat: z.number().min(-90).max(90),
+      lng: z.number().min(-180).max(180),
+      accuracy: z.number().min(0).max(100000).optional().nullable(),
+      note: z.string().trim().max(300).optional().nullable(),
+    })
+    .optional()
+    .nullable(),
 });
 
 export const appointmentStatusSchema = z.object({

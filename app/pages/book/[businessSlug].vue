@@ -30,6 +30,7 @@ interface PublicBusinessData {
     timezone: string;
     currency: string;
     bookingActive: boolean;
+    onLocationEnabled?: boolean;
   };
   services: Array<{
     id: string;
@@ -67,12 +68,61 @@ const availableSlots = ref<AvailableSlot[]>([]);
 const isSlotsLoading = ref(false);
 
 const customerForm = reactive({
-  firstName: "",
-  lastName: "",
-  phone: "",
+  fullName: "",
+  phone: "", // national number, digits only (the country code is chosen separately)
   email: "",
   notes: "",
 });
+
+// Country code drop-down (defaults to the business's own country, otherwise Greece)
+const countryIdx = ref(0);
+const dialCode = computed(() => COUNTRIES[countryIdx.value]![2]);
+const onPhoneInput = (e: Event) => {
+  const el = e.target as HTMLInputElement;
+  el.value = el.value.replace(/\D/g, "");
+  customerForm.phone = el.value;
+};
+
+// One-time current location (on-location businesses only; no live tracking)
+const onLocation = computed(() => businessData.value?.business.onLocationEnabled === true);
+const loc = reactive({
+  lat: null as number | null,
+  lng: null as number | null,
+  accuracy: null as number | null,
+  note: "",
+  busy: false,
+  error: "",
+});
+const hasLocation = computed(() => loc.lat !== null && loc.lng !== null);
+const mapsLink = computed(() =>
+  hasLocation.value ? `https://www.google.com/maps?q=${loc.lat},${loc.lng}` : "",
+);
+const captureLocation = () => {
+  loc.error = "";
+  if (typeof navigator === "undefined" || !navigator.geolocation) {
+    loc.error = "Your browser can't share a location. Please try another browser or device.";
+    return;
+  }
+  loc.busy = true;
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      loc.lat = Number(pos.coords.latitude.toFixed(6));
+      loc.lng = Number(pos.coords.longitude.toFixed(6));
+      loc.accuracy = Math.round(pos.coords.accuracy);
+      loc.busy = false;
+    },
+    (err) => {
+      loc.busy = false;
+      loc.error =
+        err.code === err.PERMISSION_DENIED
+          ? "Location permission was denied. Allow location access for this site in your browser settings, then tap the button again."
+          : err.code === err.TIMEOUT
+            ? "Getting your location took too long. Move to an open area and try again."
+            : "We couldn't get your location. Turn on GPS/location services and try again.";
+    },
+    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
+  );
+};
 
 const isBooking = ref(false);
 const bookingError = ref("");
@@ -85,6 +135,7 @@ const loadBusiness = async () => {
   try {
     const data = await $fetch<PublicBusinessData>(`/api/public/${slug.value}`);
     businessData.value = data;
+    countryIdx.value = countryIndexFor(data.business.country);
     if (data.services.length > 0) {
       selectedService.value = data.services[0] ?? null;
     }
@@ -118,7 +169,9 @@ const loadSlots = async () => {
   isSlotsLoading.value = true;
   selectedSlot.value = null;
   try {
-    const dateStr = selectedDate.value.toISOString().slice(0, 10);
+    const sel = selectedDate.value;
+    // Local calendar date (toISOString would shift the day for some time zones)
+    const dateStr = `${sel.getFullYear()}-${String(sel.getMonth() + 1).padStart(2, "0")}-${String(sel.getDate()).padStart(2, "0")}`;
     const slots = await $fetch<AvailableSlot[]>(
       `/api/public/${slug.value}/availability`,
       {
@@ -155,8 +208,17 @@ const selectSlotAndContinue = (slot: AvailableSlot) => {
 };
 
 const submitBooking = async () => {
-  if (!customerForm.firstName.trim() || !customerForm.phone.trim() || !customerForm.email.trim()) {
-    bookingError.value = "Please provide your first name, phone number, and email.";
+  const national = nationalDigits(customerForm.phone);
+  if (!customerForm.fullName.trim()) {
+    bookingError.value = "Please enter your full name.";
+    return;
+  }
+  if (onLocation.value && !hasLocation.value) {
+    bookingError.value = "Please tap \"Use my current location\" so we know where to come.";
+    return;
+  }
+  if (!isValidPhoneParts(dialCode.value, national)) {
+    bookingError.value = "Please enter a valid phone number: digits only, without the country code.";
     return;
   }
   if (!selectedSlot.value || !selectedService.value) {
@@ -173,11 +235,14 @@ const submitBooking = async () => {
       body: {
         serviceId: selectedService.value.id,
         startAt: selectedSlot.value.startAt,
-        firstName: customerForm.firstName.trim(),
-        lastName: customerForm.lastName.trim() || "Customer",
-        email: customerForm.email.trim().toLowerCase(),
-        phone: customerForm.phone.trim(),
+        firstName: customerForm.fullName.trim().split(/\s+/)[0],
+        lastName: customerForm.fullName.trim().split(/\s+/).slice(1).join(" ") || "Customer",
+        email: customerForm.email.trim().toLowerCase() || undefined,
+        phone: `+${dialCode.value}${national}`,
         notes: customerForm.notes.trim() || undefined,
+        location: onLocation.value && hasLocation.value
+          ? { lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy, note: loc.note.trim() || undefined }
+          : undefined,
       },
     });
 
@@ -215,7 +280,7 @@ const formatTimeDisplay = (isoString: string) => {
 const shareViaWhatsApp = () => {
   if (!businessData.value) return;
   const text = encodeURIComponent(
-    `Book an appointment at ${businessData.value.business.name}: ${window.location.href}`,
+    `Book an appointment at ${businessData.value.business.name}: ${getSiteOrigin()}/book/${slug.value}`,
   );
   window.open(`https://wa.me/?text=${text}`, "_blank");
 };
@@ -466,50 +531,83 @@ const shareViaWhatsApp = () => {
           <form @submit.prevent="submitBooking" class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm space-y-4">
             <div>
               <h2 class="font-display text-xl font-bold text-stone-900">3. Your Contact Details</h2>
-              <p class="text-xs text-stone-500">We will send your confirmation and reminders to this email.</p>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">First Name</label>
-                <input
-                  v-model="customerForm.firstName"
-                  type="text"
-                  required
-                  placeholder="Eleni"
-                  class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
-                />
-              </div>
-              <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Last Name</label>
-                <input
-                  v-model="customerForm.lastName"
-                  type="text"
-                  placeholder="Georgiou"
-                  class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
-                />
-              </div>
+              <p class="text-xs text-stone-500">Add your email if you would like a confirmation and reminders by email.</p>
             </div>
 
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Phone Number</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Full Name</label>
               <input
-                v-model="customerForm.phone"
-                type="tel"
+                v-model="customerForm.fullName"
+                type="text"
                 required
-                placeholder="+30 6912345678"
+                autocomplete="name"
+                placeholder="Eleni Georgiou"
                 class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
               />
             </div>
 
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Email Address</label>
+              <label for="phone" class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Phone Number</label>
+              <div class="flex gap-2">
+                <select
+                  v-model.number="countryIdx"
+                  aria-label="Country code"
+                  class="w-32 shrink-0 rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
+                >
+                  <option v-for="(c, i) in COUNTRIES" :key="c[0] + i" :value="i">{{ flagOf(c[0]) }} +{{ c[2] }} {{ c[0] }}</option>
+                </select>
+                <input
+                  id="phone"
+                  :value="customerForm.phone"
+                  @input="onPhoneInput"
+                  type="tel"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  maxlength="14"
+                  autocomplete="tel-national"
+                  required
+                  placeholder="6912345678"
+                  class="min-w-0 flex-1 rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
+                />
+              </div>
+              <p class="mt-1 text-[11px] text-stone-400">Numbers only, no spaces or +.</p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Email Address (Optional)</label>
               <input
                 v-model="customerForm.email"
                 type="email"
-                required
                 placeholder="eleni@example.com"
                 class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
+              />
+            </div>
+
+            <!-- On-location: customer's current location (one time, no tracking) -->
+            <div v-if="onLocation" class="rounded-2xl border border-stone-200 bg-stone-50/60 p-4 space-y-3">
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-stone-600">Your Location</label>
+                <p class="text-[11px] text-stone-500 mt-0.5">We only use your current location once, for this booking. We do not track you.</p>
+              </div>
+              <button
+                type="button"
+                @click="captureLocation"
+                :disabled="loc.busy"
+                class="w-full rounded-xl border border-stone-900 bg-white py-3 text-xs font-bold text-stone-900 hover:bg-stone-100 disabled:opacity-50 transition"
+              >
+                {{ loc.busy ? "Getting your location..." : hasLocation ? "Update my location" : "Use my current location" }}
+              </button>
+              <p v-if="hasLocation" class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 font-medium">
+                Location saved (accuracy about {{ loc.accuracy }} m).
+                <a :href="mapsLink" target="_blank" rel="noopener" class="underline font-bold">Check on map</a>
+              </p>
+              <p v-if="loc.error" class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 font-medium">{{ loc.error }}</p>
+              <input
+                v-model="loc.note"
+                type="text"
+                maxlength="300"
+                placeholder="Landmark or extra directions (optional)"
+                class="w-full rounded-xl border border-stone-200 bg-white p-3 text-xs outline-none focus:border-stone-900"
               />
             </div>
 
@@ -549,7 +647,9 @@ const shareViaWhatsApp = () => {
               See you soon!
             </h1>
             <p class="text-xs text-stone-500 leading-relaxed max-w-sm mx-auto">
-              Your appointment has been registered. We've sent a confirmation email to <strong>{{ customerForm.email }}</strong>.
+              Your appointment has been registered.
+              <template v-if="customerForm.email.trim()">We've sent a confirmation email to <strong>{{ customerForm.email }}</strong>.</template>
+              <template v-else>Please keep the date and time below.</template>
             </p>
           </div>
 
@@ -579,7 +679,7 @@ const shareViaWhatsApp = () => {
               </div>
               <div class="flex items-center justify-between">
                 <span class="text-stone-500">Client</span>
-                <span class="font-bold text-stone-900">{{ customerForm.firstName }} {{ customerForm.lastName }}</span>
+                <span class="font-bold text-stone-900">{{ customerForm.fullName }}</span>
               </div>
               <div v-if="businessData.business.city" class="flex items-center justify-between">
                 <span class="text-stone-500">Location</span>

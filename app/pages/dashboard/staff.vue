@@ -14,7 +14,10 @@ import {
   ShieldCheck,
   UserX,
   AlertCircle,
+  Upload,
 } from "lucide-vue-next";
+
+const showImport = ref(false);
 
 definePageMeta({
   layout: "dashboard",
@@ -83,9 +86,23 @@ const staffForm = reactive({
   serviceIds: [] as string[],
 });
 
+// On-location mode: staff must have a WhatsApp number (with country code)
+const onLocation = ref(false);
+const phoneProblem = () => {
+  if (!onLocation.value) return "";
+  const p = staffForm.phone.replace(/[\s\-().]/g, "");
+  return /^\+[1-9]\d{6,14}$/.test(p)
+    ? ""
+    : "WhatsApp phone number with country code is required (example: +923001234567).";
+};
+
 const loadData = async () => {
   isLoading.value = true;
   try {
+    try {
+      const org = await $fetch<{ onLocationEnabled?: boolean }>("/api/organization");
+      onLocation.value = org.onLocationEnabled === true;
+    } catch {}
     const [staffData, serviceData] = await Promise.all([
       $fetch<StaffMember[]>("/api/staff"),
       $fetch<ServiceItem[]>("/api/services"),
@@ -117,6 +134,10 @@ const openCreate = () => {
 const handleCreate = async () => {
   if (!staffForm.name.trim() || !staffForm.role.trim()) {
     formError.value = "Name and role are required.";
+    return;
+  }
+  if (phoneProblem()) {
+    formError.value = phoneProblem();
     return;
   }
   isSubmitting.value = true;
@@ -156,6 +177,10 @@ const openEdit = (member: StaffMember) => {
 
 const handleEdit = async () => {
   if (!selectedStaff.value) return;
+  if (phoneProblem()) {
+    formError.value = phoneProblem();
+    return;
+  }
   isSubmitting.value = true;
   formError.value = "";
   try {
@@ -248,14 +273,24 @@ const formatDate = (isoString: string) => {
         <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Team & Providers</p>
         <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">Staff Members</h1>
       </div>
-      <button
-        type="button"
-        @click="openCreate"
-        class="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm self-start sm:self-auto"
-      >
-        <Plus :size="16" />
-        <span>Add Staff Member</span>
-      </button>
+      <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+        <button
+          type="button"
+          @click="showImport = true"
+          class="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50 transition shadow-sm"
+        >
+          <Upload :size="16" />
+          <span>Import Excel</span>
+        </button>
+        <button
+          type="button"
+          @click="openCreate"
+          class="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm"
+        >
+          <Plus :size="16" />
+          <span>Add Staff Member</span>
+        </button>
+      </div>
     </div>
 
     <!-- Loading State -->
@@ -419,10 +454,11 @@ const formatDate = (isoString: string) => {
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Phone (Optional)</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ onLocation ? "WhatsApp Phone (required)" : "Phone (Optional)" }}</label>
               <input
                 v-model="staffForm.phone"
                 type="tel"
+                :required="onLocation"
                 placeholder="+30 69..."
                 class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
               />
@@ -685,5 +721,12 @@ const formatDate = (isoString: string) => {
         </div>
       </div>
     </div>
+
+    <ImportSheetModal
+      v-if="showImport"
+      kind="staff"
+      @close="showImport = false"
+      @done="loadData()"
+    />
   </div>
 </template>

@@ -34,6 +34,7 @@ interface OrgSettings {
   timezone: string;
   currency: string;
   bookingActive: boolean;
+  onLocationEnabled?: boolean;
   nameChangeCount?: number;
   nameCooldownUntil?: string | null;
 }
@@ -64,6 +65,7 @@ const form = reactive({
   timezone: "Europe/Athens",
   currency: "EUR",
   bookingActive: true,
+  onLocationEnabled: false,
 });
 
 const loadSettings = async () => {
@@ -83,6 +85,7 @@ const loadSettings = async () => {
     form.timezone = data.timezone ?? "Europe/Athens";
     form.currency = data.currency ?? "EUR";
     form.bookingActive = data.bookingActive;
+    form.onLocationEnabled = data.onLocationEnabled ?? false;
   } catch (err: any) {
     errorMessage.value = err?.data?.statusMessage ?? "Failed to load settings.";
   } finally {
@@ -142,6 +145,7 @@ const saveSettings = async () => {
         timezone: form.timezone.trim(),
         currency: form.currency.trim(),
         bookingActive: form.bookingActive,
+        onLocationEnabled: form.onLocationEnabled,
       },
     });
 
@@ -466,6 +470,20 @@ const confirmPhoneChange = async () => {
             type="checkbox"
             id="bookingToggle"
             v-model="form.bookingActive"
+            class="size-4.5 rounded border-stone-300 text-stone-900 focus:ring-stone-900"
+          />
+        </div>
+
+        <!-- On-location service switch -->
+        <div class="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-2.5 shadow-2xs">
+          <div>
+            <span class="block text-xs font-bold text-stone-800">On-location service</span>
+            <span class="block text-[10px] text-stone-500">Customer shares location; staff are sent to them</span>
+          </div>
+          <input
+            type="checkbox"
+            id="onLocationToggle"
+            v-model="form.onLocationEnabled"
             class="size-4.5 rounded border-stone-300 text-stone-900 focus:ring-stone-900"
           />
         </div>

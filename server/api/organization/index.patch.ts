@@ -28,7 +28,8 @@ export default defineEventHandler(async (event) => {
 
   const updates = mapSettingsToColumns(input);
   const hasBusinessUpdates = Object.keys(updates).length > 0;
-  const hasSettingsUpdates = input.bookingActive !== undefined;
+  const hasSettingsUpdates =
+    input.bookingActive !== undefined || input.onLocationEnabled !== undefined;
 
   if (!hasBusinessUpdates && !hasSettingsUpdates)
     throw createError({ statusCode: 400, statusMessage: "No fields to update." });
@@ -81,7 +82,8 @@ export default defineEventHandler(async (event) => {
       .upsert(
         {
           business_id: businessId,
-          online_booking_enabled: input.bookingActive,
+          ...(input.bookingActive !== undefined ? { online_booking_enabled: input.bookingActive } : {}),
+          ...(input.onLocationEnabled !== undefined ? { on_location_enabled: input.onLocationEnabled } : {}),
           updated_at: new Date().toISOString(),
         },
         { onConflict: "business_id" },

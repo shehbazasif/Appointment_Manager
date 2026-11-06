@@ -14,6 +14,16 @@ const mapRow = (row: any) => ({
     status: row.status,
     source: row.booking_source,
     notes: row.notes,
+    fieldStatus: row.field_status ?? null,
+    location:
+      row.location_lat != null && row.location_lng != null
+        ? {
+            lat: row.location_lat,
+            lng: row.location_lng,
+            accuracy: row.location_accuracy_m ?? null,
+            note: row.location_note ?? null,
+          }
+        : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   },
@@ -40,6 +50,7 @@ const mapRow = (row: any) => ({
         id: row.staff.id,
         name: [row.staff.first_name, row.staff.last_name].filter(Boolean).join(" "),
         role: row.staff.job_title ?? "",
+        phone: row.staff.phone ?? null,
       }
     : null,
 });

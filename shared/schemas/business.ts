@@ -43,6 +43,7 @@ export const organizationSettingsSchema = z.object({
   timezone: z.string().trim().max(100).optional(),
   currency: z.string().trim().max(10).optional(),
   bookingActive: z.boolean().optional(),
+  onLocationEnabled: z.boolean().optional(),
 });
 
 export const dayHoursSchema = z.object({

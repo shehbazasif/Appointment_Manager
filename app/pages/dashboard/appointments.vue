@@ -38,6 +38,8 @@ interface AppointmentDetail {
     status: string;
     source: string;
     notes?: string | null;
+    fieldStatus?: string | null;
+    location?: { lat: number; lng: number; accuracy?: number | null; note?: string | null } | null;
   };
   customer: {
     id: string;
@@ -57,6 +59,7 @@ interface AppointmentDetail {
     id: string;
     name: string;
     role: string;
+    phone?: string | null;
   } | null;
 }
 
@@ -89,6 +92,44 @@ const services = ref<ServiceItem[]>([]);
 const staffList = ref<StaffItem[]>([]);
 const customers = ref<CustomerItem[]>([]);
 const isLoading = ref(true);
+
+// On-location service mode (car towing, dog cleaning ...): 3 statuses + WhatsApp to staff
+const onLocation = ref(false);
+const FIELD_STATUSES = [
+  { value: "ASSIGNED", label: "Assigned" },
+  { value: "ON_THE_WAY", label: "On the way" },
+  { value: "ON_LOCATION", label: "On location" },
+];
+const fieldLabel = (v?: string | null) => FIELD_STATUSES.find((f) => f.value === v)?.label ?? "Not assigned";
+const getFieldBadge = (v?: string | null) =>
+  v === "ASSIGNED"
+    ? "bg-blue-50 text-blue-700 border-blue-200"
+    : v === "ON_THE_WAY"
+      ? "bg-amber-50 text-amber-700 border-amber-200"
+      : v === "ON_LOCATION"
+        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+        : "bg-stone-50 text-stone-600 border-stone-200";
+const mapsUrl = (item: AppointmentDetail) => {
+  const l = item.appointment.location;
+  return l ? `https://www.google.com/maps?q=${l.lat},${l.lng}` : "";
+};
+const whatsappUrl = (item: AppointmentDetail) => {
+  const phone = (item.staff?.phone ?? "").replace(/\D/g, "");
+  if (!phone) return "";
+  const a = item.appointment;
+  const lines = [
+    `Hello ${item.staff?.name ?? ""}, new job for you:`,
+    ``,
+    `Customer: ${item.customer.firstName} ${item.customer.lastName === "Customer" ? "" : item.customer.lastName}`.trim(),
+    `Phone: ${item.customer.phone}`,
+    `Service: ${item.service.name}`,
+    `When: ${formatDate(a.startAt)} ${formatTime(a.startAt)}`,
+    a.location ? `Location: ${mapsUrl(item)}` : "",
+    a.location?.note ? `Landmark: ${a.location.note}` : "",
+    a.notes ? `Notes: ${a.notes}` : "",
+  ];
+  return `https://wa.me/${phone}?text=${encodeURIComponent(lines.join("\n").replace(/\n{3,}/g, "\n\n"))}`;
+};
 const searchQuery = ref("");
 const statusFilter = ref<string>("ALL");
 const staffFilter = ref<string>((route.query.staffId as string) || "ALL");
@@ -118,6 +159,7 @@ const createForm = reactive({
 });
 
 const editForm = reactive({
+  fieldStatus: "",
   serviceId: "",
   staffId: "",
   date: "",
@@ -133,6 +175,10 @@ const formError = ref("");
 const loadData = async () => {
   isLoading.value = true;
   try {
+    try {
+      const org = await $fetch<{ onLocationEnabled?: boolean }>("/api/organization");
+      onLocation.value = org.onLocationEnabled === true;
+    } catch {}
     const [apptData, servData, staffData, custData] = await Promise.all([
       $fetch<AppointmentDetail[]>("/api/appointments"),
       $fetch<ServiceItem[]>("/api/services"),
@@ -177,7 +223,15 @@ const filteredAppointments = computed(() => {
 
   // Status filter
   if (statusFilter.value !== "ALL") {
-    list = list.filter((a) => a.appointment.status === statusFilter.value);
+    if (onLocation.value) {
+      list = list.filter((a) =>
+        statusFilter.value === "NONE"
+          ? !a.appointment.fieldStatus
+          : a.appointment.fieldStatus === statusFilter.value,
+      );
+    } else {
+      list = list.filter((a) => a.appointment.status === statusFilter.value);
+    }
   }
 
   // Staff filter
@@ -213,6 +267,15 @@ const formatTime = (isoString: string) => {
 const formatDate = (isoString: string) => {
   const date = new Date(isoString);
   return date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+};
+
+const updateFieldStatus = async (id: string, fieldStatus: string) => {
+  try {
+    await $fetch(`/api/appointments/${id}`, { method: "PATCH", body: { fieldStatus } });
+    await loadData();
+  } catch (err: any) {
+    alert(err?.data?.statusMessage ?? "Status update failed.");
+  }
 };
 
 const updateStatus = async (id: string, status: string) => {
@@ -295,6 +358,7 @@ const openEditModal = (item: AppointmentDetail) => {
   editForm.date = start.toISOString().slice(0, 10);
   editForm.time = start.toTimeString().slice(0, 5);
   editForm.status = item.appointment.status;
+  editForm.fieldStatus = item.appointment.fieldStatus ?? (item.appointment.staffId ? "ASSIGNED" : "");
   editForm.notes = item.appointment.notes ?? "";
   formError.value = "";
   showEditModal.value = true;
@@ -313,7 +377,9 @@ const handleEditAppointment = async () => {
         serviceId: editForm.serviceId,
         staffId: editForm.staffId || null,
         startAt: startAt.toISOString(),
-        status: editForm.status as any,
+        ...(onLocation.value
+          ? { fieldStatus: editForm.staffId ? ((editForm.fieldStatus || "ASSIGNED") as any) : null }
+          : { status: editForm.status as any }),
         notes: editForm.notes.trim() || null,
       },
     });
@@ -436,6 +502,11 @@ const getStatusBadge = (status: string) => {
             class="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs font-medium text-stone-800 outline-none focus:border-stone-900 focus:bg-white"
           >
             <option value="ALL">All Statuses</option>
+            <template v-if="onLocation">
+              <option value="NONE">Not assigned</option>
+              <option v-for="f in FIELD_STATUSES" :key="f.value" :value="f.value">{{ f.label }}</option>
+            </template>
+            <template v-else>
             <option value="PENDING">Pending</option>
             <option value="CONFIRMED">Confirmed</option>
             <option value="CHECKED_IN">Checked-in</option>
@@ -443,6 +514,7 @@ const getStatusBadge = (status: string) => {
             <option value="CANCELLED">Cancelled</option>
             <option value="NO_SHOW">No-Show</option>
             <option value="RESCHEDULED">Rescheduled</option>
+            </template>
           </select>
         </div>
 
@@ -552,6 +624,16 @@ const getStatusBadge = (status: string) => {
               <!-- Status -->
               <td class="px-3 py-4 whitespace-nowrap">
                 <span
+                  v-if="onLocation"
+                  :class="[
+                    getFieldBadge(item.appointment.fieldStatus),
+                    'rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+                  ]"
+                >
+                  {{ fieldLabel(item.appointment.fieldStatus) }}
+                </span>
+                <span
+                  v-else
                   :class="[
                     getStatusBadge(item.appointment.status),
                     'rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
@@ -589,9 +671,55 @@ const getStatusBadge = (status: string) => {
                     <Edit2 :size="15" />
                   </button>
 
+                  <!-- On-location actions -->
+                  <template v-if="onLocation">
+                    <a
+                      v-if="mapsUrl(item)"
+                      :href="mapsUrl(item)"
+                      target="_blank"
+                      rel="noopener"
+                      class="rounded-lg bg-stone-100 border border-stone-200 px-2 py-1 text-[11px] font-bold text-stone-800 hover:bg-stone-200"
+                    >
+                      Open map
+                    </a>
+                    <a
+                      v-if="item.staff && whatsappUrl(item)"
+                      :href="whatsappUrl(item)"
+                      target="_blank"
+                      rel="noopener"
+                      class="rounded-lg bg-emerald-600 px-2 py-1 text-[11px] font-bold text-white hover:bg-emerald-700"
+                      title="Send job details to staff on WhatsApp"
+                    >
+                      WhatsApp staff
+                    </a>
+                    <span
+                      v-else-if="item.staff"
+                      class="rounded-lg bg-amber-50 border border-amber-200 px-2 py-1 text-[11px] font-bold text-amber-700"
+                      title="Add this staff member's WhatsApp number on the Staff page"
+                    >
+                      No staff phone
+                    </span>
+                    <button
+                      v-if="item.staff && item.appointment.fieldStatus !== 'ON_THE_WAY' && item.appointment.fieldStatus !== 'ON_LOCATION'"
+                      type="button"
+                      @click="updateFieldStatus(item.appointment.id, 'ON_THE_WAY')"
+                      class="rounded-lg bg-amber-50 border border-amber-200 px-2 py-1 text-[11px] font-bold text-amber-700 hover:bg-amber-100"
+                    >
+                      On the way
+                    </button>
+                    <button
+                      v-if="item.staff && item.appointment.fieldStatus !== 'ON_LOCATION'"
+                      type="button"
+                      @click="updateFieldStatus(item.appointment.id, 'ON_LOCATION')"
+                      class="rounded-lg bg-emerald-50 border border-emerald-200 px-2 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100"
+                    >
+                      On location
+                    </button>
+                  </template>
+
                   <!-- Status quick changes -->
                   <button
-                    v-if="item.appointment.status === 'CONFIRMED'"
+                    v-if="!onLocation && item.appointment.status === 'CONFIRMED'"
                     type="button"
                     @click="updateStatus(item.appointment.id, 'CHECKED_IN')"
                     class="rounded-lg bg-blue-50 border border-blue-200 px-2 py-1 text-[11px] font-bold text-blue-700 hover:bg-blue-100"
@@ -600,7 +728,7 @@ const getStatusBadge = (status: string) => {
                   </button>
 
                   <button
-                    v-if="item.appointment.status === 'CHECKED_IN' || item.appointment.status === 'CONFIRMED'"
+                    v-if="!onLocation && (item.appointment.status === 'CHECKED_IN' || item.appointment.status === 'CONFIRMED')"
                     type="button"
                     @click="updateStatus(item.appointment.id, 'COMPLETED')"
                     class="rounded-lg bg-stone-100 border border-stone-200 px-2 py-1 text-[11px] font-bold text-stone-800 hover:bg-stone-200"
@@ -859,8 +987,28 @@ const getStatusBadge = (status: string) => {
             </div>
           </div>
 
-          <!-- Status -->
-          <div>
+          <!-- Status (on-location mode: only Assigned / On the way / On location) -->
+          <div v-if="onLocation">
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Status</label>
+            <select
+              v-model="editForm.fieldStatus"
+              :disabled="!editForm.staffId"
+              class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-sm outline-none focus:border-stone-900 focus:bg-white disabled:opacity-60"
+            >
+              <option v-for="f in FIELD_STATUSES" :key="f.value" :value="f.value">{{ f.label }}</option>
+            </select>
+            <p v-if="!editForm.staffId" class="mt-1 text-[11px] text-amber-700">Assign a staff member first.</p>
+            <a
+              v-if="activeAppointment?.appointment.location"
+              :href="mapsUrl(activeAppointment)"
+              target="_blank"
+              rel="noopener"
+              class="mt-2 inline-block text-xs font-bold text-rose-600 underline"
+            >
+              Open customer location in Google Maps
+            </a>
+          </div>
+          <div v-else>
             <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Status</label>
             <select
               v-model="editForm.status"

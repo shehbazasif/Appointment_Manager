@@ -53,9 +53,13 @@ export default defineEventHandler(async (event) => {
     p_end_at: realEndAt.toISOString(),
     p_first_name: input.firstName,
     p_last_name: input.lastName,
-    p_email: input.email,
+    p_email: input.email ?? null,
     p_phone: input.phone,
     p_notes: input.notes ?? null,
+    p_lat: input.location?.lat ?? null,
+    p_lng: input.location?.lng ?? null,
+    p_accuracy: input.location?.accuracy ?? null,
+    p_location_note: input.location?.note ?? null,
   });
 
   if (error) {
@@ -72,8 +76,10 @@ export default defineEventHandler(async (event) => {
   try {
     const customerName = `${input.firstName} ${input.lastName}`.trim();
 
-    // 1. Confirmation to the CUSTOMER.
-    if (isEmailConfigured()) {
+    const ownerEmail = ((business as any).email ?? "").trim();
+
+    // 1. Confirmation to the CUSTOMER (only when they gave an email).
+    if (input.email && isEmailConfigured()) {
       const mail = buildConfirmationEmail({
         businessName: business.name,
         serviceName: service.name,
@@ -86,6 +92,8 @@ export default defineEventHandler(async (event) => {
         subject: mail.subject,
         html: mail.html,
         text: mail.text,
+        fromName: business.name,
+        replyTo: ownerEmail || null,
       });
       await sb.rpc("log_public_booking_email", {
         p_business_id: business.id,
@@ -101,14 +109,13 @@ export default defineEventHandler(async (event) => {
     // 2. "New booking" alert to the BUSINESS OWNER (contact email on the
     //    business profile). Skipped silently when the owner booked for
     //    themselves online.
-    const ownerEmail = ((business as any).email ?? "").trim();
-    if (isEmailConfigured() && ownerEmail && ownerEmail.toLowerCase() !== input.email.toLowerCase()) {
+    if (isEmailConfigured() && ownerEmail && ownerEmail.toLowerCase() !== (input.email ?? "").toLowerCase()) {
       const alert = buildOwnerAlertEmail({
         businessName: business.name,
         serviceName: service.name,
         startAt: input.startAt,
         customerName,
-        customerEmail: input.email,
+        customerEmail: input.email ?? null,
         customerPhone: input.phone,
         timezone: (business as any).timezone,
       });
@@ -132,7 +139,7 @@ export default defineEventHandler(async (event) => {
     // 3. Automatic reminder: 24h before the appointment, or 5h before when
     //    the booking is for tomorrow / short notice.
     const reminderAt = computeReminderAt(input.startAt);
-    if (reminderAt) {
+    if (reminderAt && input.email) {
       const { error: reminderError } = await sb.rpc("queue_appointment_reminder", {
         p_business_id: business.id,
         p_appointment_id: appointmentId as string,

@@ -17,7 +17,10 @@ import {
   CheckCircle2,
   AlertCircle,
   ShieldCheck,
+  Upload,
 } from "lucide-vue-next";
+
+const showImport = ref(false);
 
 definePageMeta({
   layout: "dashboard",
@@ -243,14 +246,24 @@ const formatDate = (isoString: string) => {
         <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Customer CRM</p>
         <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">Clients Directory</h1>
       </div>
-      <button
-        type="button"
-        @click="openCreate"
-        class="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm self-start sm:self-auto"
-      >
-        <Plus :size="16" />
-        <span>Add Customer</span>
-      </button>
+      <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+        <button
+          type="button"
+          @click="showImport = true"
+          class="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50 transition shadow-sm"
+        >
+          <Upload :size="16" />
+          <span>Import Excel</span>
+        </button>
+        <button
+          type="button"
+          @click="openCreate"
+          class="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm"
+        >
+          <Plus :size="16" />
+          <span>Add Customer</span>
+        </button>
+      </div>
     </div>
 
     <!-- Search Bar -->
@@ -714,6 +727,13 @@ const formatDate = (isoString: string) => {
     <CommunicationModal
       v-model="showCommModal"
       :customer="selectedCustomer"
+    />
+
+    <ImportSheetModal
+      v-if="showImport"
+      kind="customers"
+      @close="showImport = false"
+      @done="loadCustomers()"
     />
   </div>
 </template>

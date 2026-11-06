@@ -43,7 +43,9 @@ export default defineEventHandler(async (event) => {
         statusCode: 503,
         statusMessage: "Email is not configured. Add SMTP_HOST, SMTP_USER and SMTP_PASSWORD in .env.",
       });
+    const { data: biz } = await sb.from("businesses").select("name").eq("id", businessId).maybeSingle();
     emailResult = await sendEmail({
+      fromName: (biz as any)?.name ?? null,
       to: input.recipient,
       subject: input.subject?.trim() || "Message from our studio",
       text: input.message,

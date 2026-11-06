@@ -50,4 +50,5 @@ export interface BusinessProfile {
   timezone: string;
   phone: string;
   bookingActive: boolean;
+  onLocationEnabled?: boolean;
 }

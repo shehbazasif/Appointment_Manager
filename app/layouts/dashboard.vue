@@ -19,6 +19,8 @@ import {
   Building2,
   ChevronRight,
   ShieldAlert,
+  Ellipsis,
+  ScanLine,
 } from "lucide-vue-next";
 
 type MeResponse = {
@@ -48,12 +50,33 @@ const navItems = [
   { name: "Calendar", to: "/dashboard/calendar", icon: CalendarDays },
   { name: "Customers", to: "/dashboard/customers", icon: Users },
   { name: "Staff", to: "/dashboard/staff", icon: UserCheck },
+  { name: "Attendance", to: "/dashboard/attendance", icon: ScanLine },
   { name: "Services", to: "/dashboard/services", icon: Sparkles },
   { name: "Working Hours", to: "/dashboard/hours", icon: Clock },
   { name: "Share Booking Link", to: "/dashboard/managebookinglink", icon: Share2 },
 ];
 
 const settingsLink = "/dashboard/settings";
+
+// Phone-style bottom tabs: shown on small screens (Android app and phone browsers).
+const moreOpen = ref(false);
+const bottomTabs = [
+  { name: "Home", to: "/dashboard", icon: LayoutDashboard },
+  { name: "Bookings", to: "/dashboard/appointments", icon: CalendarCheck },
+  { name: "Calendar", to: "/dashboard/calendar", icon: CalendarDays },
+  { name: "Customers", to: "/dashboard/customers", icon: Users },
+];
+const moreItems = [
+  { name: "Staff", to: "/dashboard/staff", icon: UserCheck },
+  { name: "Attendance", to: "/dashboard/attendance", icon: ScanLine },
+  { name: "Services", to: "/dashboard/services", icon: Sparkles },
+  { name: "Hours", to: "/dashboard/hours", icon: Clock },
+  { name: "Share link", to: "/dashboard/managebookinglink", icon: Share2 },
+  { name: "Settings", to: "/dashboard/settings", icon: Settings },
+];
+const isActive = (to: string) =>
+  route.path === to || (to !== "/dashboard" && route.path.startsWith(to));
+const isMoreActive = computed(() => moreItems.some((i) => isActive(i.to)));
 
 const loadMe = async () => {
   try {
@@ -96,7 +119,7 @@ onMounted(() => {
 const bookingUrl = computed(() => {
   if (!me.value?.organization?.slug) return "";
   if (import.meta.client) {
-    return `${window.location.origin}/book/${me.value.organization.slug}`;
+    return `${getSiteOrigin()}/book/${me.value.organization.slug}`;
   }
   return `/book/${me.value.organization.slug}`;
 });
@@ -134,9 +157,10 @@ provide("refreshBusinessProfile", loadMe);
       class="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-stone-200 bg-white/95 px-4 backdrop-blur-md lg:px-8"
     >
       <div class="flex items-center gap-3">
+        <!-- Old hamburger menu: replaced by the bottom tab bar's "More" sheet -->
         <button
           type="button"
-          class="inline-flex size-9 items-center justify-center rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 lg:hidden"
+          class="hidden size-9 items-center justify-center rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50"
           @click="mobileMenuOpen = !mobileMenuOpen"
         >
           <Menu v-if="!mobileMenuOpen" :size="20" />
@@ -232,7 +256,7 @@ provide("refreshBusinessProfile", loadMe);
           <button
             type="button"
             @click="handleSignOut"
-            class="flex size-9 items-center justify-center rounded-xl border border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-100 hover:text-stone-900 transition"
+            class="hidden lg:flex size-9 items-center justify-center rounded-xl border border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-100 hover:text-stone-900 transition"
             title="Sign out"
           >
             <LogOut :size="16" />
@@ -441,5 +465,88 @@ provide("refreshBusinessProfile", loadMe);
         <slot />
       </main>
     </div>
+
+    <!-- Phone layout: bottom tab bar + "More" sheet (hidden on desktop) -->
+      <div
+        v-if="moreOpen"
+        class="fixed inset-0 z-40 bg-stone-900/40 lg:hidden"
+        @click="moreOpen = false"
+      ></div>
+
+      <div
+        v-if="moreOpen"
+        class="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl border-t border-stone-200 bg-white px-4 pt-3 shadow-2xl lg:hidden"
+        style="padding-bottom: calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 5.5rem)"
+      >
+        <div class="mx-auto mb-3 h-1.5 w-10 rounded-full bg-stone-200"></div>
+        <div class="grid grid-cols-3 gap-2">
+          <NuxtLink
+            v-for="item in moreItems"
+            :key="item.to"
+            :to="item.to"
+            @click="moreOpen = false"
+            :class="[
+              isActive(item.to)
+                ? 'bg-stone-900 text-white'
+                : 'bg-stone-50 text-stone-700',
+              'flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3.5 text-xs font-semibold',
+            ]"
+          >
+            <component :is="item.icon" :size="22" />
+            <span>{{ item.name }}</span>
+          </NuxtLink>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            @click="copyBookingLink"
+            class="flex items-center justify-center gap-2 rounded-xl border border-stone-200 bg-stone-50 py-3 text-xs font-semibold text-stone-700"
+          >
+            <Check v-if="copied" :size="14" class="text-emerald-600" />
+            <Copy v-else :size="14" />
+            <span>{{ copied ? "Copied!" : "Copy booking link" }}</span>
+          </button>
+          <button
+            type="button"
+            @click="handleSignOut"
+            class="flex items-center justify-center gap-2 rounded-xl bg-rose-50 py-3 text-xs font-semibold text-rose-600"
+          >
+            <LogOut :size="14" />
+            <span>Sign out</span>
+          </button>
+        </div>
+      </div>
+
+      <nav
+        class="relative z-50 shrink-0 border-t border-stone-200 bg-white lg:hidden"
+        style="padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))"
+      >
+        <div class="grid grid-cols-5">
+          <NuxtLink
+            v-for="tab in bottomTabs"
+            :key="tab.to"
+            :to="tab.to"
+            @click="moreOpen = false"
+            :class="[
+              isActive(tab.to) && !moreOpen ? 'text-rose-600' : 'text-stone-400',
+              'flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold',
+            ]"
+          >
+            <component :is="tab.icon" :size="22" />
+            <span>{{ tab.name }}</span>
+          </NuxtLink>
+          <button
+            type="button"
+            @click="moreOpen = !moreOpen"
+            :class="[
+              moreOpen || isMoreActive ? 'text-rose-600' : 'text-stone-400',
+              'flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold',
+            ]"
+          >
+            <Ellipsis :size="22" />
+            <span>More</span>
+          </button>
+        </div>
+      </nav>
   </div>
 </template>

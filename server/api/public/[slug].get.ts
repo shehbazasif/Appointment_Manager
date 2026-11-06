@@ -21,9 +21,10 @@ export default defineEventHandler(async (event) => {
       statusMessage: "This booking page is currently unavailable or inactive.",
     });
 
-  const [{ data: activeServices }, { data: hours }] = await Promise.all([
+  const [{ data: activeServices }, { data: hours }, { data: flags }] = await Promise.all([
     sb.rpc("public_services_for_business", { p_business_id: business.id }),
     sb.rpc("public_hours_for_business", { p_business_id: business.id }),
+    sb.rpc("public_business_flags", { p_business_id: business.id }),
   ]);
 
   return {
@@ -39,6 +40,7 @@ export default defineEventHandler(async (event) => {
       currency: business.currency,
       logoUrl: (business as any).logo_url ?? null,
       bookingActive: true,
+      onLocationEnabled: (flags as any)?.onLocationEnabled === true,
     },
     services: (activeServices ?? []).map((s: any) => ({
       id: s.id,

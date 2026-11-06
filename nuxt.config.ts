@@ -30,6 +30,8 @@ export default defineNuxtConfig({
     public: {
       PRIMEUI_LICENSE:
         process.env.PRIMEUI_LICENSE ?? process.env.PRIMEVUE_LICENSE_KEY ?? "",
+      // Public site origin for shareable links (override with NUXT_PUBLIC_SITE_URL).
+      siteUrl: "",
     },
   },
   supabase: {

@@ -64,7 +64,7 @@ const cols = computed(() =>
           <FileSpreadsheet :size="20" class="text-rose-600" />
           <h3 class="font-display text-xl font-bold text-stone-900">Import {{ label }} from Excel</h3>
         </div>
-        <button type="button" @click="emit('close')" class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100"><X :size="18" /></button>
+        <button type="button" @click="emit('close')" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100"><X :size="18" /></button>
       </div>
 
       <div class="space-y-4 overflow-y-auto px-6 py-5">

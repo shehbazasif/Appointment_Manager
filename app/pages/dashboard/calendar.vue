@@ -185,8 +185,8 @@ const updateStatus = async (id: string, status: string) => {
 <template>
   <div class="space-y-6 pb-16">
     <!-- Header Controls -->
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
+    <div class="page-head flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div class="min-w-0">
         <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Visual Schedule</p>
         <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">Calendar</h1>
       </div>
@@ -387,9 +387,9 @@ const updateStatus = async (id: string, status: string) => {
     <!-- Appointment Detail Drawer / Modal -->
     <div
       v-if="activeAppointment"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
+      class="m-sheet fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
     >
-      <div class="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+      <div class="m-sheet-panel w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
           <div>
             <span class="text-[10px] font-bold uppercase tracking-wider text-rose-600">Booking Details</span>
@@ -397,7 +397,7 @@ const updateStatus = async (id: string, status: string) => {
               {{ activeAppointment.customer.firstName }} {{ activeAppointment.customer.lastName }}
             </h3>
           </div>
-          <button type="button" @click="activeAppointment = null" class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
+          <button type="button" @click="activeAppointment = null" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
         </div>
@@ -450,7 +450,7 @@ const updateStatus = async (id: string, status: string) => {
           </button>
         </div>
 
-        <div class="pt-3 border-t border-stone-100 flex justify-end">
+        <div class="m-sheet-actions pt-3 border-t border-stone-100 flex justify-end">
           <NuxtLink
             to="/dashboard/appointments"
             class="text-xs font-bold text-stone-900 hover:underline"

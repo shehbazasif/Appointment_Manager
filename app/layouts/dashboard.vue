@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import {
   LayoutDashboard,
   CalendarCheck,
@@ -18,6 +18,7 @@ import {
   X,
   Building2,
   ChevronRight,
+  ChevronLeft,
   ShieldAlert,
   Ellipsis,
   ScanLine,
@@ -142,6 +143,47 @@ const handleSignOut = async () => {
   await navigateTo("/login");
 };
 
+// Back arrow (phones / home-screen app have no browser back button)
+const router = useRouter();
+const goBack = () => {
+  if (import.meta.client && window.history.length > 1) router.back();
+  else navigateTo("/dashboard");
+};
+
+// Hide the bottom tab bar while the on-screen keyboard is open (iOS Safari
+// otherwise pushes/jumps fixed bars when an input is focused).
+const keyboardOpen = ref(false);
+const isTypingTarget = (el: EventTarget | null) => {
+  const t = el as HTMLElement | null;
+  if (!t || !t.tagName) return false;
+  if (t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable) return true;
+  if (t.tagName !== "INPUT") return false;
+  const type = (t as HTMLInputElement).type;
+  return !["checkbox", "radio", "button", "submit", "file", "range", "color"].includes(type);
+};
+const onFocusIn = (e: FocusEvent) => {
+  if (window.innerWidth < 1024 && isTypingTarget(e.target)) keyboardOpen.value = true;
+};
+const onFocusOut = () => {
+  setTimeout(() => {
+    keyboardOpen.value = isTypingTarget(document.activeElement) && window.innerWidth < 1024;
+  }, 50);
+};
+onMounted(() => {
+  document.addEventListener("focusin", onFocusIn);
+  document.addEventListener("focusout", onFocusOut);
+});
+onBeforeUnmount(() => {
+  document.removeEventListener("focusin", onFocusIn);
+  document.removeEventListener("focusout", onFocusOut);
+});
+watch(
+  () => route.fullPath,
+  () => {
+    moreOpen.value = false;
+  },
+);
+
 // Provide tenant context to child pages
 provide("businessProfile", me);
 // Child pages can trigger a header refresh (e.g. after logo/email changes)
@@ -154,9 +196,20 @@ provide("refreshBusinessProfile", loadMe);
   >
     <!-- Top Bar for Mobile & Desktop -->
     <header
-      class="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-stone-200 bg-white/95 px-4 backdrop-blur-md lg:px-8"
+      class="sticky top-0 z-30 flex shrink-0 items-center justify-between gap-2 border-b border-stone-200 bg-white/95 px-4 backdrop-blur-md lg:px-8"
+      style="padding-top: env(safe-area-inset-top, 0px); min-height: calc(4rem + env(safe-area-inset-top, 0px))"
     >
-      <div class="flex items-center gap-3">
+      <div class="flex min-w-0 items-center gap-2 sm:gap-3">
+        <!-- Phones / home-screen app: visible way back on inner pages -->
+        <button
+          v-if="route.path !== '/dashboard'"
+          type="button"
+          class="flex size-11 shrink-0 items-center justify-center rounded-xl text-stone-700 hover:bg-stone-100 lg:hidden"
+          aria-label="Back"
+          @click="goBack"
+        >
+          <ChevronLeft :size="24" />
+        </button>
         <!-- Old hamburger menu: replaced by the bottom tab bar's "More" sheet -->
         <button
           type="button"
@@ -167,28 +220,28 @@ provide("refreshBusinessProfile", loadMe);
           <X v-else :size="20" />
         </button>
 
-        <NuxtLink to="/dashboard" class="flex items-center gap-2.5">
+        <NuxtLink to="/dashboard" class="flex min-w-0 items-center gap-2.5">
           <!-- Business logo when set, platform mark otherwise -->
           <img
             v-if="me?.organization?.logoUrl"
             :src="me.organization.logoUrl"
             :alt="me.organization.name"
-            class="size-9 rounded-xl object-cover border border-stone-200 shadow-sm"
+            class="size-9 shrink-0 rounded-xl object-cover border border-stone-200 shadow-sm"
           />
           <div
             v-else
-            class="flex size-9 items-center justify-center rounded-xl bg-gradient-to-tr from-[#24262d] to-[#40434f] text-white shadow-sm"
+            class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-[#24262d] to-[#40434f] text-white shadow-sm"
           >
             <CalendarCheck :size="20" />
           </div>
-          <div>
+          <div class="min-w-0">
             <span
-              class="font-display text-lg font-bold tracking-tight text-stone-900 block leading-none"
+              class="font-display text-lg font-bold tracking-tight text-stone-900 block leading-none truncate"
             >
               {{ me?.organization?.name ?? "RantevouOS" }}
             </span>
             <span
-              class="text-[10px] font-semibold text-rose-600 uppercase tracking-wider block mt-0.5"
+              class="text-[10px] font-semibold text-rose-600 uppercase tracking-wider block mt-0.5 truncate"
             >
               {{
                 me?.organization?.slug
@@ -460,7 +513,7 @@ provide("refreshBusinessProfile", loadMe);
 
       <!-- Main Content Area (the only scrolling region) -->
       <main
-        class="flex-1 min-w-0 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full"
+        class="dash-main flex-1 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain px-4 pt-5 pb-10 sm:px-6 sm:py-6 lg:px-8 max-w-7xl mx-auto w-full"
       >
         <slot />
       </main>
@@ -518,6 +571,7 @@ provide("refreshBusinessProfile", loadMe);
       </div>
 
       <nav
+        v-show="!keyboardOpen"
         class="relative z-50 shrink-0 border-t border-stone-200 bg-white lg:hidden"
         style="padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))"
       >
@@ -527,23 +581,47 @@ provide("refreshBusinessProfile", loadMe);
             :key="tab.to"
             :to="tab.to"
             @click="moreOpen = false"
+            :aria-current="isActive(tab.to) && !moreOpen ? 'page' : undefined"
             :class="[
               isActive(tab.to) && !moreOpen ? 'text-rose-600' : 'text-stone-400',
-              'flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold',
+              'tab-item relative flex min-h-14 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold',
             ]"
           >
-            <component :is="tab.icon" :size="22" />
+            <span
+              v-if="isActive(tab.to) && !moreOpen"
+              class="absolute inset-x-4 top-0 h-0.5 rounded-full bg-rose-600"
+            ></span>
+            <span
+              :class="[
+                isActive(tab.to) && !moreOpen ? 'bg-rose-50' : '',
+                'flex h-7 w-12 items-center justify-center rounded-full transition',
+              ]"
+            >
+              <component :is="tab.icon" :size="22" />
+            </span>
             <span>{{ tab.name }}</span>
           </NuxtLink>
           <button
             type="button"
             @click="moreOpen = !moreOpen"
+            :aria-expanded="moreOpen"
             :class="[
               moreOpen || isMoreActive ? 'text-rose-600' : 'text-stone-400',
-              'flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold',
+              'tab-item relative flex min-h-14 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold',
             ]"
           >
-            <Ellipsis :size="22" />
+            <span
+              v-if="moreOpen || isMoreActive"
+              class="absolute inset-x-4 top-0 h-0.5 rounded-full bg-rose-600"
+            ></span>
+            <span
+              :class="[
+                moreOpen || isMoreActive ? 'bg-rose-50' : '',
+                'flex h-7 w-12 items-center justify-center rounded-full transition',
+              ]"
+            >
+              <Ellipsis :size="22" />
+            </span>
             <span>More</span>
           </button>
         </div>

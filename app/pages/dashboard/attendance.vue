@@ -201,18 +201,18 @@ const hasStaff = computed(() => staffList.value.length > 0);
 
 <template>
   <div class="space-y-6 pb-16">
-    <div>
+    <div class="page-head">
       <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Team &amp; Providers</p>
       <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">Attendance &amp; Duty</h1>
     </div>
 
-    <div class="flex gap-1 overflow-x-auto rounded-2xl border border-stone-200 bg-white p-1.5 shadow-sm">
+    <div class="grid grid-cols-4 gap-1 rounded-2xl border border-stone-200 bg-white p-1.5 shadow-sm sm:flex sm:overflow-x-auto">
       <button
         v-for="t in tabs"
         :key="t.id"
         type="button"
         @click="tab = t.id"
-        :class="[tab === t.id ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-100', 'flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition']"
+        :class="[tab === t.id ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-100', 'flex min-h-14 shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold transition sm:min-h-0 sm:flex-row sm:gap-2 sm:px-4 sm:py-2.5 sm:text-xs']"
       >
         <component :is="t.icon" :size="16" /><span>{{ t.name }}</span>
       </button>

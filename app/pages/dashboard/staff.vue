@@ -15,6 +15,7 @@ import {
   UserX,
   AlertCircle,
   Upload,
+  MessageCircle,
 } from "lucide-vue-next";
 
 const showImport = ref(false);
@@ -96,6 +97,33 @@ const phoneProblem = () => {
     : "WhatsApp phone number with country code is required (example: +923001234567).";
 };
 
+// Today's duty hours (from the weekly staff schedule, 0 = Sunday)
+interface ScheduleRow {
+  staffId: string;
+  dayOfWeek: number;
+  isOff: boolean;
+  startTime: string;
+  endTime: string;
+}
+const schedules = ref<ScheduleRow[]>([]);
+const todayDuty = (staffId: string) => {
+  const today = new Date().getDay();
+  const row = schedules.value.find(
+    (r) => r.staffId === staffId && r.dayOfWeek === today,
+  );
+  if (!row) return "";
+  return row.isOff ? "Off today" : `Today ${row.startTime}–${row.endTime}`;
+};
+
+// Call / WhatsApp straight from the staff card
+const telHref = (phone?: string | null) =>
+  phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : "";
+const waHref = (phone?: string | null) => {
+  const digits = (phone ?? "").replace(/\D/g, "");
+  return digits ? `https://wa.me/${digits}` : "";
+};
+const waTarget = useExternalLinkTarget();
+
 const loadData = async () => {
   isLoading.value = true;
   try {
@@ -103,12 +131,14 @@ const loadData = async () => {
       const org = await $fetch<{ onLocationEnabled?: boolean }>("/api/organization");
       onLocation.value = org.onLocationEnabled === true;
     } catch {}
-    const [staffData, serviceData] = await Promise.all([
+    const [staffData, serviceData, scheduleData] = await Promise.all([
       $fetch<StaffMember[]>("/api/staff"),
       $fetch<ServiceItem[]>("/api/services"),
+      $fetch<ScheduleRow[]>("/api/staff-schedules").catch(() => [] as ScheduleRow[]),
     ]);
     staffList.value = staffData;
     services.value = serviceData;
+    schedules.value = scheduleData;
   } catch (err: any) {
     console.error("Failed to load staff data", err);
   } finally {
@@ -268,12 +298,12 @@ const formatDate = (isoString: string) => {
 <template>
   <div class="space-y-6 pb-16">
     <!-- Header -->
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
+    <div class="page-head flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="min-w-0">
         <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Team & Providers</p>
         <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">Staff Members</h1>
       </div>
-      <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+      <div class="page-head-actions flex flex-wrap items-center gap-2 self-start sm:self-auto">
         <button
           type="button"
           @click="showImport = true"
@@ -368,10 +398,34 @@ const formatDate = (isoString: string) => {
               <Phone :size="13" class="text-stone-400" />
               <span>{{ member.phone }}</span>
             </div>
-            <div v-if="member.email" class="flex items-center gap-2 text-stone-700">
-              <Mail :size="13" class="text-stone-400" />
-              <span>{{ member.email }}</span>
+            <div v-if="member.email" class="flex min-w-0 items-center gap-2 text-stone-700">
+              <Mail :size="13" class="shrink-0 text-stone-400" />
+              <span class="truncate">{{ member.email }}</span>
             </div>
+            <div v-if="todayDuty(member.id)" class="flex items-center gap-2 text-stone-700">
+              <Clock :size="13" class="text-stone-400" />
+              <span class="font-semibold">{{ todayDuty(member.id) }}</span>
+            </div>
+          </div>
+
+          <!-- Call / WhatsApp -->
+          <div v-if="member.phone" class="grid grid-cols-2 gap-2">
+            <a
+              :href="telHref(member.phone)"
+              class="tap inline-flex items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white py-2 text-xs font-bold text-stone-800 hover:bg-stone-50"
+            >
+              <Phone :size="14" />
+              <span>Call</span>
+            </a>
+            <a
+              :href="waHref(member.phone)"
+              :target="waTarget"
+              rel="noopener"
+              class="tap inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+            >
+              <MessageCircle :size="14" />
+              <span>WhatsApp</span>
+            </a>
           </div>
 
           <!-- Assigned Services Count -->
@@ -386,7 +440,7 @@ const formatDate = (isoString: string) => {
           <button
             type="button"
             @click="openServicesAssign(member)"
-            class="flex items-center justify-center gap-1 rounded-xl border border-stone-200 bg-white py-2 text-[11px] font-bold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
+            class="tap flex items-center justify-center gap-1 rounded-xl border border-stone-200 bg-white py-2 text-[11px] font-bold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
             title="Assign Services"
           >
             <Sparkles :size="12" />
@@ -396,7 +450,7 @@ const formatDate = (isoString: string) => {
           <button
             type="button"
             @click="openSchedule(member)"
-            class="flex items-center justify-center gap-1 rounded-xl border border-stone-200 bg-white py-2 text-[11px] font-bold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
+            class="tap flex items-center justify-center gap-1 rounded-xl border border-stone-200 bg-white py-2 text-[11px] font-bold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
             title="View Schedule"
           >
             <Calendar :size="12" />
@@ -406,7 +460,7 @@ const formatDate = (isoString: string) => {
           <button
             type="button"
             @click="openEdit(member)"
-            class="flex items-center justify-center gap-1 rounded-xl border border-stone-200 bg-white py-2 text-[11px] font-bold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
+            class="tap flex items-center justify-center gap-1 rounded-xl border border-stone-200 bg-white py-2 text-[11px] font-bold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
             title="Edit Staff"
           >
             <Edit2 :size="12" />
@@ -419,12 +473,12 @@ const formatDate = (isoString: string) => {
     <!-- Create Staff Modal -->
     <div
       v-if="showCreateModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
+      class="m-sheet fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
     >
-      <div class="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
+      <div class="m-sheet-panel w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
           <h3 class="font-display text-xl font-bold text-stone-900">Add Staff Member</h3>
-          <button type="button" @click="showCreateModal = false" class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
+          <button type="button" @click="showCreateModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
         </div>
@@ -498,7 +552,7 @@ const formatDate = (isoString: string) => {
             {{ formError }}
           </p>
 
-          <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
+          <div class="m-sheet-actions flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
             <button
               type="button"
               @click="showCreateModal = false"
@@ -521,12 +575,12 @@ const formatDate = (isoString: string) => {
     <!-- Edit Staff Modal -->
     <div
       v-if="showEditModal && selectedStaff"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
+      class="m-sheet fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
     >
-      <div class="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
+      <div class="m-sheet-panel w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
           <h3 class="font-display text-xl font-bold text-stone-900">Edit Staff Member</h3>
-          <button type="button" @click="showEditModal = false" class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
+          <button type="button" @click="showEditModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
         </div>
@@ -587,7 +641,7 @@ const formatDate = (isoString: string) => {
             {{ formError }}
           </p>
 
-          <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
+          <div class="m-sheet-actions flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
             <button
               type="button"
               @click="showEditModal = false"
@@ -610,15 +664,15 @@ const formatDate = (isoString: string) => {
     <!-- Assign Services Modal -->
     <div
       v-if="showServicesModal && selectedStaff"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
+      class="m-sheet fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
     >
-      <div class="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
+      <div class="m-sheet-panel w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
           <div>
             <h3 class="font-display text-xl font-bold text-stone-900">Assign Services</h3>
             <p class="text-xs text-stone-500">Select services that {{ selectedStaff.name }} can perform.</p>
           </div>
-          <button type="button" @click="showServicesModal = false" class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
+          <button type="button" @click="showServicesModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
         </div>
@@ -642,7 +696,7 @@ const formatDate = (isoString: string) => {
           </label>
         </div>
 
-        <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
+        <div class="m-sheet-actions flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
           <button
             type="button"
             @click="showServicesModal = false"
@@ -665,15 +719,15 @@ const formatDate = (isoString: string) => {
     <!-- Staff Schedule Viewer Modal -->
     <div
       v-if="showScheduleModal && selectedStaff"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
+      class="m-sheet fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
     >
-      <div class="w-full max-w-lg rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
+      <div class="m-sheet-panel w-full max-w-lg rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
           <div>
             <span class="text-[10px] font-bold uppercase tracking-wider text-rose-600">Individual Schedule</span>
             <h3 class="font-display text-xl font-bold text-stone-900">{{ selectedStaff.name }}</h3>
           </div>
-          <button type="button" @click="showScheduleModal = false" class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
+          <button type="button" @click="showScheduleModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
         </div>
@@ -710,7 +764,7 @@ const formatDate = (isoString: string) => {
           </div>
         </div>
 
-        <div class="flex justify-end pt-3 border-t border-stone-100">
+        <div class="m-sheet-actions flex justify-end pt-3 border-t border-stone-100">
           <button
             type="button"
             @click="showScheduleModal = false"

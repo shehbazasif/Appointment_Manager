@@ -241,12 +241,12 @@ const formatDate = (isoString: string) => {
 <template>
   <div class="space-y-6 pb-16">
     <!-- Header -->
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
+    <div class="page-head flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="min-w-0">
         <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Customer CRM</p>
         <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">Clients Directory</h1>
       </div>
-      <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+      <div class="page-head-actions flex flex-wrap items-center gap-2 self-start sm:self-auto">
         <button
           type="button"
           @click="showImport = true"
@@ -267,12 +267,13 @@ const formatDate = (isoString: string) => {
     </div>
 
     <!-- Search Bar -->
-    <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+    <div class="rounded-2xl border border-stone-200 bg-white p-3 shadow-sm sm:p-4">
       <div class="relative max-w-md">
-        <Search :size="15" class="absolute left-3.5 top-3 text-stone-400" />
+        <Search :size="15" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 md:top-3 md:translate-y-0" />
         <input
           v-model="searchQuery"
-          type="text"
+          type="search"
+          enterkeyhint="search"
           placeholder="Search by name, phone number, email..."
           class="w-full rounded-xl border border-stone-200 bg-stone-50/60 pl-9 pr-3 py-2 text-xs outline-none focus:border-stone-900 focus:bg-white"
         />
@@ -304,8 +305,63 @@ const formatDate = (isoString: string) => {
       </button>
     </div>
 
-    <!-- Customers Table -->
-    <div v-else class="rounded-3xl border border-stone-200 bg-white shadow-sm overflow-hidden">
+    <template v-else>
+    <!-- Phones: customer cards (tap to open the profile) -->
+    <div class="space-y-3 md:hidden">
+      <p class="px-1 text-xs font-semibold text-stone-500">
+        {{ filteredCustomers.length }} client{{ filteredCustomers.length === 1 ? "" : "s" }}
+      </p>
+      <article
+        v-for="c in filteredCustomers"
+        :key="c.id"
+        role="button"
+        tabindex="0"
+        @click="openDetail(c)"
+        @keydown.enter.self="openDetail(c)"
+        class="cursor-pointer rounded-2xl border border-stone-200 bg-white p-4 shadow-sm transition active:bg-stone-50"
+      >
+        <div class="flex items-center gap-3">
+          <div class="grid size-11 shrink-0 place-items-center rounded-full bg-stone-900 text-sm font-bold text-white">
+            {{ c.firstName.charAt(0) }}{{ c.lastName.charAt(0) }}
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="truncate text-base font-bold text-stone-900">{{ c.firstName }} {{ c.lastName }}</div>
+            <div v-if="c.email" class="truncate text-xs text-stone-500">{{ c.email }}</div>
+          </div>
+        </div>
+        <p v-if="c.notes" class="mt-2 line-clamp-2 text-xs text-stone-500">{{ c.notes }}</p>
+        <div class="mt-3 flex gap-2 border-t border-stone-100 pt-3" @click.stop>
+          <a
+            v-if="c.phone"
+            :href="`tel:${c.phone}`"
+            class="tap inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 text-sm font-bold text-stone-800"
+          >
+            <Phone :size="15" class="shrink-0" />
+            <span class="truncate">{{ c.phone }}</span>
+          </a>
+          <button
+            type="button"
+            @click="openMessage(c)"
+            class="tap inline-flex items-center justify-center rounded-xl border border-stone-200 bg-white px-3 text-stone-700"
+            aria-label="Send message"
+            title="Send Email / SMS / WhatsApp"
+          >
+            <MessageSquare :size="17" />
+          </button>
+          <button
+            type="button"
+            @click="openEdit(c)"
+            class="tap inline-flex items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 text-sm font-bold text-stone-800"
+          >
+            <Edit2 :size="15" />
+            <span>Edit</span>
+          </button>
+        </div>
+      </article>
+    </div>
+
+    <!-- Tablet / desktop: table -->
+    <div class="hidden rounded-3xl border border-stone-200 bg-white shadow-sm overflow-hidden md:block">
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs text-stone-600">
           <thead class="bg-stone-50/80 border-b border-stone-200 text-[10px] font-bold uppercase tracking-wider text-stone-500">
@@ -382,15 +438,16 @@ const formatDate = (isoString: string) => {
         </table>
       </div>
     </div>
+    </template>
 
     <!-- Customer Detail Slideover / Modal -->
     <div
       v-if="showDetailDrawer && selectedCustomer"
-      class="fixed inset-0 z-50 flex justify-end bg-stone-900/40 backdrop-blur-xs"
+      class="m-drawer fixed inset-0 z-50 flex justify-end bg-stone-900/40 backdrop-blur-xs"
       @click="showDetailDrawer = false"
     >
       <div
-        class="w-full max-w-lg bg-white h-full shadow-2xl p-6 overflow-y-auto flex flex-col justify-between"
+        class="m-drawer-panel w-full max-w-lg bg-white h-full shadow-2xl p-6 overflow-y-auto overscroll-contain flex flex-col justify-between"
         @click.stop
       >
         <div class="space-y-6">
@@ -407,7 +464,7 @@ const formatDate = (isoString: string) => {
                 <p class="text-xs text-stone-500">Client profile & booking history</p>
               </div>
             </div>
-            <button type="button" @click="showDetailDrawer = false" class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
+            <button type="button" @click="showDetailDrawer = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
               <X :size="20" />
             </button>
           </div>
@@ -514,12 +571,12 @@ const formatDate = (isoString: string) => {
     <!-- Create Customer Modal -->
     <div
       v-if="showCreateModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
+      class="m-sheet fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
     >
-      <div class="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
+      <div class="m-sheet-panel w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
           <h3 class="font-display text-xl font-bold text-stone-900">Add New Client</h3>
-          <button type="button" @click="showCreateModal = false" class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
+          <button type="button" @click="showCreateModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
         </div>
@@ -582,7 +639,7 @@ const formatDate = (isoString: string) => {
             {{ formError }}
           </p>
 
-          <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
+          <div class="m-sheet-actions flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
             <button
               type="button"
               @click="showCreateModal = false"
@@ -605,12 +662,12 @@ const formatDate = (isoString: string) => {
     <!-- Edit Customer Modal -->
     <div
       v-if="showEditModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
+      class="m-sheet fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
     >
-      <div class="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
+      <div class="m-sheet-panel w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
           <h3 class="font-display text-xl font-bold text-stone-900">Edit Client Profile</h3>
-          <button type="button" @click="showEditModal = false" class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
+          <button type="button" @click="showEditModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
         </div>
@@ -669,7 +726,7 @@ const formatDate = (isoString: string) => {
             {{ formError }}
           </p>
 
-          <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
+          <div class="m-sheet-actions flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
             <button
               type="button"
               @click="showEditModal = false"
@@ -692,9 +749,9 @@ const formatDate = (isoString: string) => {
     <!-- Anonymize Confirmation Modal -->
     <div
       v-if="showAnonymizeConfirm && selectedCustomer"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
+      class="m-sheet fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
     >
-      <div class="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-4">
+      <div class="m-sheet-panel w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-4">
         <div class="flex items-center gap-3 text-rose-600">
           <AlertCircle :size="24" />
           <h3 class="font-display text-lg font-bold text-stone-900">Anonymize Customer Data?</h3>
@@ -703,7 +760,7 @@ const formatDate = (isoString: string) => {
           This will wipe personal information (Name, Email, Phone) for <strong>{{ selectedCustomer.firstName }} {{ selectedCustomer.lastName }}</strong> to comply with privacy requests. Past appointments will remain preserved in historical statistics.
         </p>
 
-        <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
+        <div class="m-sheet-actions flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
           <button
             type="button"
             @click="showAnonymizeConfirm = false"

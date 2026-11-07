@@ -97,10 +97,24 @@ const hasLocation = computed(() => loc.lat !== null && loc.lng !== null);
 const mapsLink = computed(() =>
   hasLocation.value ? `https://www.google.com/maps?q=${loc.lat},${loc.lng}` : "",
 );
+const isAppleDevice = () =>
+  typeof navigator !== "undefined" &&
+  (/iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && (navigator as any).maxTouchPoints > 1));
+const deniedHelp = () =>
+  isAppleDevice()
+    ? "Location permission was denied.\nOn iPhone: open Settings > Privacy & Security > Location Services > Safari Websites and choose \"While Using the App\" (and make sure Location Services is On). Then come back here and tap the button again."
+    : "Location permission was denied. Allow location access for this site in your browser settings (tap the lock icon next to the address), then tap the button again.";
 const captureLocation = () => {
   loc.error = "";
   if (typeof navigator === "undefined" || !navigator.geolocation) {
     loc.error = "Your browser can't share a location. Please try another browser or device.";
+    return;
+  }
+  // Browsers (Safari included) only allow location on secure https:// pages
+  if (typeof window !== "undefined" && !window.isSecureContext) {
+    loc.error =
+      "Location only works on a secure page. Please open the booking link that starts with https:// and try again.";
     return;
   }
   loc.busy = true;
@@ -115,7 +129,7 @@ const captureLocation = () => {
       loc.busy = false;
       loc.error =
         err.code === err.PERMISSION_DENIED
-          ? "Location permission was denied. Allow location access for this site in your browser settings, then tap the button again."
+          ? deniedHelp()
           : err.code === err.TIMEOUT
             ? "Getting your location took too long. Move to an open area and try again."
             : "We couldn't get your location. Turn on GPS/location services and try again.";
@@ -282,14 +296,14 @@ const shareViaWhatsApp = () => {
   const text = encodeURIComponent(
     `Book an appointment at ${businessData.value.business.name}: ${getSiteOrigin()}/book/${slug.value}`,
   );
-  window.open(`https://wa.me/?text=${text}`, "_blank");
+  openExternalLink(`https://wa.me/?text=${text}`);
 };
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#faf9f6] text-[#24262d] flex flex-col justify-between antialiased">
+  <div class="min-h-screen min-h-dvh overflow-x-hidden bg-[#faf9f6] text-[#24262d] flex flex-col justify-between antialiased">
     <!-- Clean Public Header -->
-    <header class="border-b border-stone-200 bg-white/90 backdrop-blur-md sticky top-0 z-30 px-5 py-3.5">
+    <header class="border-b border-stone-200 bg-white/90 backdrop-blur-md sticky top-0 z-30 px-5 py-3.5" style="padding-top: calc(0.875rem + env(safe-area-inset-top, 0px))">
       <div class="max-w-4xl mx-auto flex items-center justify-between">
         <NuxtLink to="/" class="flex items-center gap-2">
           <div class="flex size-8 items-center justify-center rounded-xl bg-stone-900 text-white font-bold">
@@ -552,7 +566,7 @@ const shareViaWhatsApp = () => {
                 <select
                   v-model.number="countryIdx"
                   aria-label="Country code"
-                  class="w-32 shrink-0 rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
+                  class="w-36 shrink-0 rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none md:w-32 focus:border-stone-900 focus:bg-white"
                 >
                   <option v-for="(c, i) in COUNTRIES" :key="c[0] + i" :value="i">{{ flagOf(c[0]) }} +{{ c[2] }} {{ c[0] }}</option>
                 </select>
@@ -578,6 +592,9 @@ const shareViaWhatsApp = () => {
               <input
                 v-model="customerForm.email"
                 type="email"
+                inputmode="email"
+                autocomplete="email"
+                autocapitalize="off"
                 placeholder="eleni@example.com"
                 class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
               />
@@ -593,7 +610,7 @@ const shareViaWhatsApp = () => {
                 type="button"
                 @click="captureLocation"
                 :disabled="loc.busy"
-                class="w-full rounded-xl border border-stone-900 bg-white py-3 text-xs font-bold text-stone-900 hover:bg-stone-100 disabled:opacity-50 transition"
+                class="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-stone-900 bg-white py-3 text-sm font-bold text-stone-900 hover:bg-stone-100 disabled:opacity-50 transition"
               >
                 {{ loc.busy ? "Getting your location..." : hasLocation ? "Update my location" : "Use my current location" }}
               </button>
@@ -601,7 +618,7 @@ const shareViaWhatsApp = () => {
                 Location saved (accuracy about {{ loc.accuracy }} m).
                 <a :href="mapsLink" target="_blank" rel="noopener" class="underline font-bold">Check on map</a>
               </p>
-              <p v-if="loc.error" class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 font-medium">{{ loc.error }}</p>
+              <p v-if="loc.error" class="whitespace-pre-line rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-relaxed text-rose-700 font-medium" role="alert">{{ loc.error }}</p>
               <input
                 v-model="loc.note"
                 type="text"
@@ -709,7 +726,7 @@ const shareViaWhatsApp = () => {
     </main>
 
     <!-- Footer -->
-    <footer class="border-t border-stone-200/80 bg-white py-6 text-center text-xs text-stone-400">
+    <footer class="border-t border-stone-200/80 bg-white py-6 text-center text-xs text-stone-400" style="padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px))">
       <div class="max-w-4xl mx-auto px-4">
         <span>Powered by <strong>RantevouOS</strong> · Instant Appointment Management</span>
       </div>

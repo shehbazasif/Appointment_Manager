@@ -84,7 +84,7 @@ const primaryLabel = computed(() => {
  */
 const sendExternal = async () => {
   // Open synchronously inside the click (popup blockers reject delayed opens).
-  window.open(externalLink.value, "_blank", "noopener,noreferrer");
+  openExternalLink(externalLink.value);
 
   // Log the conversation for history. History-only: never block on errors.
   try {
@@ -98,7 +98,9 @@ const sendExternal = async () => {
           recipient: form.recipient.trim(),
           message: form.message.trim(),
         },
-      });
+        // keep the request alive if the page hands off to the WhatsApp/SMS app
+        keepalive: true,
+      } as any);
     }
   } catch (err: any) {
     console.warn("[communication] history log failed:", err?.data?.statusMessage ?? err?.message);
@@ -168,10 +170,10 @@ const send = async () => {
 <template>
   <div
     v-if="modelValue"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
+    class="m-sheet fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
   >
     <div
-      class="w-full max-w-lg rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150"
+      class="m-sheet-panel w-full max-w-lg rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150"
     >
       <!-- Modal Header -->
       <div class="flex items-center justify-between border-b border-stone-100 pb-4">
@@ -302,7 +304,7 @@ const send = async () => {
         </p>
 
         <!-- Actions -->
-        <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
+        <div class="m-sheet-actions flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
           <button
             type="button"
             @click="emit('update:modelValue', false)"

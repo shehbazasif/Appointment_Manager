@@ -28,3 +28,155 @@
     @apply rounded-md px-2 py-1 text-[10px] font-bold tracking-wide;
   }
 }
+
+/* ------------------------------------------------------------------
+   Phone & iPhone (Safari) polish. Everything below only applies to
+   small screens (< 768px) unless noted, so the desktop view is unchanged.
+   ------------------------------------------------------------------ */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* Remove the grey flash iOS draws over tapped links/buttons */
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 767px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  /* iOS Safari zooms into any field with font-size < 16px: prevent it */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select {
+    min-height: 44px;
+  }
+
+  /* Native date/time pickers: keep them the same size/shape as other inputs */
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    min-width: 0;
+    text-align: left;
+    line-height: 1.25;
+  }
+  input[type="date"]::-webkit-date-and-time-value,
+  input[type="time"]::-webkit-date-and-time-value {
+    text-align: left;
+    margin: 0;
+  }
+
+  /* Selects: iOS draws a glossy pill; use a flat field with our own chevron */
+  select:not([multiple]) {
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2378716c' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 16px 16px;
+    padding-right: 2.25rem !important;
+  }
+
+  /* Bigger default checkboxes/radios */
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  /* Touch-friendly buttons inside page bodies */
+  .tap {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* ---------- Modals become bottom sheets ---------- */
+  .m-sheet {
+    align-items: flex-end !important;
+    justify-content: stretch !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+  .m-sheet > .m-sheet-panel {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    border-radius: 1.5rem 1.5rem 0 0 !important;
+    border-bottom: 0 !important;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 0.75rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0 !important;
+  }
+  .m-sheet > .m-sheet-panel::before {
+    content: "";
+    display: block;
+    width: 2.5rem;
+    height: 0.3rem;
+    border-radius: 9999px;
+    background: #e7e5e4;
+    margin: -0.5rem auto 0.75rem;
+  }
+  /* Action row always reachable: sticks to the bottom of the sheet */
+  .m-sheet-panel .m-sheet-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    background: #fff;
+    margin-top: 1rem;
+    padding-top: 0.75rem !important;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+  .m-sheet-panel .m-sheet-actions > button,
+  .m-sheet-panel .m-sheet-actions > a {
+    flex: 1 1 0%;
+    min-height: 48px;
+    justify-content: center;
+    font-size: 0.875rem;
+  }
+  /* Close (X) buttons in sheet headers */
+  .m-sheet-panel .m-sheet-close {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* Side drawers (customer detail) take the full screen on phones */
+  .m-drawer > .m-drawer-panel {
+    max-width: none !important;
+    padding-top: calc(1.5rem + env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* ---------- Page headers ---------- */
+  .page-head h1 {
+    font-size: 1.625rem;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .page-head-actions {
+    display: grid !important;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    width: 100%;
+    gap: 0.5rem;
+    align-self: stretch !important;
+  }
+  .page-head-actions > * {
+    justify-content: center;
+    min-height: 44px;
+    white-space: nowrap;
+  }
+}

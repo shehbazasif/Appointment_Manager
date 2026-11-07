@@ -127,8 +127,8 @@ const applyPreset = (type: "STANDARD" | "EXTENDED" | "WEEKEND_OFF") => {
 <template>
   <div class="space-y-6 pb-16 max-w-4xl">
     <!-- Header -->
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
+    <div class="page-head flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="min-w-0">
         <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Availability & Operations</p>
         <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">Working Hours</h1>
       </div>
@@ -136,7 +136,7 @@ const applyPreset = (type: "STANDARD" | "EXTENDED" | "WEEKEND_OFF") => {
         type="button"
         :disabled="isSaving"
         @click="saveHours"
-        class="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50 transition shadow-sm self-start sm:self-auto"
+        class="max-md:w-full max-md:justify-center max-md:min-h-11 inline-flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50 transition shadow-sm self-start sm:self-auto"
       >
         <Save :size="15" />
         <span>{{ isSaving ? "Saving..." : "Save Schedule" }}</span>

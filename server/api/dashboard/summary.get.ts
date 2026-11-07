@@ -13,6 +13,7 @@ const mapRow = (row: any) => ({
     status: row.status,
     source: row.booking_source,
     notes: row.notes,
+    fieldStatus: row.field_status ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   },

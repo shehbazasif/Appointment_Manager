@@ -62,7 +62,7 @@ const whatsappShare = () => {
   const text = encodeURIComponent(
     `Book your appointment at ${org.value?.name ?? "our studio"}: ${bookingUrl.value}`,
   );
-  window.open(`https://wa.me/?text=${text}`, "_blank");
+  openExternalLink(`https://wa.me/?text=${text}`);
 };
 
 const emailShare = () => {
@@ -97,7 +97,7 @@ const qrSrc = computed(() => {
 <template>
   <div class="space-y-7 pb-16 max-w-4xl">
     <!-- Header -->
-    <div>
+    <div class="page-head">
       <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Share &amp; Grow</p>
       <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">Share Booking Link</h1>
       <p class="text-xs text-stone-500 mt-1">

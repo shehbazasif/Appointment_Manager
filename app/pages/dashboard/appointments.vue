@@ -133,7 +133,51 @@ const whatsappUrl = (item: AppointmentDetail) => {
 const searchQuery = ref("");
 const statusFilter = ref<string>("ALL");
 const staffFilter = ref<string>((route.query.staffId as string) || "ALL");
-const dateFilter = ref<string>("ALL");
+
+// Date filter can be pre-set from the URL: ?range=today | tomorrow | upcoming
+// (used by the dashboard stat cards). The URL is kept in sync when the user
+// changes the filter afterwards, so Back / refresh keep the same view.
+const RANGE_TO_FILTER: Record<string, string> = {
+  today: "TODAY",
+  tomorrow: "TOMORROW",
+  upcoming: "UPCOMING",
+};
+const rangeFromQuery = () =>
+  RANGE_TO_FILTER[String(route.query.range ?? "").toLowerCase()] ?? "ALL";
+const dateFilter = ref<string>(rangeFromQuery());
+const router = useRouter();
+watch(
+  () => route.query.range,
+  () => {
+    dateFilter.value = rangeFromQuery();
+  },
+);
+watch(dateFilter, (val) => {
+  const range = Object.keys(RANGE_TO_FILTER).find(
+    (k) => RANGE_TO_FILTER[k] === val,
+  );
+  if ((route.query.range ?? undefined) === range) return;
+  const query = { ...route.query };
+  if (range) query.range = range;
+  else delete query.range;
+  router.replace({ query });
+});
+
+// Phones: filters collapse behind one "Filters" button (search stays visible)
+const filtersOpen = ref(false);
+const activeFilterCount = computed(
+  () =>
+    [dateFilter.value, statusFilter.value, staffFilter.value].filter(
+      (v) => v !== "ALL",
+    ).length,
+);
+const clearFilters = () => {
+  dateFilter.value = "ALL";
+  statusFilter.value = "ALL";
+  staffFilter.value = "ALL";
+};
+
+const waTarget = useExternalLinkTarget();
 
 // Modals
 const showCreateModal = ref(false);
@@ -200,8 +244,15 @@ const loadData = async () => {
   }
 };
 
-onMounted(() => {
-  loadData();
+onMounted(async () => {
+  await loadData();
+  // "New Appointment" from the dashboard opens the booking form directly
+  if (route.query.new === "1") {
+    openCreateModal();
+    const query = { ...route.query };
+    delete query.new;
+    router.replace({ query });
+  }
 });
 
 // Filter appointments locally
@@ -241,19 +292,31 @@ const filteredAppointments = computed(() => {
     list = list.filter((a) => a.appointment.staffId === staffFilter.value);
   }
 
-  // Date filter
+  // Date filter (compared in the user's local time zone, same as the
+  // dashboard's "Today" numbers)
   const now = new Date();
-  const todayStr = now.toISOString().slice(0, 10);
+  const dayKey = (d: Date) =>
+    `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const todayKey = dayKey(now);
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+  const tomorrowKey = dayKey(tomorrow);
 
   if (dateFilter.value === "TODAY") {
-    list = list.filter((a) => a.appointment.startAt.startsWith(todayStr));
+    list = list.filter((a) => dayKey(new Date(a.appointment.startAt)) === todayKey);
   } else if (dateFilter.value === "TOMORROW") {
-    list = list.filter((a) => a.appointment.startAt.startsWith(tomorrowStr));
+    list = list.filter((a) => dayKey(new Date(a.appointment.startAt)) === tomorrowKey);
   } else if (dateFilter.value === "UPCOMING") {
     list = list.filter((a) => new Date(a.appointment.startAt) >= now);
+  }
+
+  // Today / upcoming views read best in time order
+  if (dateFilter.value !== "ALL") {
+    list = [...list].sort(
+      (a, b) =>
+        new Date(a.appointment.startAt).getTime() -
+        new Date(b.appointment.startAt).getTime(),
+    );
   }
 
   return list;
@@ -300,6 +363,8 @@ const openCreateModal = () => {
   createForm.newCustomerEmail = "";
   createForm.notes = "";
   createForm.staffId = "";
+  const today = new Date();
+  createForm.date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   showCreateModal.value = true;
 };
 
@@ -355,7 +420,8 @@ const openEditModal = (item: AppointmentDetail) => {
   const start = new Date(item.appointment.startAt);
   editForm.serviceId = item.service.id;
   editForm.staffId = item.appointment.staffId ?? "";
-  editForm.date = start.toISOString().slice(0, 10);
+  // local calendar date (toISOString() would give the UTC date)
+  editForm.date = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`;
   editForm.time = start.toTimeString().slice(0, 5);
   editForm.status = item.appointment.status;
   editForm.fieldStatus = item.appointment.fieldStatus ?? (item.appointment.staffId ? "ASSIGNED" : "");
@@ -444,12 +510,12 @@ const getStatusBadge = (status: string) => {
 <template>
   <div class="space-y-6 pb-16">
     <!-- Header -->
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
+    <div class="page-head flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="min-w-0">
         <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Scheduling</p>
         <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">Appointments</h1>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="page-head-actions flex items-center gap-2">
         <NuxtLink
           to="/dashboard/calendar"
           class="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3.5 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
@@ -469,10 +535,41 @@ const getStatusBadge = (status: string) => {
     </div>
 
     <!-- Filters & Search Toolbar -->
-    <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm space-y-3">
-      <div class="grid gap-3 md:grid-cols-4">
-        <!-- Search Input -->
-        <div class="relative md:col-span-1">
+    <div class="rounded-2xl border border-stone-200 bg-white p-3 shadow-sm space-y-3 sm:p-4">
+      <!-- Phones: search + Filters toggle in one row -->
+      <div class="flex items-center gap-2 md:hidden">
+        <div class="relative min-w-0 flex-1">
+          <Search :size="16" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+          <input
+            v-model="searchQuery"
+            type="search"
+            enterkeyhint="search"
+            placeholder="Search client, phone..."
+            class="w-full rounded-xl border border-stone-200 bg-stone-50/60 pl-10 pr-3 py-2 outline-none focus:border-stone-900 focus:bg-white"
+          />
+        </div>
+        <button
+          type="button"
+          @click="filtersOpen = !filtersOpen"
+          :aria-expanded="filtersOpen"
+          :class="[
+            filtersOpen || activeFilterCount ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-200 bg-white text-stone-700',
+            'tap inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3.5 text-sm font-bold',
+          ]"
+        >
+          <Filter :size="16" />
+          <span>Filters</span>
+          <span
+            v-if="activeFilterCount"
+            class="grid size-5 place-items-center rounded-full bg-rose-500 text-[11px] text-white"
+          >{{ activeFilterCount }}</span>
+          <ChevronDown :size="16" :class="filtersOpen ? 'rotate-180' : ''" class="transition" />
+        </button>
+      </div>
+
+      <div :class="[filtersOpen ? 'grid' : 'hidden', 'gap-3 md:grid md:grid-cols-4']">
+        <!-- Search Input (tablet / desktop) -->
+        <div class="relative hidden md:col-span-1 md:block">
           <Search :size="15" class="absolute left-3.5 top-3 text-stone-400" />
           <input
             v-model="searchQuery"
@@ -531,6 +628,15 @@ const getStatusBadge = (status: string) => {
             </option>
           </select>
         </div>
+
+        <button
+          v-if="activeFilterCount"
+          type="button"
+          @click="clearFilters"
+          class="tap rounded-xl border border-stone-200 text-sm font-semibold text-stone-600 md:hidden"
+        >
+          Clear filters
+        </button>
       </div>
     </div>
 
@@ -559,8 +665,191 @@ const getStatusBadge = (status: string) => {
       </button>
     </div>
 
-    <!-- Appointments Table / Cards -->
-    <div v-else class="rounded-3xl border border-stone-200 bg-white shadow-sm overflow-hidden">
+    <template v-else>
+    <!-- Phones: booking cards (tap a card to edit / reschedule) -->
+    <div class="space-y-3 md:hidden">
+      <p class="px-1 text-xs font-semibold text-stone-500">
+        {{ filteredAppointments.length }} booking{{ filteredAppointments.length === 1 ? "" : "s" }}
+      </p>
+      <article
+        v-for="item in filteredAppointments"
+        :key="item.appointment.id"
+        role="button"
+        tabindex="0"
+        @click="openEditModal(item)"
+        @keydown.enter.self="openEditModal(item)"
+        class="cursor-pointer rounded-2xl border border-stone-200 bg-white p-4 shadow-sm transition active:bg-stone-50"
+      >
+        <!-- Top row: date/time + status -->
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <div class="text-sm font-bold text-stone-900">
+              {{ formatDate(item.appointment.startAt) }} · {{ formatTime(item.appointment.startAt) }}
+            </div>
+            <div class="text-[11px] font-medium text-stone-500">{{ item.service.durationMinutes }} min</div>
+          </div>
+          <span
+            v-if="onLocation"
+            :class="[
+              getFieldBadge(item.appointment.fieldStatus),
+              'shrink-0 rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-wider',
+            ]"
+          >
+            {{ fieldLabel(item.appointment.fieldStatus) }}
+          </span>
+          <span
+            v-else
+            :class="[
+              getStatusBadge(item.appointment.status),
+              'shrink-0 rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-wider',
+            ]"
+          >
+            {{ item.appointment.status.replace('_', ' ') }}
+          </span>
+        </div>
+
+        <!-- Customer -->
+        <div class="mt-3">
+          <div class="text-base font-bold text-stone-900">
+            {{ item.customer.firstName }} {{ item.customer.lastName }}
+          </div>
+          <a
+            v-if="item.customer.phone"
+            :href="`tel:${item.customer.phone}`"
+            @click.stop
+            class="mt-0.5 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-rose-700"
+          >
+            <Phone :size="15" />
+            {{ item.customer.phone }}
+          </a>
+        </div>
+
+        <!-- Service + price -->
+        <div class="flex items-center justify-between gap-3 rounded-xl bg-stone-50 px-3 py-2 text-sm">
+          <span class="flex min-w-0 items-center gap-2">
+            <span class="size-2.5 shrink-0 rounded-full" :style="{ backgroundColor: item.service.accent || '#ca7481' }"></span>
+            <span class="truncate font-semibold text-stone-800">{{ item.service.name }}</span>
+          </span>
+          <span class="shrink-0 font-bold text-stone-900">{{ (item.service.priceCents / 100).toFixed(2) }} €</span>
+        </div>
+
+        <!-- Staff -->
+        <div class="mt-2 flex items-center justify-between gap-2 text-sm">
+          <span v-if="item.staff" class="inline-flex items-center gap-1.5 font-semibold text-stone-800">
+            <UserCheck :size="15" class="text-emerald-600" />
+            {{ item.staff.name }}
+          </span>
+          <button
+            v-else
+            type="button"
+            @click.stop="openAssignModal(item)"
+            class="tap inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-700"
+          >
+            <AlertCircle :size="15" />
+            <span>Assign staff</span>
+          </button>
+          <span class="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] font-semibold text-stone-500">
+            {{ item.appointment.source }}
+          </span>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="mt-3 flex flex-wrap gap-2 border-t border-stone-100 pt-3" @click.stop>
+          <button
+            type="button"
+            @click="openEditModal(item)"
+            class="tap inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 text-sm font-bold text-stone-800"
+          >
+            <Edit2 :size="15" />
+            <span>Edit</span>
+          </button>
+          <button
+            type="button"
+            @click="openCommunication(item.customer, item.appointment.id)"
+            class="tap inline-flex items-center justify-center rounded-xl border border-stone-200 bg-white px-3 text-stone-700"
+            aria-label="Message client"
+            title="Message client"
+          >
+            <MessageSquare :size="17" />
+          </button>
+
+          <!-- On-location actions -->
+          <template v-if="onLocation">
+            <a
+              v-if="mapsUrl(item)"
+              :href="mapsUrl(item)"
+              target="_blank"
+              rel="noopener"
+              class="tap inline-flex flex-1 items-center justify-center rounded-xl border border-stone-200 bg-stone-100 px-3 text-sm font-bold text-stone-800"
+            >
+              Open map
+            </a>
+            <a
+              v-if="item.staff && whatsappUrl(item)"
+              :href="whatsappUrl(item)"
+              :target="waTarget"
+              rel="noopener"
+              class="tap inline-flex flex-1 items-center justify-center rounded-xl bg-emerald-600 px-3 text-sm font-bold text-white"
+            >
+              WhatsApp staff
+            </a>
+            <span
+              v-else-if="item.staff"
+              class="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 text-xs font-bold text-amber-700"
+            >
+              No staff phone
+            </span>
+            <button
+              v-if="item.staff && item.appointment.fieldStatus !== 'ON_THE_WAY' && item.appointment.fieldStatus !== 'ON_LOCATION'"
+              type="button"
+              @click="updateFieldStatus(item.appointment.id, 'ON_THE_WAY')"
+              class="tap flex-1 rounded-xl border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-700"
+            >
+              On the way
+            </button>
+            <button
+              v-if="item.staff && item.appointment.fieldStatus !== 'ON_LOCATION'"
+              type="button"
+              @click="updateFieldStatus(item.appointment.id, 'ON_LOCATION')"
+              class="tap flex-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-sm font-bold text-emerald-700"
+            >
+              On location
+            </button>
+          </template>
+
+          <!-- Status quick changes -->
+          <button
+            v-if="!onLocation && item.appointment.status === 'CONFIRMED'"
+            type="button"
+            @click="updateStatus(item.appointment.id, 'CHECKED_IN')"
+            class="tap flex-1 rounded-xl border border-blue-200 bg-blue-50 px-3 text-sm font-bold text-blue-700"
+          >
+            Check-in
+          </button>
+          <button
+            v-if="!onLocation && (item.appointment.status === 'CHECKED_IN' || item.appointment.status === 'CONFIRMED')"
+            type="button"
+            @click="updateStatus(item.appointment.id, 'COMPLETED')"
+            class="tap flex-1 rounded-xl border border-stone-200 bg-stone-100 px-3 text-sm font-bold text-stone-800"
+          >
+            Done
+          </button>
+          <button
+            v-if="item.appointment.status !== 'CANCELLED' && item.appointment.status !== 'COMPLETED'"
+            type="button"
+            @click="updateStatus(item.appointment.id, 'CANCELLED')"
+            class="tap inline-flex items-center justify-center rounded-xl border border-stone-200 bg-white px-3 text-stone-400 hover:text-rose-600"
+            aria-label="Cancel appointment"
+            title="Cancel appointment"
+          >
+            <XCircle :size="18" />
+          </button>
+        </div>
+      </article>
+    </div>
+
+    <!-- Tablet / desktop: table -->
+    <div class="hidden rounded-3xl border border-stone-200 bg-white shadow-sm overflow-hidden md:block">
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs text-stone-600">
           <thead class="bg-stone-50/80 border-b border-stone-200 text-[10px] font-bold uppercase tracking-wider text-stone-500">
@@ -685,7 +974,7 @@ const getStatusBadge = (status: string) => {
                     <a
                       v-if="item.staff && whatsappUrl(item)"
                       :href="whatsappUrl(item)"
-                      target="_blank"
+                      :target="waTarget"
                       rel="noopener"
                       class="rounded-lg bg-emerald-600 px-2 py-1 text-[11px] font-bold text-white hover:bg-emerald-700"
                       title="Send job details to staff on WhatsApp"
@@ -752,19 +1041,20 @@ const getStatusBadge = (status: string) => {
         </table>
       </div>
     </div>
+    </template>
 
     <!-- Create Appointment Modal -->
     <div
       v-if="showCreateModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs overflow-y-auto"
+      class="m-sheet fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs overflow-y-auto"
     >
-      <div class="w-full max-w-lg rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5 my-8">
+      <div class="m-sheet-panel w-full max-w-lg rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5 my-8">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
           <div>
             <h3 class="font-display text-xl font-bold text-stone-900">New Appointment</h3>
             <p class="text-xs text-stone-500">Book an appointment manually into your schedule.</p>
           </div>
-          <button type="button" @click="showCreateModal = false" class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
+          <button type="button" @click="showCreateModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
         </div>
@@ -898,7 +1188,7 @@ const getStatusBadge = (status: string) => {
             {{ formError }}
           </p>
 
-          <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
+          <div class="m-sheet-actions flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
             <button
               type="button"
               @click="showCreateModal = false"
@@ -921,9 +1211,9 @@ const getStatusBadge = (status: string) => {
     <!-- Edit Appointment Modal -->
     <div
       v-if="showEditModal && activeAppointment"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs overflow-y-auto"
+      class="m-sheet fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs overflow-y-auto"
     >
-      <div class="w-full max-w-lg rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5 my-8">
+      <div class="m-sheet-panel w-full max-w-lg rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5 my-8">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
           <div>
             <h3 class="font-display text-xl font-bold text-stone-900">Edit / Reschedule</h3>
@@ -931,7 +1221,7 @@ const getStatusBadge = (status: string) => {
               Editing booking for {{ activeAppointment.customer.firstName }} {{ activeAppointment.customer.lastName }}.
             </p>
           </div>
-          <button type="button" @click="showEditModal = false" class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
+          <button type="button" @click="showEditModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
         </div>
@@ -1040,7 +1330,7 @@ const getStatusBadge = (status: string) => {
             {{ formError }}
           </p>
 
-          <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
+          <div class="m-sheet-actions flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
             <button
               type="button"
               @click="showEditModal = false"
@@ -1063,9 +1353,9 @@ const getStatusBadge = (status: string) => {
     <!-- Quick Staff Assign Modal -->
     <div
       v-if="showAssignModal && activeAppointment"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
+      class="m-sheet fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
     >
-      <div class="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
+      <div class="m-sheet-panel w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
         <h3 class="font-display text-xl font-bold text-stone-900">Assign Staff Member</h3>
         <p class="text-xs text-stone-500">
           Assigning a team member to {{ activeAppointment.customer.firstName }} {{ activeAppointment.customer.lastName }} for {{ activeAppointment.service.name }}.
@@ -1083,7 +1373,7 @@ const getStatusBadge = (status: string) => {
           </select>
         </div>
 
-        <div class="flex items-center justify-end gap-2 pt-3 border-t border-stone-100">
+        <div class="m-sheet-actions flex items-center justify-end gap-2 pt-3 border-t border-stone-100">
           <button
             type="button"
             @click="showAssignModal = false"

@@ -202,15 +202,15 @@ const deleteService = async (s: ServiceItem) => {
 <template>
   <div class="space-y-6 pb-16">
     <!-- Header -->
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
+    <div class="page-head flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="min-w-0">
         <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Menu & Pricing</p>
         <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">Services Catalog</h1>
       </div>
       <button
         type="button"
         @click="openCreate"
-        class="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm self-start sm:self-auto"
+        class="max-md:w-full max-md:justify-center max-md:min-h-11 inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm self-start sm:self-auto"
       >
         <Plus :size="16" />
         <span>Add Service</span>
@@ -333,12 +333,12 @@ const deleteService = async (s: ServiceItem) => {
     <!-- Create Service Modal -->
     <div
       v-if="showCreateModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
+      class="m-sheet fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
     >
-      <div class="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
+      <div class="m-sheet-panel w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
           <h3 class="font-display text-xl font-bold text-stone-900">New Service</h3>
-          <button type="button" @click="showCreateModal = false" class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
+          <button type="button" @click="showCreateModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
         </div>
@@ -420,7 +420,7 @@ const deleteService = async (s: ServiceItem) => {
             {{ formError }}
           </p>
 
-          <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
+          <div class="m-sheet-actions flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
             <button
               type="button"
               @click="showCreateModal = false"
@@ -443,12 +443,12 @@ const deleteService = async (s: ServiceItem) => {
     <!-- Edit Service Modal -->
     <div
       v-if="showEditModal && selectedService"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
+      class="m-sheet fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
     >
-      <div class="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
+      <div class="m-sheet-panel w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
           <h3 class="font-display text-xl font-bold text-stone-900">Edit Service</h3>
-          <button type="button" @click="showEditModal = false" class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
+          <button type="button" @click="showEditModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
         </div>
@@ -527,7 +527,7 @@ const deleteService = async (s: ServiceItem) => {
             {{ formError }}
           </p>
 
-          <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
+          <div class="m-sheet-actions flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
             <button
               type="button"
               @click="showEditModal = false"

@@ -311,7 +311,7 @@ const shareViaWhatsApp = () => {
           <div class="flex size-8 items-center justify-center rounded-xl bg-stone-900 text-white font-bold">
             <Sparkles :size="16" />
           </div>
-          <span class="font-display font-bold text-stone-900 text-base tracking-tight">RantevouOS</span>
+          <span class="font-display font-bold text-stone-900 text-base tracking-tight">{{ BRAND.name }}</span>
         </NuxtLink>
 
         <button
@@ -730,7 +730,7 @@ const shareViaWhatsApp = () => {
     <!-- Footer -->
     <footer class="border-t border-stone-200/80 bg-white py-6 text-center text-xs text-stone-400" style="padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px))">
       <div class="max-w-4xl mx-auto px-4">
-        <span>Powered by <strong>RantevouOS</strong> · Instant Appointment Management</span>
+        <span>Powered by <strong>{{ BRAND.name }}</strong> · Instant Appointment Management</span>
       </div>
     </footer>
   </div>

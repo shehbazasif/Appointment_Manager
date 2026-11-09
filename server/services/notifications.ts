@@ -15,9 +15,9 @@ const SMTP_PASS = process.env.SMTP_PASSWORD ?? process.env.SMTP_PASS ?? "";
 const SMTP_FROM =
   process.env.SMTP_FROM ??
   (process.env.BOOKINGS_EMAIL
-    ? `RantevouOS Bookings <${process.env.BOOKINGS_EMAIL}>`
+    ? `${BRAND.name} Bookings <${process.env.BOOKINGS_EMAIL}>`
     : SMTP_USER
-      ? `RantevouOS Bookings <${SMTP_USER}>`
+      ? `${BRAND.name} Bookings <${SMTP_USER}>`
       : "");
 
 export const senderAddress = () => SMTP_FROM || SMTP_USER;
@@ -108,7 +108,7 @@ export const formatAppointmentWhen = (startAt: Date, timezone?: string | null) =
 
 const shell = (bodyHtml: string) => `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#24262d">
   ${bodyHtml}
-  <p style="margin:24px 0 0;color:#9ca3af;font-size:12px">Powered by RantevouOS</p>
+  <p style="margin:24px 0 0;color:#9ca3af;font-size:12px">Powered by ${BRAND.name}</p>
 </div>`;
 
 const detailTable = (rows: [string, string][]) =>

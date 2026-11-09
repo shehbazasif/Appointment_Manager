@@ -61,8 +61,8 @@ export const issueVerificationCode = async (
 
   const result = await sendEmail({
     to: input.recipientEmail,
-    subject: `Your RantevouOS verification code: ${code}`,
-    text: `Hello,\n\n${input.purposeLine}\n\nYour verification code is: ${code}\n\nIt expires in 15 minutes. If you didn't request this, you can ignore this email.\n\n— RantevouOS`,
+    subject: `Your ${BRAND.name} verification code: ${code}`,
+    text: `Hello,\n\n${input.purposeLine}\n\nYour verification code is: ${code}\n\nIt expires in 15 minutes. If you didn't request this, you can ignore this email.\n\n— ${BRAND.name}`,
     html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#24262d">
       <h2 style="margin:0 0 8px">Verify your change</h2>
       <p style="margin:0 0 16px;color:#6b7280;font-size:14px">${input.purposeLine}</p>

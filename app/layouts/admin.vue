@@ -27,7 +27,7 @@ const handleSignOut = async () => {
           <ShieldAlert :size="20" />
         </div>
         <div>
-          <span class="font-display text-lg font-bold tracking-tight text-white block leading-none">RantevouOS</span>
+          <span class="font-display text-lg font-bold tracking-tight text-white block leading-none">{{ BRAND.name }}</span>
           <span class="text-[10px] font-bold text-rose-400 uppercase tracking-widest block mt-0.5">Platform Console</span>
         </div>
       </div>

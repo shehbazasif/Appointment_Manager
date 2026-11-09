@@ -1,134 +1,154 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { CalendarDays, ChevronDown, Info, HelpCircle } from "lucide-vue-next";
+import { ref, watch, onBeforeUnmount } from "vue";
+import { Menu, X, ArrowRight, LayoutDashboard } from "lucide-vue-next";
 
-// Direct Page Links
-const navLinks = [
+const links = [
   { name: "Features", to: "/features" },
+  { name: "Industries", to: "/industries" },
   { name: "Pricing", to: "/pricing" },
-  { name: "Contact Us", to: "/contactus" },
+  { name: "FAQ", to: "/faq" },
+  { name: "Contact", to: "/contactus" },
 ];
 
-// Dropdown Sub-links for Company / Information
-const aboutDropdownLinks = [
-  {
-    name: "How it Works",
-    to: "/how-it-works",
-    description: "Learn how to automate appointments in minutes.",
-    icon: CalendarDays,
-  },
-  {
-    name: "About Us",
-    to: "/about",
-    description: "Our mission for Greek appointment businesses.",
-    icon: Info,
-  },
-];
+// Logged-in visitors get a "Dashboard" button instead of "Sign in".
+const user = useSupabaseUser();
 
-// Dropdown State
-const isDropdownOpen = ref(false);
+const open = ref(false);
+const route = useRoute();
+watch(() => route.fullPath, () => (open.value = false));
+
+// Lock page scroll behind the full-screen menu (iOS-safe).
+watch(open, (isOpen) => {
+  if (!import.meta.client) return;
+  document.documentElement.style.overflow = isOpen ? "hidden" : "";
+});
+onBeforeUnmount(() => {
+  if (import.meta.client) document.documentElement.style.overflow = "";
+});
+
+const onKey = (e: KeyboardEvent) => {
+  if (e.key === "Escape") open.value = false;
+};
 </script>
 
 <template>
   <header
-    class="sticky top-0 z-50 flex w-full items-center justify-between border-b border-stone-200/60 bg-white/70 px-6 py-4 backdrop-blur-md backdrop-saturate-150 transition-all lg:px-12"
+    class="site-focus sticky top-0 z-50 w-full border-b border-stone-200/70 bg-white/80 backdrop-blur-md backdrop-saturate-150"
+    style="padding-top: env(safe-area-inset-top)"
+    @keydown="onKey"
   >
-    <!-- Brand Logo -->
-    <NuxtLink
-      to="/"
-      class="inline-flex items-center gap-2.5 text-xl font-bold tracking-tight text-stone-900 transition-opacity hover:opacity-90"
-    >
-      <span
-        class="grid size-8 place-items-center rounded-lg bg-stone-900 text-sm font-black text-white shadow-sm"
-      >
-        R
-      </span>
-      <span>rantevou<span class="text-rose-600">OS</span></span>
-    </NuxtLink>
+    <div class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-10">
+      <BrandLogo />
 
-    <!-- Center Navigation Links -->
-    <nav class="hidden items-center gap-1 md:flex">
-      <!-- Standard Navigation Links -->
-      <NuxtLink
-        v-for="link in navLinks"
-        :key="link.name"
-        :to="link.to"
-        class="rounded-xl px-4 py-2 text-sm font-semibold text-stone-600 transition-colors hover:bg-stone-100/60 hover:text-stone-900"
-      >
-        {{ link.name }}
-      </NuxtLink>
-
-      <!-- Interactive Dropdown (How it Works & About Us) -->
-      <div
-        class="relative"
-        @mouseenter="isDropdownOpen = true"
-        @mouseleave="isDropdownOpen = false"
-      >
-        <button
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-stone-600 transition-colors hover:bg-stone-100/60 hover:text-stone-900"
-          :aria-expanded="isDropdownOpen"
+      <nav class="hidden items-center gap-1 lg:flex" aria-label="Main">
+        <NuxtLink
+          v-for="link in links"
+          :key="link.to"
+          :to="link.to"
+          class="rounded-xl px-3.5 py-2 text-sm font-semibold text-stone-600 transition-colors hover:bg-stone-100 hover:text-stone-900"
+          active-class="!text-stone-900 bg-stone-100"
         >
-          <span>Company</span>
-          <ChevronDown
-            class="size-4 text-stone-400 transition-transform duration-200"
-            :class="{ 'rotate-180 text-stone-900': isDropdownOpen }"
-          />
-        </button>
+          {{ link.name }}
+        </NuxtLink>
+      </nav>
 
-        <!-- Dropdown Menu Box -->
-        <Transition
-          enter-active-class="transition duration-150 ease-out"
-          enter-from-class="transform opacity-0 scale-95 -translate-y-1"
-          enter-to-class="transform opacity-100 scale-100 translate-y-0"
-          leave-active-class="transition duration-100 ease-in"
-          leave-from-class="transform opacity-100 scale-100 translate-y-0"
-          leave-to-class="transform opacity-0 scale-95 -translate-y-1"
+      <div class="hidden items-center gap-2 lg:flex">
+        <NuxtLink
+          v-if="user"
+          to="/dashboard"
+          class="site-btn inline-flex min-h-11 items-center gap-2 rounded-xl bg-stone-900 px-4 text-sm font-semibold text-white shadow-sm hover:bg-stone-800"
         >
-          <div
-            v-if="isDropdownOpen"
-            class="absolute top-full left-0 mt-2 w-64 rounded-2xl border border-stone-200/80 bg-white/95 p-2 shadow-xl shadow-stone-900/5 backdrop-blur-md"
+          <LayoutDashboard :size="16" /> Dashboard
+        </NuxtLink>
+        <template v-else>
+          <NuxtLink
+            to="/login"
+            class="inline-flex min-h-11 items-center rounded-xl px-4 text-sm font-semibold text-stone-600 hover:bg-stone-100 hover:text-stone-900"
           >
-            <NuxtLink
-              v-for="item in aboutDropdownLinks"
-              :key="item.name"
-              :to="item.to"
-              class="group flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-stone-100/80"
-              @click="isDropdownOpen = false"
-            >
-              <div
-                class="mt-0.5 grid size-8 place-items-center rounded-lg border border-stone-200/60 bg-stone-50 text-stone-700 transition-colors group-hover:border-stone-300 group-hover:bg-white"
-              >
-                <component :is="item.icon" class="size-4" />
-              </div>
-              <div>
-                <div class="text-sm font-bold text-stone-900">
-                  {{ item.name }}
-                </div>
-                <p class="text-xs text-stone-500 leading-snug mt-0.5">
-                  {{ item.description }}
-                </p>
-              </div>
-            </NuxtLink>
-          </div>
-        </Transition>
+            Sign in
+          </NuxtLink>
+          <NuxtLink
+            to="/register"
+            class="site-btn inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-rose-600 px-4 text-sm font-semibold text-white shadow-sm shadow-rose-600/25 hover:bg-rose-700"
+          >
+            Start free trial <ArrowRight :size="16" />
+          </NuxtLink>
+        </template>
       </div>
-    </nav>
 
-    <!-- Action Buttons -->
-    <div class="flex items-center gap-3">
-      <NuxtLink
-        to="/login"
-        class="rounded-xl px-4 py-2 text-sm font-semibold text-stone-600 transition-colors hover:bg-stone-100/60 hover:text-stone-900"
+      <button
+        type="button"
+        class="grid size-11 place-items-center rounded-xl text-stone-800 hover:bg-stone-100 lg:hidden"
+        :aria-expanded="open"
+        aria-controls="mobile-menu"
+        :aria-label="open ? 'Close menu' : 'Open menu'"
+        @click="open = !open"
       >
-        Sign in
-      </NuxtLink>
-      <NuxtLink
-        to="/register"
-        class="rounded-xl bg-stone-900 px-4.5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-stone-800 active:scale-[0.98]"
-      >
-        Start free
-      </NuxtLink>
+        <X v-if="open" :size="22" />
+        <Menu v-else :size="22" />
+      </button>
     </div>
+
+    <!-- Phone / tablet: full-screen sheet -->
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="opacity-0 -translate-y-2"
+      leave-active-class="transition duration-150 ease-in"
+      leave-to-class="opacity-0 -translate-y-2"
+    >
+      <div
+        v-if="open"
+        id="mobile-menu"
+        class="fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-y-auto overscroll-contain bg-white px-4 pt-4 lg:hidden"
+        style="top: calc(4rem + env(safe-area-inset-top)); padding-bottom: calc(1.5rem + env(safe-area-inset-bottom))"
+      >
+        <nav class="flex flex-col" aria-label="Mobile">
+          <NuxtLink
+            v-for="link in links"
+            :key="link.to"
+            :to="link.to"
+            class="flex min-h-14 items-center justify-between border-b border-stone-100 px-2 text-lg font-semibold text-stone-900"
+          >
+            {{ link.name }}
+            <ArrowRight :size="18" class="text-stone-300" />
+          </NuxtLink>
+          <NuxtLink
+            v-for="extra in [
+              { name: 'How it works', to: '/how-it-works' },
+              { name: 'About', to: '/about' },
+              { name: 'Help & getting started', to: '/help' },
+            ]"
+            :key="extra.to"
+            :to="extra.to"
+            class="flex min-h-12 items-center px-2 text-base font-medium text-stone-500"
+          >
+            {{ extra.name }}
+          </NuxtLink>
+        </nav>
+        <div class="mt-auto grid gap-3 pt-8">
+          <NuxtLink
+            v-if="user"
+            to="/dashboard"
+            class="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-stone-900 text-base font-semibold text-white"
+          >
+            <LayoutDashboard :size="18" /> Open dashboard
+          </NuxtLink>
+          <template v-else>
+            <NuxtLink
+              to="/register"
+              class="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-rose-600 text-base font-semibold text-white"
+            >
+              Start free trial <ArrowRight :size="18" />
+            </NuxtLink>
+            <NuxtLink
+              to="/login"
+              class="inline-flex min-h-12 items-center justify-center rounded-2xl border border-stone-200 text-base font-semibold text-stone-900"
+            >
+              Sign in
+            </NuxtLink>
+          </template>
+        </div>
+      </div>
+    </Transition>
   </header>
 </template>

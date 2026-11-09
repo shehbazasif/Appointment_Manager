@@ -1,106 +1,77 @@
 <script setup lang="ts">
-useHead({ title: "Privacy Policy — RantevouOS" });
+definePageMeta({ layout: "marketing" });
+usePageSeo({
+  path: "/privacy",
+  title: "Privacy Policy",
+  description: `How ${BRAND.name} collects, uses and protects personal data under the GDPR, including cookies.`,
+});
+// NOTE: this is a solid starting template. Have it reviewed by a lawyer for your company details.
 </script>
 
 <template>
-  <div
-    class="min-h-screen bg-[radial-gradient(circle_at_80%_0%,#f8eee9_0,transparent_32rem),#fbfaf8]"
-  >
-    <Navbar />
-    <Header />
+  <SiteLegal eyebrow="Legal" title="Privacy Policy" updated="9 November 2026">
+    <h2>1. Who we are</h2>
+    <p>
+      {{ BRAND.name }} (“we”, “us”) provides online booking and appointment software to businesses. For data about
+      our own customers (business owners and their staff accounts) we are the <b>data controller</b>. For data that a
+      business stores about its own customers (for example names, phone numbers and appointments) the business is
+      the controller and we act as its <b>data processor</b>.
+    </p>
+    <p>Questions about privacy: <a :href="`mailto:${BRAND.email}`">{{ BRAND.email }}</a>.</p>
 
-    <main class="mx-auto max-w-4xl px-6 py-16 lg:px-10 lg:py-20">
-      <p class="text-xs font-semibold uppercase tracking-wider text-rose-600">
-        Compliance & Legal
-      </p>
-      <h1
-        class="mt-2 font-display text-3xl font-bold text-stone-900 sm:text-4xl"
-      >
-        Privacy Policy (GDPR Compliance)
-      </h1>
-      <p class="mt-2 text-xs text-stone-400">
-        Effective date: September 10, 2026
-      </p>
+    <h2>2. What we collect</h2>
+    <ul>
+      <li><b>Account data:</b> name, email, phone number, business name, address, country, time zone and currency.</li>
+      <li><b>Booking data:</b> customer name, phone, email, chosen service, staff, date and time, notes, and — only if the customer chooses to share it — their location for on-site services.</li>
+      <li><b>Staff & attendance data:</b> staff names, working hours and Enter/Exit times.</li>
+      <li><b>Technical data:</b> sign-in session cookies, IP address and basic logs needed to keep the service secure.</li>
+      <li><b>Messages:</b> what you send us through the contact form.</li>
+    </ul>
 
-      <div class="mt-8 space-y-6 text-sm leading-relaxed text-stone-600">
-        <section>
-          <h2 class="text-base font-bold text-stone-900">1. Data Controller</h2>
-          <p class="mt-2">
-            RantevouOS operates as a Data Processor on behalf of appointment
-            businesses in Greece (Data Controllers). For platform account
-            management, RantevouOS is the Data Controller.
-          </p>
-        </section>
+    <h2>3. Why we use it (legal basis)</h2>
+    <ul>
+      <li>To provide the service you signed up for — GDPR Art. 6(1)(b), contract.</li>
+      <li>To send booking confirmations and reminders on behalf of the business — Art. 6(1)(b) and the business's instructions.</li>
+      <li>To keep accounts secure and prevent abuse — Art. 6(1)(f), legitimate interest.</li>
+      <li>To answer your messages — Art. 6(1)(f), legitimate interest.</li>
+    </ul>
+    <p>We never sell personal data and we never show one business's data to another business.</p>
 
-        <section>
-          <h2 class="text-base font-bold text-stone-900">
-            2. Information We Collect
-          </h2>
-          <ul class="mt-2 list-disc pl-5 space-y-1">
-            <li>
-              <strong>Business Owners & Staff:</strong> Name, email address,
-              phone number, and password hashes (Argon2id encrypted).
-            </li>
-            <li>
-              <strong>End Customers:</strong> Name, phone number, email address,
-              and appointment records submitted during public booking.
-            </li>
-            <li>
-              <strong>System Metadata:</strong> Session cookies (HttpOnly,
-              SameSite), IP addresses, and standard audit logs.
-            </li>
-          </ul>
-        </section>
+    <h2>4. Who we share it with</h2>
+    <p>
+      We use trusted providers to run the service, such as our database and authentication provider, our hosting
+      provider and our email delivery provider. They process data only on our instructions and under data-processing
+      agreements. If data is transferred outside the EEA, we rely on safeguards such as the EU Standard Contractual Clauses.
+    </p>
 
-        <section>
-          <h2 class="text-base font-bold text-stone-900">
-            3. Legal Basis for Processing
-          </h2>
-          <p class="mt-2">
-            Processing is conducted under Article 6(1)(b) of the GDPR
-            (performance of a contract to deliver appointment scheduling
-            services) and Article 6(1)(f) (legitimate interests in platform
-            security).
-          </p>
-        </section>
+    <h2>5. How long we keep it</h2>
+    <p>
+      We keep account and booking data while your account is active. After you close your account we delete or
+      anonymise it within 90 days, unless we must keep some records longer by law (for example invoices).
+    </p>
 
-        <section>
-          <h2 class="text-base font-bold text-stone-900">
-            4. Your Rights under GDPR
-          </h2>
-          <p class="mt-2">
-            Greek and EU residents maintain the following rights regarding their
-            personal data:
-          </p>
-          <ul class="mt-2 list-disc pl-5 space-y-1">
-            <li>
-              <strong>Right to Access & Rectification:</strong> Request a copy
-              of your stored records or correct inaccuracies.
-            </li>
-            <li>
-              <strong>Right to Erasure ("Right to be Forgotten"):</strong>
-              Request complete deletion of personal customer records.
-            </li>
-            <li>
-              <strong>Data Portability:</strong> Export appointment and customer
-              history in structured JSON or CSV formats.
-            </li>
-          </ul>
-        </section>
+    <h2>6. Your rights</h2>
+    <p>
+      You have the right to access, correct, delete, restrict or object to the use of your personal data, and to
+      receive it in a portable format. If you are a customer of a business that uses {{ BRAND.name }}, please contact
+      that business first; we will help them answer you. You can also complain to your local data protection authority
+      (in Greece: the Hellenic Data Protection Authority).
+    </p>
 
-        <section>
-          <h2 class="text-base font-bold text-stone-900">
-            5. Tenant Isolation & Security
-          </h2>
-          <p class="mt-2">
-            Every business account operates within strict database multi-tenant
-            isolation. No Business entity can view, query, or extract data
-            belonging to another business entity.
-          </p>
-        </section>
-      </div>
-    </main>
+    <h2 id="cookies">7. Cookies</h2>
+    <p>
+      We only use cookies that are needed for the service to work, such as the cookie that keeps you signed in. We do
+      not use advertising cookies. Your browser may also store small settings (for example a chosen filter) on your device.
+    </p>
 
-    <Footer />
-  </div>
+    <h2>8. Security</h2>
+    <p>
+      Connections are encrypted (HTTPS), passwords are never stored in plain text, and each business can only access its
+      own data. No system is perfectly secure, but we work hard to protect your data and will tell you without delay if
+      a breach affects you.
+    </p>
+
+    <h2>9. Changes</h2>
+    <p>If we change this policy we will update the date above and, for important changes, tell account owners by email.</p>
+  </SiteLegal>
 </template>

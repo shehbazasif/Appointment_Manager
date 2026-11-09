@@ -180,3 +180,62 @@ html {
     white-space: nowrap;
   }
 }
+
+/* ------------------------------------------------------------------
+   Public website (marketing pages): scroll reveal, floating mockups,
+   focus rings, smooth anchors. Transform/opacity only (60fps on iPhone).
+   ------------------------------------------------------------------ */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+.js-reveal [data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  transition:
+    opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) var(--reveal-delay, 0ms),
+    transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) var(--reveal-delay, 0ms);
+}
+.js-reveal [data-reveal].is-visible {
+  opacity: 1;
+  transform: none;
+}
+@keyframes site-float {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -10px, 0); }
+}
+@keyframes site-float-slow {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(0, -6px, 0) rotate(-0.4deg); }
+}
+@keyframes site-pulse-dot {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+.float-a { animation: site-float 6s ease-in-out infinite; will-change: transform; }
+.float-b { animation: site-float-slow 8s ease-in-out infinite; will-change: transform; }
+.pulse-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: site-pulse-dot 1.8s ease-out infinite;
+}
+.site-btn {
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+.site-btn:hover { transform: translateY(-1px); }
+.site-btn:active { transform: translateY(0) scale(0.98); }
+.site-focus :focus-visible,
+.site-focus:focus-visible {
+  outline: 2px solid #e11d48;
+  outline-offset: 3px;
+  border-radius: 0.75rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .js-reveal [data-reveal] { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .float-a, .float-b, .pulse-dot::after { animation: none !important; }
+  .site-btn, .site-btn:hover, .site-btn:active { transform: none !important; }
+}

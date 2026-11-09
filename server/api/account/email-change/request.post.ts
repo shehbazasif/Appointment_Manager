@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
     kind: "EMAIL_CHANGE",
     payload: { newEmail: body.newEmail },
     recipientEmail: authUser.email,
-    purposeLine: `You asked to change your RantevouOS account email to ${body.newEmail}. Enter this code to confirm.`,
+    purposeLine: `You asked to change your ${BRAND.name} account email to ${body.newEmail}. Enter this code to confirm.`,
   });
 
   return { ok: true, sentTo: authUser.email };

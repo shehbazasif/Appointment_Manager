@@ -3,6 +3,9 @@ import { ref, reactive, watch } from "vue";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
 
+definePageMeta({ layout: "marketing" });
+usePageSeo({ path: "/register", title: "Start your free trial", description: `Create your ${BRAND.name} business account and start taking online bookings today.` });
+
 const form = reactive({
   firstName: "",
   lastName: "",
@@ -149,28 +152,16 @@ const register = async () => {
 </script>
 
 <template>
-  <Navbar />
-  <main
-    class="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_80%_0%,#f8eee9_0,transparent_32rem),#fbfaf8] px-5 py-12"
-  >
+  <AuthShell wide>
     <section
-      class="surface w-full max-w-lg rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xl shadow-stone-900/5 sm:p-8"
+      class="w-full rounded-[2rem] border border-stone-200 bg-white p-6 shadow-xl shadow-stone-900/5 sm:p-8"
     >
-      <!-- Brand Header -->
-      <NuxtLink
-        to="/"
-        class="inline-flex items-center gap-2.5 text-lg font-bold tracking-tight text-stone-900"
-      >
-        <span
-          class="grid size-8 place-items-center rounded-lg bg-ink text-sm font-black text-white shadow-sm"
-        >
-          R
-        </span>
-        <span>rantevou<span class="text-rose">OS</span></span>
-      </NuxtLink>
+      <p class="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+        {{ TRIAL_DAYS }}-day free trial · no card needed
+      </p>
 
       <!-- Section Title -->
-      <div class="mt-8">
+      <div class="mt-5">
         <p
           class="eyebrow text-xs font-semibold uppercase tracking-wider text-rose"
         >
@@ -438,6 +429,5 @@ const register = async () => {
         </NuxtLink>
       </div>
     </section>
-  </main>
-  <Footer />
+  </AuthShell>
 </template>

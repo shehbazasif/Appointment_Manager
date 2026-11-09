@@ -238,7 +238,7 @@ provide("refreshBusinessProfile", loadMe);
             <span
               class="font-display text-lg font-bold tracking-tight text-stone-900 block leading-none truncate"
             >
-              {{ me?.organization?.name ?? "RantevouOS" }}
+              {{ me?.organization?.name ?? BRAND.name }}
             </span>
             <span
               class="text-[10px] font-semibold text-rose-600 uppercase tracking-wider block mt-0.5 truncate"
@@ -442,7 +442,7 @@ provide("refreshBusinessProfile", loadMe);
                 <CalendarCheck :size="18" />
               </div>
               <span class="font-display font-bold text-stone-900 text-lg">
-                {{ me?.organization?.name ?? "RantevouOS" }}
+                {{ me?.organization?.name ?? BRAND.name }}
               </span>
             </div>
             <button

@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
     kind: "PHONE_CHANGE",
     payload: { newPhone: body.newPhone },
     recipientEmail: authUser.email,
-    purposeLine: `You asked to change your RantevouOS mobile number to ${body.newPhone}. Enter this code to confirm.`,
+    purposeLine: `You asked to change your ${BRAND.name} mobile number to ${body.newPhone}. Enter this code to confirm.`,
   });
 
   return { ok: true, sentTo: authUser.email };

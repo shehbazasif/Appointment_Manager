@@ -9,6 +9,9 @@ const errorMessage = ref("");
 const showPassword = ref(false);
 const { supabase, user } = useSupabaseAuth();
 
+definePageMeta({ layout: "marketing" });
+usePageSeo({ path: "/login", title: "Sign in", description: `Sign in to your ${BRAND.name} business account.` });
+
 // Already signed in? Go straight to the workspace.
 watch(
   user,
@@ -39,17 +42,16 @@ const login = async () => {
 </script>
 
 <template>
-  <Navbar />
-  <main class="grid min-h-screen place-items-center bg-paper px-5 py-12">
+  <AuthShell>
     <section
-      class="surface w-full max-w-md rounded-2xl border border-stone-200 bg-white p-8 shadow-xl shadow-stone-900/5"
+      class="w-full rounded-[2rem] border border-stone-200 bg-white p-6 shadow-xl shadow-stone-900/5 sm:p-8"
     >
       <p class="eyebrow text-rose">Welcome back</p>
       <h1 class="mt-1 font-display text-3xl text-stone-900">
         Sign in to your business.
       </h1>
       <p class="mt-2 text-sm text-stone-500">
-        Use the email and password for your Supabase account.
+        Sign in with the email and password you registered with.
       </p>
 
       <form class="mt-7 space-y-4" @submit.prevent="login">
@@ -111,6 +113,5 @@ const login = async () => {
         >
       </p>
     </section>
-  </main>
-  <Footer />
+  </AuthShell>
 </template>

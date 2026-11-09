@@ -63,6 +63,8 @@ export const organizationSettingsSchema = z.object({
   currency: z.string().trim().max(10).optional(),
   bookingActive: z.boolean().optional(),
   onLocationEnabled: z.boolean().optional(),
+  // booking page: hide prices on the service list (shown after picking a service)
+  hidePricesInList: z.boolean().optional(),
 });
 
 export const dayHoursSchema = z.object({

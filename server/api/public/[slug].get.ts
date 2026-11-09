@@ -41,6 +41,7 @@ export default defineEventHandler(async (event) => {
       logoUrl: (business as any).logo_url ?? null,
       bookingActive: true,
       onLocationEnabled: (flags as any)?.onLocationEnabled === true,
+      hidePricesInList: (flags as any)?.hidePricesInList === true,
     },
     services: (activeServices ?? []).map((s: any) => ({
       id: s.id,

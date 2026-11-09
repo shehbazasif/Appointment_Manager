@@ -31,6 +31,7 @@ interface PublicBusinessData {
     currency: string;
     bookingActive: boolean;
     onLocationEnabled?: boolean;
+    hidePricesInList?: boolean;
   };
   services: Array<{
     id: string;
@@ -414,7 +415,7 @@ const shareViaWhatsApp = () => {
                     ></span>
                     <h3 class="font-bold text-stone-900 text-sm group-hover:text-rose-600 transition">{{ service.name }}</h3>
                   </div>
-                  <span class="font-bold text-stone-900 text-sm">
+                  <span v-if="!businessData?.business.hidePricesInList" class="font-bold text-stone-900 text-sm">
                     {{ formatMoney(service.priceCents, service.currency) }}
                   </span>
                 </div>

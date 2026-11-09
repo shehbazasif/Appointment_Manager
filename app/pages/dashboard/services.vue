@@ -48,6 +48,14 @@ const serviceForm = reactive({
   active: true,
 });
 
+// Searchable currency list (business currency first)
+const currencyOptions = computed(() => {
+  const own = businessCurrency.value;
+  const codes = [own, ...CURRENCIES.filter((c) => c !== own)];
+  if (serviceForm.currency && !codes.includes(serviceForm.currency)) codes.unshift(serviceForm.currency);
+  return codes.map((c) => ({ value: c, label: c, hint: currencyName(c), keywords: currencyName(c) }));
+});
+
 // Business currency (Settings) is the default for new services
 const businessProfile = inject<Ref<any> | null>("businessProfile", null);
 const businessCurrency = computed(
@@ -543,13 +551,13 @@ const deleteService = async (s: ServiceItem) => {
                 required
                 class="min-w-0 flex-1 rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
               />
-              <select
+              <SearchSelect
                 v-model="serviceForm.currency"
-                aria-label="Currency"
-                class="w-28 shrink-0 rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs font-bold outline-none focus:border-stone-900 focus:bg-white"
-              >
-                <option v-for="c in (CURRENCIES.includes(serviceForm.currency) ? CURRENCIES : [serviceForm.currency, ...CURRENCIES])" :key="c" :value="c">{{ c }}</option>
-              </select>
+                :options="currencyOptions"
+                class="w-32 shrink-0"
+                placeholder="Currency"
+                search-placeholder="Search, e.g. riyal"
+              />
             </div>
             <p class="mt-1 text-[11px] text-stone-500">
               Customers see {{ formatMoney(Math.round((parseFloat(serviceForm.priceEur) || 0) * 100), serviceForm.currency) }}
@@ -674,13 +682,13 @@ const deleteService = async (s: ServiceItem) => {
                 required
                 class="min-w-0 flex-1 rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
               />
-              <select
+              <SearchSelect
                 v-model="serviceForm.currency"
-                aria-label="Currency"
-                class="w-28 shrink-0 rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs font-bold outline-none focus:border-stone-900 focus:bg-white"
-              >
-                <option v-for="c in (CURRENCIES.includes(serviceForm.currency) ? CURRENCIES : [serviceForm.currency, ...CURRENCIES])" :key="c" :value="c">{{ c }}</option>
-              </select>
+                :options="currencyOptions"
+                class="w-32 shrink-0"
+                placeholder="Currency"
+                search-placeholder="Search, e.g. riyal"
+              />
             </div>
             <p class="mt-1 text-[11px] text-stone-500">
               Customers see {{ formatMoney(Math.round((parseFloat(serviceForm.priceEur) || 0) * 100), serviceForm.currency) }}

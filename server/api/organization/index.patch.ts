@@ -33,6 +33,7 @@ export default defineEventHandler(async (event) => {
   const hasSettingsUpdates =
     input.bookingActive !== undefined ||
     input.onLocationEnabled !== undefined ||
+    input.hidePricesInList !== undefined ||
     input.timezone !== undefined ||
     input.currency !== undefined;
 
@@ -89,12 +90,19 @@ export default defineEventHandler(async (event) => {
           business_id: businessId,
           ...(input.bookingActive !== undefined ? { online_booking_enabled: input.bookingActive } : {}),
           ...(input.onLocationEnabled !== undefined ? { on_location_enabled: input.onLocationEnabled } : {}),
+          ...(input.hidePricesInList !== undefined ? { hide_prices_in_list: input.hidePricesInList } : {}),
           ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
           ...(input.currency !== undefined ? { currency: input.currency } : {}),
           updated_at: new Date().toISOString(),
         },
         { onConflict: "business_id" },
       );
+    if (settingsError && String(settingsError.message ?? "").includes("hide_prices_in_list"))
+      throw createError({
+        statusCode: 400,
+        statusMessage:
+          "The 'hide prices' option needs a database update first. Run scripts/region-and-price-settings.sql in Supabase (SQL Editor) once, then save again.",
+      });
     if (settingsError)
       throw createError({
         statusCode: 500,
@@ -126,6 +134,12 @@ export default defineEventHandler(async (event) => {
     .select()
     .single();
 
+  if (error && String(error.message ?? "").includes("valid_timezone"))
+    throw createError({
+      statusCode: 400,
+      statusMessage:
+        "This time zone is not allowed by the database yet. Run scripts/region-and-price-settings.sql in Supabase (SQL Editor) once, then save again.",
+    });
   if (error || !updated)
     throw createError({
       statusCode: 500,

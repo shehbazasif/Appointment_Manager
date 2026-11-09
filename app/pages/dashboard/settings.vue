@@ -35,6 +35,7 @@ interface OrgSettings {
   currency: string;
   bookingActive: boolean;
   onLocationEnabled?: boolean;
+  hidePricesInList?: boolean;
   nameChangeCount?: number;
   nameCooldownUntil?: string | null;
 }
@@ -66,6 +67,7 @@ const form = reactive({
   currency: "EUR",
   bookingActive: true,
   onLocationEnabled: false,
+  hidePricesInList: false,
 });
 
 const loadSettings = async () => {
@@ -86,6 +88,7 @@ const loadSettings = async () => {
     form.currency = data.currency ?? "EUR";
     form.bookingActive = data.bookingActive;
     form.onLocationEnabled = data.onLocationEnabled ?? false;
+    form.hidePricesInList = data.hidePricesInList ?? false;
   } catch (err: any) {
     errorMessage.value = err?.data?.statusMessage ?? "Failed to load settings.";
   } finally {
@@ -146,6 +149,7 @@ const saveSettings = async () => {
         currency: form.currency.trim(),
         bookingActive: form.bookingActive,
         onLocationEnabled: form.onLocationEnabled,
+        hidePricesInList: form.hidePricesInList,
       },
     });
 
@@ -487,6 +491,23 @@ const confirmPhoneChange = async () => {
             class="size-4.5 rounded border-stone-300 text-stone-900 focus:ring-stone-900"
           />
         </div>
+
+        <!-- Booking page: hide prices on the service list -->
+        <label
+          for="hidePricesToggle"
+          class="flex cursor-pointer items-center gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-2.5 shadow-2xs"
+        >
+          <div>
+            <span class="block text-xs font-bold text-stone-800">Hide prices on service list</span>
+            <span class="block text-[10px] text-stone-500">Price shows only after the customer picks a service</span>
+          </div>
+          <input
+            type="checkbox"
+            id="hidePricesToggle"
+            v-model="form.hidePricesInList"
+            class="size-4.5 rounded border-stone-300 text-stone-900 focus:ring-stone-900"
+          />
+        </label>
       </div>
 
       <!-- URL Bar with Copy & Preview -->
@@ -684,34 +705,24 @@ const confirmPhoneChange = async () => {
           <p class="text-xs text-stone-500">Address, country, time zone and currency. Booking times follow this time zone; new services use this currency.</p>
         </div>
 
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div class="sm:col-span-2">
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Street Address</label>
-            <input
-              v-model="form.address"
-              type="text"
-              placeholder="Ermou 45"
-              class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">City</label>
-            <input
-              v-model="form.city"
-              type="text"
-              placeholder="Athens"
-              class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
-            />
-          </div>
-
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Street Address</label>
+          <input
+            v-model="form.address"
+            type="text"
+            autocomplete="street-address"
+            placeholder="Street, building, area"
+            class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
+          />
         </div>
 
-        <!-- Country -> time zone + currency (used for booking times, reminders and prices) -->
+        <!-- Country, city, time zone + currency (searchable dropdowns) -->
         <RegionFields
           v-model:country="form.country"
+          v-model:city="form.city"
           v-model:timezone="form.timezone"
           v-model:currency="form.currency"
+          show-city
         />
 
         <!-- Feedback Alerts -->

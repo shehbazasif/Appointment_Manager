@@ -99,6 +99,16 @@ export default defineEventHandler(async (event) => {
 
   if (input.notes !== undefined) updateData.notes = input.notes;
 
+  // Customer location (on-location businesses): set, change or clear
+  if (input.location !== undefined) {
+    const loc = input.location;
+    updateData.location_lat = loc?.lat ?? null;
+    updateData.location_lng = loc?.lng ?? null;
+    updateData.location_accuracy_m = loc?.accuracy ?? null;
+    updateData.location_note = loc?.note || null;
+    updateData.location_captured_at = loc ? new Date().toISOString() : null;
+  }
+
   // On-location workflow: Assigned -> On the way -> On location
   if (input.fieldStatus !== undefined) {
     if (input.fieldStatus && !targetStaffId)

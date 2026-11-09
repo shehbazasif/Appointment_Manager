@@ -61,8 +61,23 @@ export default defineEventHandler(async (event) => {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     },
-    service: row.service,
-    staff: row.staff,
+    service: row.service
+      ? {
+          id: row.service.id,
+          name: row.service.name,
+          durationMinutes: row.service.duration_minutes,
+          priceCents: row.service.price != null ? Math.round(Number(row.service.price) * 100) : 0,
+          currency: row.service.currency ?? null,
+          accent: row.service.accent ?? "#ca7481",
+        }
+      : null,
+    staff: row.staff
+      ? {
+          id: row.staff.id,
+          name: [row.staff.first_name, row.staff.last_name].filter(Boolean).join(" "),
+          role: row.staff.job_title ?? "",
+        }
+      : null,
   }));
 
   return {

@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from "vue";
+import { ref, reactive, computed, onMounted, inject, type Ref } from "vue";
 import {
   Sparkles,
   Plus,
   Edit2,
   Trash2,
   Clock,
-  Euro,
   Tag,
   Check,
   X,
@@ -24,6 +23,7 @@ interface ServiceItem {
   category: string;
   durationMinutes: number;
   priceCents: number;
+  currency?: string;
   active: boolean;
   accent: string;
 }
@@ -43,9 +43,82 @@ const serviceForm = reactive({
   category: "Hair",
   durationMinutes: 45,
   priceEur: "25.00",
+  currency: "EUR",
   accent: "#ca7481",
   active: true,
 });
+
+// Business currency (Settings) is the default for new services
+const businessProfile = inject<Ref<any> | null>("businessProfile", null);
+const businessCurrency = computed(
+  () => businessProfile?.value?.organization?.currency || "EUR",
+);
+
+// ---- Categories (create / remove; removing moves services to "General") ----
+const categories = ref<string[]>(["General"]);
+const categoriesEnabled = ref(true);
+const newCategory = ref("");
+const categoryBusy = ref(false);
+const categoryError = ref("");
+const NEW_CATEGORY = "__new__";
+const customCategory = ref("");
+
+const loadCategories = async () => {
+  try {
+    const r = await $fetch<{ enabled: boolean; categories: string[] }>("/api/service-categories");
+    categoriesEnabled.value = r.enabled;
+    categories.value = r.categories.length ? r.categories : ["General"];
+  } catch {
+    categoriesEnabled.value = false;
+  }
+};
+
+const addCategory = async () => {
+  const name = newCategory.value.trim();
+  if (!name) return;
+  categoryBusy.value = true;
+  categoryError.value = "";
+  try {
+    const r = await $fetch<{ categories: string[] }>("/api/service-categories", {
+      method: "POST",
+      body: { name },
+    });
+    categories.value = r.categories;
+    newCategory.value = "";
+  } catch (err: any) {
+    categoryError.value = err?.data?.statusMessage ?? "Could not add the category.";
+  } finally {
+    categoryBusy.value = false;
+  }
+};
+
+const removeCategory = async (name: string) => {
+  const count = services.value.filter((s) => (s.category || "General") === name).length;
+  const msg = count
+    ? `Remove the category "${name}"? Its ${count} service(s) will move to "General".`
+    : `Remove the category "${name}"?`;
+  if (!confirm(msg)) return;
+  categoryBusy.value = true;
+  categoryError.value = "";
+  try {
+    const r = await $fetch<{ categories: string[] }>("/api/service-categories", {
+      method: "DELETE",
+      query: { name },
+    });
+    categories.value = r.categories;
+    await loadServices();
+  } catch (err: any) {
+    categoryError.value = err?.data?.statusMessage ?? "Could not remove the category.";
+  } finally {
+    categoryBusy.value = false;
+  }
+};
+
+// Category chosen in the service form ("+ New category" lets you type one)
+const resolvedCategory = () =>
+  serviceForm.category === NEW_CATEGORY
+    ? customCategory.value.trim()
+    : serviceForm.category.trim();
 
 const defaultAccents = [
   "#ca7481", // Rose
@@ -69,11 +142,13 @@ const loadServices = async () => {
 
 onMounted(() => {
   loadServices();
+  loadCategories();
 });
 
-// Group services by category
+// Group services by category (created-but-empty categories are shown too)
 const groupedServices = computed(() => {
   const groups: Record<string, ServiceItem[]> = {};
+  for (const c of categories.value) if (c !== "General") groups[c] = [];
   for (const s of services.value) {
     const cat = s.category || "General";
     if (!groups[cat]) groups[cat] = [];
@@ -81,13 +156,16 @@ const groupedServices = computed(() => {
   }
   return groups;
 });
+const hasAnyGroup = computed(() => Object.keys(groupedServices.value).length > 0);
 
 const openCreate = () => {
   serviceForm.name = "";
   serviceForm.description = "";
-  serviceForm.category = "Styling";
+  serviceForm.category = categories.value[0] ?? "General";
+  customCategory.value = "";
   serviceForm.durationMinutes = 45;
   serviceForm.priceEur = "25.00";
+  serviceForm.currency = businessCurrency.value;
   serviceForm.accent = "#ca7481";
   serviceForm.active = true;
   formError.value = "";
@@ -95,7 +173,7 @@ const openCreate = () => {
 };
 
 const handleCreate = async () => {
-  if (!serviceForm.name.trim() || !serviceForm.category.trim()) {
+  if (!serviceForm.name.trim() || !resolvedCategory()) {
     formError.value = "Name and category are required.";
     return;
   }
@@ -113,15 +191,16 @@ const handleCreate = async () => {
       body: {
         name: serviceForm.name.trim(),
         description: serviceForm.description.trim() || undefined,
-        category: serviceForm.category.trim(),
+        category: resolvedCategory() || "General",
         durationMinutes: Number(serviceForm.durationMinutes),
         priceCents: Math.round(priceNum * 100),
+        currency: serviceForm.currency,
         accent: serviceForm.accent,
         active: serviceForm.active,
       },
     });
     showCreateModal.value = false;
-    await loadServices();
+    await Promise.all([loadServices(), loadCategories()]);
   } catch (err: any) {
     formError.value = err?.data?.statusMessage ?? "Failed to create service.";
   } finally {
@@ -133,7 +212,11 @@ const openEdit = (s: ServiceItem) => {
   selectedService.value = s;
   serviceForm.name = s.name;
   serviceForm.description = s.description ?? "";
-  serviceForm.category = s.category;
+  serviceForm.category = s.category || "General";
+  customCategory.value = "";
+  if (!categories.value.includes(serviceForm.category))
+    categories.value = [...categories.value, serviceForm.category];
+  serviceForm.currency = s.currency || businessCurrency.value;
   serviceForm.durationMinutes = s.durationMinutes;
   serviceForm.priceEur = (s.priceCents / 100).toFixed(2);
   serviceForm.accent = s.accent || "#ca7481";
@@ -158,15 +241,16 @@ const handleEdit = async () => {
       body: {
         name: serviceForm.name.trim(),
         description: serviceForm.description.trim() || undefined,
-        category: serviceForm.category.trim(),
+        category: resolvedCategory() || "General",
         durationMinutes: Number(serviceForm.durationMinutes),
         priceCents: Math.round(priceNum * 100),
+        currency: serviceForm.currency,
         accent: serviceForm.accent,
         active: serviceForm.active,
       },
     });
     showEditModal.value = false;
-    await loadServices();
+    await Promise.all([loadServices(), loadCategories()]);
   } catch (err: any) {
     formError.value = err?.data?.statusMessage ?? "Failed to update service.";
   } finally {
@@ -217,6 +301,58 @@ const deleteService = async (s: ServiceItem) => {
       </button>
     </div>
 
+    <!-- Category manager -->
+    <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm space-y-3">
+      <div class="flex items-center gap-2">
+        <Tag :size="16" class="text-rose-600" />
+        <h2 class="text-sm font-bold text-stone-900">Categories</h2>
+      </div>
+      <p v-if="!categoriesEnabled" class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+        Categories need a small database update first (scripts/service-categories.sql). Until then all services stay in "General".
+      </p>
+      <template v-else>
+        <div class="flex flex-wrap gap-2">
+          <span
+            v-for="c in categories"
+            :key="c"
+            class="inline-flex min-h-9 items-center gap-1 rounded-full border border-stone-200 bg-stone-50 pl-3 pr-1 text-xs font-semibold text-stone-800"
+          >
+            {{ c }}
+            <button
+              v-if="c !== 'General'"
+              type="button"
+              :disabled="categoryBusy"
+              @click="removeCategory(c)"
+              class="grid size-8 place-items-center rounded-full text-stone-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+              :aria-label="`Remove category ${c}`"
+              :title="`Remove ${c}`"
+            >
+              <X :size="14" />
+            </button>
+            <span v-else class="pr-2"></span>
+          </span>
+        </div>
+        <form class="flex gap-2" @submit.prevent="addCategory">
+          <input
+            v-model="newCategory"
+            type="text"
+            maxlength="60"
+            placeholder="New category, e.g. Nails"
+            class="min-w-0 flex-1 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs outline-none focus:border-stone-900 focus:bg-white sm:max-w-xs"
+          />
+          <button
+            type="submit"
+            :disabled="categoryBusy || !newCategory.trim()"
+            class="tap inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+          >
+            <Plus :size="14" />
+            <span>Add</span>
+          </button>
+        </form>
+        <p v-if="categoryError" class="text-xs font-medium text-rose-700">{{ categoryError }}</p>
+      </template>
+    </div>
+
     <!-- Loading State -->
     <div v-if="isLoading" class="space-y-4">
       <div v-for="i in 3" :key="i" class="h-32 rounded-3xl bg-stone-200/60 animate-pulse"></div>
@@ -224,7 +360,7 @@ const deleteService = async (s: ServiceItem) => {
 
     <!-- Empty State -->
     <div
-      v-else-if="services.length === 0"
+      v-else-if="!hasAnyGroup"
       class="py-16 text-center rounded-3xl border border-dashed border-stone-200 bg-white"
     >
       <Sparkles :size="36" class="mx-auto text-stone-400" />
@@ -258,8 +394,15 @@ const deleteService = async (s: ServiceItem) => {
           </span>
         </div>
 
+        <p
+          v-if="catServices.length === 0"
+          class="rounded-2xl border border-dashed border-stone-200 bg-white p-4 text-xs text-stone-500"
+        >
+          No services in this category yet. Add a service and choose "{{ category }}".
+        </p>
+
         <!-- Category Grid -->
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div
             v-for="s in catServices"
             :key="s.id"
@@ -301,7 +444,7 @@ const deleteService = async (s: ServiceItem) => {
                   {{ s.durationMinutes }} mins
                 </span>
                 <span class="flex items-center gap-1 font-bold text-stone-900 text-sm">
-                  {{ (s.priceCents / 100).toFixed(2) }} €
+                  {{ formatMoney(s.priceCents, s.currency) }}
                 </span>
               </div>
             </div>
@@ -358,12 +501,21 @@ const deleteService = async (s: ServiceItem) => {
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Category</label>
-              <input
+              <select
                 v-model="serviceForm.category"
-                type="text"
-                required
-                placeholder="Hair, Nails, Spa..."
                 class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
+              >
+                <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
+                <option v-if="categoriesEnabled" :value="NEW_CATEGORY">+ New category…</option>
+              </select>
+              <input
+                v-if="serviceForm.category === NEW_CATEGORY"
+                v-model="customCategory"
+                type="text"
+                maxlength="60"
+                required
+                placeholder="e.g. Hair, Nails, Spa"
+                class="mt-2 w-full rounded-xl border border-stone-200 bg-white p-3 text-xs outline-none focus:border-stone-900"
               />
             </div>
             <div>
@@ -380,15 +532,28 @@ const deleteService = async (s: ServiceItem) => {
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Price (EUR €)</label>
-            <input
-              v-model="serviceForm.priceEur"
-              type="number"
-              step="0.50"
-              min="0"
-              required
-              class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
-            />
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Price</label>
+            <div class="flex gap-2">
+              <input
+                v-model="serviceForm.priceEur"
+                type="number"
+                inputmode="decimal"
+                step="0.01"
+                min="0"
+                required
+                class="min-w-0 flex-1 rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
+              />
+              <select
+                v-model="serviceForm.currency"
+                aria-label="Currency"
+                class="w-28 shrink-0 rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs font-bold outline-none focus:border-stone-900 focus:bg-white"
+              >
+                <option v-for="c in (CURRENCIES.includes(serviceForm.currency) ? CURRENCIES : [serviceForm.currency, ...CURRENCIES])" :key="c" :value="c">{{ c }}</option>
+              </select>
+            </div>
+            <p class="mt-1 text-[11px] text-stone-500">
+              Customers see {{ formatMoney(Math.round((parseFloat(serviceForm.priceEur) || 0) * 100), serviceForm.currency) }}
+            </p>
           </div>
 
           <div>
@@ -467,11 +632,21 @@ const deleteService = async (s: ServiceItem) => {
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Category</label>
-              <input
+              <select
                 v-model="serviceForm.category"
-                type="text"
-                required
                 class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
+              >
+                <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
+                <option v-if="categoriesEnabled" :value="NEW_CATEGORY">+ New category…</option>
+              </select>
+              <input
+                v-if="serviceForm.category === NEW_CATEGORY"
+                v-model="customCategory"
+                type="text"
+                maxlength="60"
+                required
+                placeholder="e.g. Hair, Nails, Spa"
+                class="mt-2 w-full rounded-xl border border-stone-200 bg-white p-3 text-xs outline-none focus:border-stone-900"
               />
             </div>
             <div>
@@ -488,15 +663,28 @@ const deleteService = async (s: ServiceItem) => {
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Price (EUR €)</label>
-            <input
-              v-model="serviceForm.priceEur"
-              type="number"
-              step="0.50"
-              min="0"
-              required
-              class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
-            />
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Price</label>
+            <div class="flex gap-2">
+              <input
+                v-model="serviceForm.priceEur"
+                type="number"
+                inputmode="decimal"
+                step="0.01"
+                min="0"
+                required
+                class="min-w-0 flex-1 rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
+              />
+              <select
+                v-model="serviceForm.currency"
+                aria-label="Currency"
+                class="w-28 shrink-0 rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs font-bold outline-none focus:border-stone-900 focus:bg-white"
+              >
+                <option v-for="c in (CURRENCIES.includes(serviceForm.currency) ? CURRENCIES : [serviceForm.currency, ...CURRENCIES])" :key="c" :value="c">{{ c }}</option>
+              </select>
+            </div>
+            <p class="mt-1 text-[11px] text-stone-500">
+              Customers see {{ formatMoney(Math.round((parseFloat(serviceForm.priceEur) || 0) * 100), serviceForm.currency) }}
+            </p>
           </div>
 
           <div>

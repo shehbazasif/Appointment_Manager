@@ -681,7 +681,7 @@ const confirmPhoneChange = async () => {
         <!-- Location & Region -->
         <div class="border-t border-stone-100 pt-6">
           <h2 class="font-display text-lg font-bold text-stone-900">Location & Localization</h2>
-          <p class="text-xs text-stone-500">Physical address, currency, and timezone settings.</p>
+          <p class="text-xs text-stone-500">Address, country, time zone and currency. Booking times follow this time zone; new services use this currency.</p>
         </div>
 
         <div class="grid gap-4 sm:grid-cols-2">
@@ -705,36 +705,14 @@ const confirmPhoneChange = async () => {
             />
           </div>
 
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Country</label>
-            <input
-              v-model="form.country"
-              type="text"
-              placeholder="Greece"
-              class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Timezone</label>
-            <input
-              v-model="form.timezone"
-              type="text"
-              placeholder="Europe/Athens"
-              class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Currency</label>
-            <input
-              v-model="form.currency"
-              type="text"
-              placeholder="EUR"
-              class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
-            />
-          </div>
         </div>
+
+        <!-- Country -> time zone + currency (used for booking times, reminders and prices) -->
+        <RegionFields
+          v-model:country="form.country"
+          v-model:timezone="form.timezone"
+          v-model:currency="form.currency"
+        />
 
         <!-- Feedback Alerts -->
         <p

@@ -39,6 +39,7 @@ interface ServiceItem {
   name: string;
   durationMinutes: number;
   priceCents: number;
+  currency?: string | null;
   active: boolean;
   accent: string;
 }
@@ -692,7 +693,7 @@ const formatDate = (isoString: string) => {
               />
               <span class="font-semibold text-stone-800">{{ s.name }}</span>
             </div>
-            <span class="text-stone-500">{{ s.durationMinutes }}m · {{ (s.priceCents / 100).toFixed(2) }} €</span>
+            <span class="text-stone-500">{{ s.durationMinutes }}m · {{ formatMoney(s.priceCents, s.currency) }}</span>
           </label>
         </div>
 

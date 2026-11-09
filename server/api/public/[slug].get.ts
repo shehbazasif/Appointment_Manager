@@ -46,9 +46,10 @@ export default defineEventHandler(async (event) => {
       id: s.id,
       name: s.name,
       description: s.description,
-      category: "General",
+      category: s.category || "General",
       durationMinutes: s.duration_minutes,
       priceCents: s.price != null ? Math.round(Number(s.price) * 100) : 0,
+      currency: s.currency ?? business.currency ?? "EUR",
       accent: "#ca7481",
     })),
     hours: (hours ?? []).map((h: any) => ({

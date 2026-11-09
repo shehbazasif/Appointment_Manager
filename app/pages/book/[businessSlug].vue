@@ -39,6 +39,7 @@ interface PublicBusinessData {
     category: string;
     durationMinutes: number;
     priceCents: number;
+    currency?: string | null;
     accent: string;
   }>;
   hours: Array<{
@@ -414,7 +415,7 @@ const shareViaWhatsApp = () => {
                     <h3 class="font-bold text-stone-900 text-sm group-hover:text-rose-600 transition">{{ service.name }}</h3>
                   </div>
                   <span class="font-bold text-stone-900 text-sm">
-                    {{ (service.priceCents / 100).toFixed(2) }} €
+                    {{ formatMoney(service.priceCents, service.currency) }}
                   </span>
                 </div>
                 <p v-if="service.description" class="text-xs text-stone-500 line-clamp-2 leading-relaxed">
@@ -448,7 +449,7 @@ const shareViaWhatsApp = () => {
             </button>
 
             <span v-if="selectedService" class="rounded-full bg-stone-200/70 px-3 py-1 text-xs font-semibold text-stone-800">
-              {{ selectedService.name }} · {{ selectedService.durationMinutes }}m · {{ (selectedService.priceCents / 100).toFixed(2) }} €
+              {{ selectedService.name }} · {{ selectedService.durationMinutes }}m · {{ formatMoney(selectedService.priceCents, selectedService.currency) }}
             </span>
           </div>
 
@@ -532,7 +533,7 @@ const shareViaWhatsApp = () => {
           <div class="rounded-2xl border border-stone-200 bg-stone-50/80 p-4 space-y-1 text-xs">
             <div class="flex items-center justify-between">
               <span class="font-bold text-stone-900 text-sm">{{ selectedService?.name }}</span>
-              <span class="font-bold text-stone-900">{{ ((selectedService?.priceCents ?? 0) / 100).toFixed(2) }} €</span>
+              <span class="font-bold text-stone-900">{{ formatMoney(selectedService?.priceCents, selectedService?.currency) }}</span>
             </div>
             <div class="text-stone-500 flex items-center gap-2">
               <span>{{ formatDateDisplay(selectedDate) }} at {{ selectedSlot?.time }}</span>
@@ -680,7 +681,7 @@ const shareViaWhatsApp = () => {
               <div class="text-right">
                 <span class="text-[10px] text-stone-400 uppercase tracking-wider">Price</span>
                 <span class="block font-bold text-stone-900 text-sm">
-                  {{ ((selectedService?.priceCents ?? 0) / 100).toFixed(2) }} €
+                  {{ formatMoney(selectedService?.priceCents, selectedService?.currency) }}
                 </span>
               </div>
             </div>

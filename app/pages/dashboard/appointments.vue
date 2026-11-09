@@ -53,6 +53,7 @@ interface AppointmentDetail {
     name: string;
     durationMinutes: number;
     priceCents: number;
+    currency?: string | null;
     accent: string;
   };
   staff?: {
@@ -68,6 +69,7 @@ interface ServiceItem {
   name: string;
   durationMinutes: number;
   priceCents: number;
+  currency?: string | null;
   active: boolean;
   accent: string;
 }
@@ -87,6 +89,7 @@ interface CustomerItem {
   email?: string | null;
 }
 
+type LocationValue = { lat: number; lng: number; accuracy?: number | null; note?: string | null };
 const appointments = ref<AppointmentDetail[]>([]);
 const services = ref<ServiceItem[]>([]);
 const staffList = ref<StaffItem[]>([]);
@@ -199,6 +202,7 @@ const createForm = reactive({
   date: new Date().toISOString().slice(0, 10),
   time: "10:00",
   notes: "",
+  location: null as LocationValue | null,
   isNewCustomer: false,
 });
 
@@ -210,6 +214,7 @@ const editForm = reactive({
   time: "",
   status: "",
   notes: "",
+  location: null as LocationValue | null,
 });
 
 const assignStaffId = ref("");
@@ -362,6 +367,7 @@ const openCreateModal = () => {
   createForm.newCustomerPhone = "";
   createForm.newCustomerEmail = "";
   createForm.notes = "";
+  createForm.location = null;
   createForm.staffId = "";
   const today = new Date();
   createForm.date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -403,6 +409,7 @@ const handleCreateAppointment = async () => {
         startAt: startAt.toISOString(),
         notes: createForm.notes.trim() || null,
         source: "MANUAL",
+        ...(onLocation.value && createForm.location ? { location: createForm.location } : {}),
       },
     });
 
@@ -426,6 +433,9 @@ const openEditModal = (item: AppointmentDetail) => {
   editForm.status = item.appointment.status;
   editForm.fieldStatus = item.appointment.fieldStatus ?? (item.appointment.staffId ? "ASSIGNED" : "");
   editForm.notes = item.appointment.notes ?? "";
+  editForm.location = item.appointment.location
+    ? { ...item.appointment.location }
+    : null;
   formError.value = "";
   showEditModal.value = true;
 };
@@ -447,6 +457,7 @@ const handleEditAppointment = async () => {
           ? { fieldStatus: editForm.staffId ? ((editForm.fieldStatus || "ASSIGNED") as any) : null }
           : { status: editForm.status as any }),
         notes: editForm.notes.trim() || null,
+        ...(onLocation.value ? { location: editForm.location } : {}),
       },
     });
 
@@ -730,7 +741,7 @@ const getStatusBadge = (status: string) => {
             <span class="size-2.5 shrink-0 rounded-full" :style="{ backgroundColor: item.service.accent || '#ca7481' }"></span>
             <span class="truncate font-semibold text-stone-800">{{ item.service.name }}</span>
           </span>
-          <span class="shrink-0 font-bold text-stone-900">{{ (item.service.priceCents / 100).toFixed(2) }} €</span>
+          <span class="shrink-0 font-bold text-stone-900">{{ formatMoney(item.service.priceCents, item.service.currency) }}</span>
         </div>
 
         <!-- Staff -->
@@ -890,7 +901,7 @@ const getStatusBadge = (status: string) => {
                   <span class="size-2 rounded-full" :style="{ backgroundColor: item.service.accent || '#ca7481' }"></span>
                   <span class="font-semibold text-stone-800">{{ item.service.name }}</span>
                 </div>
-                <div class="text-[11px] text-stone-500 font-bold">{{ (item.service.priceCents / 100).toFixed(2) }} €</div>
+                <div class="text-[11px] text-stone-500 font-bold">{{ formatMoney(item.service.priceCents, item.service.currency) }}</div>
               </td>
 
               <!-- Staff Assigned -->
@@ -1129,7 +1140,7 @@ const getStatusBadge = (status: string) => {
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-sm outline-none focus:border-stone-900 focus:bg-white"
             >
               <option v-for="s in services" :key="s.id" :value="s.id">
-                {{ s.name }} ({{ s.durationMinutes }}m) — {{ (s.priceCents / 100).toFixed(2) }} €
+                {{ s.name }} ({{ s.durationMinutes }}m) — {{ formatMoney(s.priceCents, s.currency) }}
               </option>
             </select>
           </div>
@@ -1171,6 +1182,9 @@ const getStatusBadge = (status: string) => {
               />
             </div>
           </div>
+
+          <!-- On-location: where the staff member has to go -->
+          <LocationInput v-if="onLocation" v-model="createForm.location" />
 
           <!-- Notes -->
           <div>
@@ -1236,7 +1250,7 @@ const getStatusBadge = (status: string) => {
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-sm outline-none focus:border-stone-900 focus:bg-white"
             >
               <option v-for="s in services" :key="s.id" :value="s.id">
-                {{ s.name }} ({{ s.durationMinutes }}m) — {{ (s.priceCents / 100).toFixed(2) }} €
+                {{ s.name }} ({{ s.durationMinutes }}m) — {{ formatMoney(s.priceCents, s.currency) }}
               </option>
             </select>
           </div>
@@ -1314,6 +1328,9 @@ const getStatusBadge = (status: string) => {
               <option value="RESCHEDULED">Rescheduled</option>
             </select>
           </div>
+
+          <!-- On-location: change / set the customer location -->
+          <LocationInput v-if="onLocation" v-model="editForm.location" />
 
           <!-- Notes -->
           <div>

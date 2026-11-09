@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+/** One-time customer location (on-location businesses). */
+export const appointmentLocationSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  accuracy: z.number().min(0).max(100000).optional().nullable(),
+  note: z.string().trim().max(300).optional().nullable(),
+});
+
 export const appointmentSchema = z.object({
   customerId: z.string().uuid(),
   staffId: z.string().uuid().nullable().optional(),
@@ -7,6 +15,8 @@ export const appointmentSchema = z.object({
   startAt: z.coerce.date(),
   notes: z.string().trim().max(1000).optional().nullable(),
   source: z.enum(["ONLINE", "MANUAL"]).default("MANUAL"),
+  // On-location businesses: where the staff member has to go
+  location: appointmentLocationSchema.optional().nullable(),
 });
 
 export const updateAppointmentSchema = z.object({
@@ -27,6 +37,8 @@ export const updateAppointmentSchema = z.object({
   notes: z.string().trim().max(1000).optional().nullable(),
   // On-location workflow step (only used when the business enabled on-location service)
   fieldStatus: z.enum(["ASSIGNED", "ON_THE_WAY", "ON_LOCATION"]).nullable().optional(),
+  // null clears the saved location
+  location: appointmentLocationSchema.nullable().optional(),
 });
 
 export const publicBookingSchema = z.object({

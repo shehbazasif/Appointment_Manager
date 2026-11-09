@@ -41,6 +41,7 @@ interface AppointmentDetail {
     name: string;
     durationMinutes: number;
     priceCents: number;
+    currency?: string | null;
     accent: string;
   };
   staff?: {
@@ -378,7 +379,7 @@ const updateStatus = async (id: string, status: string) => {
             </div>
           </div>
           <div class="text-right">
-            <span class="font-bold text-stone-900">{{ (item.service.priceCents / 100).toFixed(2) }} €</span>
+            <span class="font-bold text-stone-900">{{ formatMoney(item.service.priceCents, item.service.currency) }}</span>
           </div>
         </div>
       </div>

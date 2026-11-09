@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from "vue";
-import { ScanLine, QrCode, CalendarClock, Clock, Camera, Download, Save, CheckCircle2, AlertCircle } from "lucide-vue-next";
+import { ScanLine, QrCode, CalendarClock, Clock, Camera, Download, Save, CheckCircle2, AlertCircle, LogIn, LogOut } from "lucide-vue-next";
 import jsQR from "jsqr";
 import QRCode from "qrcode";
 
@@ -24,6 +24,8 @@ const videoEl = ref<HTMLVideoElement | null>(null);
 const scanning = ref(false);
 const camError = ref("");
 const scanMsg = ref<{ ok: boolean; text: string } | null>(null);
+// Which button started the camera: Enter (check-in) or Exit (check-out)
+const scanMode = ref<"IN" | "OUT">("IN");
 let stream: MediaStream | null = null;
 let raf = 0;
 let canvasEl: HTMLCanvasElement | null = null;
@@ -41,16 +43,20 @@ const submitScan = async (token: string) => {
   try {
     const r = await $fetch<{ action: string; staffName: string; at: string }>("/api/attendance/scan", {
       method: "POST",
-      body: { token },
+      body: { token, mode: scanMode.value },
     });
     const when = fmtTime(r.at);
+    const ok = r.action === "CHECK_IN" || r.action === "CHECK_OUT";
     scanMsg.value = {
-      ok: r.action !== "IGNORED",
+      ok,
       text:
-        r.action === "CHECK_IN" ? `${r.staffName} checked in at ${when}`
-        : r.action === "CHECK_OUT" ? `${r.staffName} checked out at ${when}`
+        r.action === "CHECK_IN" ? `✅ ${r.staffName} ENTERED at ${when}`
+        : r.action === "CHECK_OUT" ? `👋 ${r.staffName} EXITED at ${when}`
+        : r.action === "ALREADY_IN" ? `${r.staffName} is already on duty (entered at ${when}). Use Exit to check out.`
+        : r.action === "NOT_IN" ? `${r.staffName} has not entered yet today. Use Enter first.`
         : `${r.staffName} was just scanned (${when})`,
     };
+    if (ok && navigator.vibrate) navigator.vibrate(120);
     loadLog();
   } catch (err: any) {
     scanMsg.value = { ok: false, text: err?.data?.statusMessage ?? "Scan failed. Try again." };
@@ -79,7 +85,9 @@ const tick = () => {
   raf = requestAnimationFrame(tick);
 };
 
-const startScan = async () => {
+const startScan = async (mode?: "IN" | "OUT") => {
+  if (mode) scanMode.value = mode;
+  if (scanning.value) return; // switching mode while the camera runs
   camError.value = "";
   scanMsg.value = null;
   try {
@@ -221,9 +229,47 @@ const hasStaff = computed(() => staffList.value.length > 0);
     <!-- SCAN -->
     <section v-if="tab === 'scan'" class="space-y-4 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm">
       <p class="text-sm text-stone-600">
-        Keep this screen open on a phone or tablet at your entrance. When a staff member shows their QR badge to the
-        camera, their <b>check-in</b> is saved; the next scan is their <b>check-out</b>.
+        Keep this screen open on a phone or tablet at your entrance. Tap <b>Enter</b> when staff arrive or
+        <b>Exit</b> when they leave, then show their QR badge to the camera.
       </p>
+
+      <!-- Enter / Exit -->
+      <div class="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          @click="startScan('IN')"
+          :class="[
+            scanning && scanMode === 'IN' ? 'ring-4 ring-emerald-200' : '',
+            'flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl bg-emerald-600 px-3 py-4 text-base font-bold text-white transition hover:bg-emerald-700',
+          ]"
+        >
+          <LogIn :size="24" />
+          <span>Enter</span>
+          <span class="text-[11px] font-medium text-emerald-100">Check-in</span>
+        </button>
+        <button
+          type="button"
+          @click="startScan('OUT')"
+          :class="[
+            scanning && scanMode === 'OUT' ? 'ring-4 ring-rose-200' : '',
+            'flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl bg-rose-600 px-3 py-4 text-base font-bold text-white transition hover:bg-rose-700',
+          ]"
+        >
+          <LogOut :size="24" />
+          <span>Exit</span>
+          <span class="text-[11px] font-medium text-rose-100">Check-out</span>
+        </button>
+      </div>
+
+      <div
+        v-if="scanning"
+        :class="[
+          scanMode === 'IN' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-rose-50 text-rose-800 border-rose-200',
+          'rounded-xl border p-3 text-center text-sm font-bold',
+        ]"
+      >
+        Scanning for {{ scanMode === "IN" ? "ENTER (check-in)" : "EXIT (check-out)" }} — show the QR badge
+      </div>
       <div v-if="scanning" class="overflow-hidden rounded-2xl bg-stone-900">
         <video ref="videoEl" playsinline muted class="mx-auto aspect-[4/3] w-full max-w-md object-cover"></video>
       </div>
@@ -232,10 +278,9 @@ const hasStaff = computed(() => staffList.value.length > 0);
         <span>{{ scanMsg.text }}</span>
       </div>
       <div v-if="camError" class="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{{ camError }}</div>
-      <button v-if="!scanning" type="button" @click="startScan" class="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-5 py-3 text-sm font-bold text-white hover:bg-rose-700">
-        <Camera :size="18" /><span>Start scanning</span>
+      <button v-if="scanning" type="button" @click="stopScan" class="tap inline-flex w-full items-center justify-center gap-2 rounded-xl border border-stone-200 px-5 py-3 text-sm font-bold text-stone-700 hover:bg-stone-50 sm:w-auto">
+        <Camera :size="18" /><span>Stop camera</span>
       </button>
-      <button v-else type="button" @click="stopScan" class="rounded-xl border border-stone-200 px-5 py-3 text-sm font-bold text-stone-700 hover:bg-stone-50">Stop camera</button>
     </section>
 
     <!-- LOG -->

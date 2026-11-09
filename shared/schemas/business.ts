@@ -3,9 +3,16 @@ import { z } from "zod";
 export const serviceSchema = z.object({
   name: z.string().trim().min(2).max(120),
   description: z.string().trim().max(500).optional(),
-  category: z.string().trim().min(2).max(80),
+  category: z.string().trim().min(1).max(60),
   durationMinutes: z.number().int().min(5).max(480),
-  priceCents: z.number().int().min(0).max(1000000),
+  priceCents: z.number().int().min(0).max(100000000),
+  // ISO 4217 code the service is charged in (defaults to the business currency)
+  currency: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z]{3}$/, "Currency must be a 3-letter code like EUR or PKR.")
+    .optional(),
   active: z.boolean().default(true),
   accent: z
     .string()
@@ -40,7 +47,19 @@ export const organizationSettingsSchema = z.object({
   address: z.string().trim().max(200).optional().nullable(),
   city: z.string().trim().max(100).optional().nullable(),
   country: z.string().trim().max(100).optional(),
-  timezone: z.string().trim().max(100).optional(),
+  timezone: z
+    .string()
+    .trim()
+    .max(100)
+    .refine((tz) => {
+      try {
+        new Intl.DateTimeFormat("en-US", { timeZone: tz });
+        return true;
+      } catch {
+        return false;
+      }
+    }, "Unknown time zone.")
+    .optional(),
   currency: z.string().trim().max(10).optional(),
   bookingActive: z.boolean().optional(),
   onLocationEnabled: z.boolean().optional(),

@@ -69,15 +69,11 @@ export default defineEventHandler(async (event) => {
   // Guard: non-latin business names (e.g. Greek) can slug to an empty string
   if (!slug) slug = `studio-${Math.random().toString(36).slice(2, 8)}`;
 
-  // Ensure unique slug
-  const { data: slugConflict } = await sb
-    .from("businesses")
-    .select("id")
-    .eq("slug", slug)
-    .maybeSingle();
-  if (slugConflict) {
-    slug = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
-  }
+  // NOTE: a "does this slug exist?" lookup is not reliable here — row level
+  // security hides other businesses from a brand-new user, so a taken slug
+  // looks free. Instead we try the insert and add a random suffix whenever
+  // Postgres reports a unique-slug violation (code 23505).
+  const randomSuffix = () => Math.random().toString(36).slice(2, 6);
 
   // Mirror auth user into profiles (id = auth.users.id)
   const { error: profileError } = await sb.from("profiles").upsert(
@@ -95,22 +91,34 @@ export default defineEventHandler(async (event) => {
       statusMessage: `Profile sync failed: ${profileError.message}`,
     });
 
-  // Create business
-  const { data: business, error: businessError } = await sb
-    .from("businesses")
-    .insert({
-      name: businessName,
-      slug,
-      email: authUser.email,
-      status: "ACTIVE",
-    })
-    .select()
-    .single();
+  // Create business (retry with a new slug if it is already taken)
+  let business: any = null;
+  let businessError: any = null;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const candidate = attempt === 0 ? slug : `${slug}-${randomSuffix()}`;
+    const res = await sb
+      .from("businesses")
+      .insert({
+        name: businessName,
+        slug: candidate,
+        email: authUser.email,
+        status: "ACTIVE",
+      })
+      .select()
+      .single();
+    business = res.data;
+    businessError = res.error;
+    if (!businessError) break;
+    const slugTaken =
+      businessError.code === "23505" &&
+      String(businessError.message ?? "").includes("slug");
+    if (!slugTaken) break;
+  }
 
-  if (businessError)
+  if (businessError || !business)
     throw createError({
       statusCode: 500,
-      statusMessage: businessError.message,
+      statusMessage: businessError?.message ?? "Could not create your business.",
     });
 
   // OWNER membership

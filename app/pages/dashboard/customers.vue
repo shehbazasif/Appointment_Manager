@@ -52,6 +52,7 @@ interface CustomerDetailResponse {
       name: string;
       durationMinutes: number;
       priceCents: number;
+      currency?: string | null;
       accent: string;
     };
     staff?: {
@@ -540,11 +541,11 @@ const formatDate = (isoString: string) => {
                     {{ item.appointment.status }}
                   </span>
                 </div>
-                <div class="font-medium text-stone-700 flex items-center gap-2">
+                <div v-if="item.service" class="font-medium text-stone-700 flex items-center gap-2">
                   <span class="size-2 rounded-full" :style="{ backgroundColor: item.service.accent || '#ca7481' }"></span>
                   <span>{{ item.service.name }}</span>
                   <span class="text-stone-400">·</span>
-                  <span class="font-bold text-stone-900">{{ (item.service.priceCents / 100).toFixed(2) }} €</span>
+                  <span class="font-bold text-stone-900">{{ formatMoney(item.service.priceCents, item.service.currency) }}</span>
                 </div>
                 <div class="text-[11px] text-stone-500">
                   Staff: {{ item.staff?.name ?? 'Unassigned' }}

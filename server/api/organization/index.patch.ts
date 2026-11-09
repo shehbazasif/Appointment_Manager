@@ -28,8 +28,13 @@ export default defineEventHandler(async (event) => {
 
   const updates = mapSettingsToColumns(input);
   const hasBusinessUpdates = Object.keys(updates).length > 0;
+  // Time zone / currency also live in business_settings: booking availability,
+  // attendance and reminders read them from there, so keep both in sync.
   const hasSettingsUpdates =
-    input.bookingActive !== undefined || input.onLocationEnabled !== undefined;
+    input.bookingActive !== undefined ||
+    input.onLocationEnabled !== undefined ||
+    input.timezone !== undefined ||
+    input.currency !== undefined;
 
   if (!hasBusinessUpdates && !hasSettingsUpdates)
     throw createError({ statusCode: 400, statusMessage: "No fields to update." });
@@ -84,6 +89,8 @@ export default defineEventHandler(async (event) => {
           business_id: businessId,
           ...(input.bookingActive !== undefined ? { online_booking_enabled: input.bookingActive } : {}),
           ...(input.onLocationEnabled !== undefined ? { on_location_enabled: input.onLocationEnabled } : {}),
+          ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
+          ...(input.currency !== undefined ? { currency: input.currency } : {}),
           updated_at: new Date().toISOString(),
         },
         { onConflict: "business_id" },

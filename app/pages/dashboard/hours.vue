@@ -37,8 +37,32 @@ const isSaving = ref(false);
 const successMessage = ref("");
 const errorMessage = ref("");
 
+// Business country + time zone: all hours below are in this time zone
+const region = reactive({ country: "", timezone: "", currency: "" });
+const savedRegion = reactive({ country: "", timezone: "" });
+const loadRegion = async () => {
+  try {
+    const org = await $fetch<{ country?: string | null; timezone?: string; currency?: string }>(
+      "/api/organization",
+    );
+    region.country = org.country ?? "";
+    region.timezone = org.timezone ?? "";
+    region.currency = org.currency ?? "";
+    savedRegion.country = region.country;
+    savedRegion.timezone = region.timezone;
+  } catch {}
+};
+const browserZone = (() => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return "";
+  }
+})();
+
 const loadHours = async () => {
   isLoading.value = true;
+  loadRegion();
   try {
     const rawHours = await $fetch<any[]>("/api/business-hours");
     const map = new Map<number, any>();
@@ -80,6 +104,23 @@ const saveHours = async () => {
       endTime: d.endTime,
       enabled: d.enabled,
     }));
+
+    // Save country / time zone first (only when changed)
+    if (
+      region.timezone &&
+      (region.timezone !== savedRegion.timezone || region.country !== savedRegion.country)
+    ) {
+      await $fetch("/api/organization", {
+        method: "PATCH",
+        body: {
+          timezone: region.timezone,
+          ...(region.country ? { country: region.country } : {}),
+          ...(region.currency ? { currency: region.currency } : {}),
+        },
+      });
+      savedRegion.country = region.country;
+      savedRegion.timezone = region.timezone;
+    }
 
     await $fetch("/api/business-hours", {
       method: "PUT",
@@ -143,6 +184,32 @@ const applyPreset = (type: "STANDARD" | "EXTENDED" | "WEEKEND_OFF") => {
       </button>
     </div>
 
+    <!-- Country / time zone for these hours -->
+    <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm space-y-3 sm:p-5">
+      <div>
+        <h2 class="text-sm font-bold text-stone-900">Your business location &amp; time zone</h2>
+        <p class="text-xs text-stone-500">
+          The hours below are in this time zone. Customers anywhere see slots in your local time.
+        </p>
+      </div>
+      <RegionFields
+        v-model:country="region.country"
+        v-model:timezone="region.timezone"
+        v-model:currency="region.currency"
+        :show-currency="false"
+      />
+      <p
+        v-if="browserZone && region.timezone && browserZone !== region.timezone"
+        class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800"
+      >
+        This device is in {{ browserZone.replace(/_/g, " ") }}, but your business is set to
+        {{ region.timezone.replace(/_/g, " ") }}.
+        <button type="button" class="font-bold underline" @click="region.timezone = browserZone">
+          Use {{ browserZone.replace(/_/g, " ") }}
+        </button>
+      </p>
+    </div>
+
     <!-- Presets Toolbar -->
     <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div class="text-xs text-stone-500">
@@ -154,7 +221,7 @@ const applyPreset = (type: "STANDARD" | "EXTENDED" | "WEEKEND_OFF") => {
           @click="applyPreset('STANDARD')"
           class="rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-100 transition"
         >
-          Greek Retail (Mon-Sat)
+          Standard (Mon - Sat)
         </button>
         <button
           type="button"

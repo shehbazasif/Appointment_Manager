@@ -42,6 +42,7 @@ const mapRow = (row: any) => ({
         name: row.service.name,
         durationMinutes: row.service.duration_minutes,
         priceCents: row.service.price != null ? Math.round(Number(row.service.price) * 100) : 0,
+        currency: row.service.currency ?? null,
         accent: row.service.accent ?? "#ca7481",
       }
     : null,

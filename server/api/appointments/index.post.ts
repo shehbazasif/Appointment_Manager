@@ -5,7 +5,7 @@ import { getUserClient } from "../../utils/supabase";
 import { queueAppointmentNotifications } from "../../services/notifications";
 
 export default defineEventHandler(async (event) => {
-  const { businessId, userId, business } = await requireTenant(event);
+  const { businessId, userId, business, settings } = await requireTenant(event);
   const input = await readValidatedBody(event, appointmentSchema.parse);
   const sb = await getUserClient(event);
 
@@ -73,6 +73,19 @@ export default defineEventHandler(async (event) => {
       booking_source: input.source ?? "MANUAL",
       notes: input.notes ?? null,
       created_by: userId,
+      ...(input.location
+        ? {
+            location_lat: input.location.lat,
+            location_lng: input.location.lng,
+            location_accuracy_m: input.location.accuracy ?? null,
+            location_note: input.location.note || null,
+            location_captured_at: new Date().toISOString(),
+          }
+        : {}),
+      // on-location mode: a booking created with staff is "Assigned" right away
+      ...((settings as any)?.on_location_enabled && input.staffId
+        ? { field_status: "ASSIGNED" }
+        : {}),
     })
     .select()
     .single();

@@ -48,6 +48,7 @@ interface AppointmentDetail {
     name: string;
     durationMinutes: number;
     priceCents: number;
+    currency?: string | null;
     accent: string;
   };
   staff?: {
@@ -449,7 +450,7 @@ const getStatusBadge = (status: string) => {
                 >
                   <span
                     >{{ item.service.name }} ·
-                    {{ (item.service.priceCents / 100).toFixed(2) }} €</span
+                    {{ formatMoney(item.service.priceCents, item.service.currency) }}</span
                   >
                   <span class="hidden text-stone-300 sm:inline">·</span>
                   <a
@@ -634,7 +635,7 @@ const getStatusBadge = (status: string) => {
             >
               <span>{{ item.staff ? item.staff.name : "Unassigned" }}</span>
               <span class="font-semibold"
-                >{{ (item.service.priceCents / 100).toFixed(2) }} €</span
+                >{{ formatMoney(item.service.priceCents, item.service.currency) }}</span
               >
             </div>
           </div>

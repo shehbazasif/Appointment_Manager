@@ -19,6 +19,10 @@ import {
   Calendar,
   ChevronDown,
   X,
+  Truck,
+  MapPin,
+  MapPinned,
+  MessageCircle,
 } from "lucide-vue-next";
 
 definePageMeta({
@@ -764,97 +768,114 @@ const getStatusBadge = (status: string) => {
           </span>
         </div>
 
-        <!-- Action buttons -->
-        <div class="mt-3 flex flex-wrap gap-2 border-t border-stone-100 pt-3" @click.stop>
-          <button
-            type="button"
-            @click="openEditModal(item)"
-            class="tap inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 text-sm font-bold text-stone-800"
+        <!-- Action buttons: max two per row so nothing gets squeezed -->
+        <div class="mt-3 space-y-2 border-t border-stone-100 pt-3" @click.stop>
+          <!-- 1. Status steps -->
+          <div
+            v-if="onLocation ? item.staff && item.appointment.fieldStatus !== 'ON_LOCATION' : (item.appointment.status === 'CONFIRMED' || item.appointment.status === 'CHECKED_IN')"
+            class="flex flex-wrap gap-2"
           >
-            <Edit2 :size="15" />
-            <span>Edit</span>
-          </button>
-          <button
-            type="button"
-            @click="openCommunication(item.customer, item.appointment.id)"
-            class="tap inline-flex items-center justify-center rounded-xl border border-stone-200 bg-white px-3 text-stone-700"
-            aria-label="Message client"
-            title="Message client"
-          >
-            <MessageSquare :size="17" />
-          </button>
+            <template v-if="onLocation">
+              <button
+                v-if="item.appointment.fieldStatus !== 'ON_THE_WAY'"
+                type="button"
+                @click="updateFieldStatus(item.appointment.id, 'ON_THE_WAY')"
+                class="tap basis-[calc(50%-0.25rem)] grow inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-700"
+              >
+                <Truck :size="16" class="shrink-0" />
+                <span>On the way</span>
+              </button>
+              <button
+                type="button"
+                @click="updateFieldStatus(item.appointment.id, 'ON_LOCATION')"
+                class="tap basis-[calc(50%-0.25rem)] grow inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-sm font-bold text-emerald-700"
+              >
+                <MapPinned :size="16" class="shrink-0" />
+                <span>On location</span>
+              </button>
+            </template>
+            <template v-else>
+              <button
+                v-if="item.appointment.status === 'CONFIRMED'"
+                type="button"
+                @click="updateStatus(item.appointment.id, 'CHECKED_IN')"
+                class="tap basis-[calc(50%-0.25rem)] grow inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-blue-200 bg-blue-50 px-3 text-sm font-bold text-blue-700"
+              >
+                <UserCheck :size="16" class="shrink-0" />
+                <span>Check-in</span>
+              </button>
+              <button
+                type="button"
+                @click="updateStatus(item.appointment.id, 'COMPLETED')"
+                class="tap basis-[calc(50%-0.25rem)] grow inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-stone-200 bg-stone-100 px-3 text-sm font-bold text-stone-800"
+              >
+                <CheckCircle2 :size="16" class="shrink-0" />
+                <span>Done</span>
+              </button>
+            </template>
+          </div>
 
-          <!-- On-location actions -->
-          <template v-if="onLocation">
+          <!-- 2. On-location: map + WhatsApp the staff -->
+          <div v-if="onLocation && (mapsUrl(item) || item.staff)" class="flex flex-wrap gap-2">
             <a
               v-if="mapsUrl(item)"
               :href="mapsUrl(item)"
               target="_blank"
               rel="noopener"
-              class="tap inline-flex flex-1 items-center justify-center rounded-xl border border-stone-200 bg-stone-100 px-3 text-sm font-bold text-stone-800"
+              class="tap basis-[calc(50%-0.25rem)] grow inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-stone-200 bg-stone-100 px-3 text-sm font-bold text-stone-800"
             >
-              Open map
+              <MapPin :size="16" class="shrink-0" />
+              <span>Open map</span>
             </a>
             <a
               v-if="item.staff && whatsappUrl(item)"
               :href="whatsappUrl(item)"
               :target="waTarget"
               rel="noopener"
-              class="tap inline-flex flex-1 items-center justify-center rounded-xl bg-emerald-600 px-3 text-sm font-bold text-white"
+              title="Send the job details to the staff member on WhatsApp"
+              class="tap basis-[calc(50%-0.25rem)] grow inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-emerald-600 px-3 text-sm font-bold text-white"
             >
-              WhatsApp staff
+              <MessageCircle :size="16" class="shrink-0" />
+              <span>WhatsApp</span>
             </a>
             <span
               v-else-if="item.staff"
-              class="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 text-xs font-bold text-amber-700"
+              class="basis-[calc(50%-0.25rem)] grow inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl border border-amber-200 bg-amber-50 px-3 text-xs font-bold text-amber-700"
             >
               No staff phone
             </span>
-            <button
-              v-if="item.staff && item.appointment.fieldStatus !== 'ON_THE_WAY' && item.appointment.fieldStatus !== 'ON_LOCATION'"
-              type="button"
-              @click="updateFieldStatus(item.appointment.id, 'ON_THE_WAY')"
-              class="tap flex-1 rounded-xl border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-700"
-            >
-              On the way
-            </button>
-            <button
-              v-if="item.staff && item.appointment.fieldStatus !== 'ON_LOCATION'"
-              type="button"
-              @click="updateFieldStatus(item.appointment.id, 'ON_LOCATION')"
-              class="tap flex-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-sm font-bold text-emerald-700"
-            >
-              On location
-            </button>
-          </template>
+          </div>
 
-          <!-- Status quick changes -->
-          <button
-            v-if="!onLocation && item.appointment.status === 'CONFIRMED'"
-            type="button"
-            @click="updateStatus(item.appointment.id, 'CHECKED_IN')"
-            class="tap flex-1 rounded-xl border border-blue-200 bg-blue-50 px-3 text-sm font-bold text-blue-700"
-          >
-            Check-in
-          </button>
-          <button
-            v-if="!onLocation && (item.appointment.status === 'CHECKED_IN' || item.appointment.status === 'CONFIRMED')"
-            type="button"
-            @click="updateStatus(item.appointment.id, 'COMPLETED')"
-            class="tap flex-1 rounded-xl border border-stone-200 bg-stone-100 px-3 text-sm font-bold text-stone-800"
-          >
-            Done
-          </button>
-          <button
-            v-if="item.appointment.status !== 'CANCELLED' && item.appointment.status !== 'COMPLETED'"
-            type="button"
-            @click="updateStatus(item.appointment.id, 'CANCELLED')"
-            class="tap inline-flex items-center justify-center rounded-xl border border-stone-200 bg-white px-3 text-stone-400 hover:text-rose-600"
-            aria-label="Cancel appointment"
-            title="Cancel appointment"
-          >
-            <XCircle :size="18" />
-          </button>
+          <!-- 3. Edit + message + cancel -->
+          <div class="flex gap-2">
+            <button
+              type="button"
+              @click="openEditModal(item)"
+              class="tap inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-stone-200 bg-white px-3 text-sm font-bold text-stone-800"
+            >
+              <Edit2 :size="15" class="shrink-0" />
+              <span>Edit / Reschedule</span>
+            </button>
+            <button
+              type="button"
+              @click="openCommunication(item.customer, item.appointment.id)"
+              class="tap inline-flex shrink-0 items-center justify-center rounded-xl border border-stone-200 bg-white px-3 text-stone-700"
+              aria-label="Message client"
+              title="Message client"
+            >
+              <MessageSquare :size="17" />
+            </button>
+            <button
+              v-if="item.appointment.status !== 'CANCELLED' && item.appointment.status !== 'COMPLETED'"
+              type="button"
+              @click="updateStatus(item.appointment.id, 'CANCELLED')"
+              class="tap inline-flex shrink-0 items-center justify-center rounded-xl border border-stone-200 bg-white px-3 text-stone-400 hover:text-rose-600"
+              aria-label="Cancel appointment"
+              title="Cancel appointment"
+            >
+              <XCircle :size="18" />
+            </button>
+          </div>
         </div>
       </article>
     </div>

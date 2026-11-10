@@ -108,8 +108,12 @@ const register = async () => {
       email: form.email.trim(),
       password: form.password,
       options: {
-        // Send the confirmation link back to the app's callback page.
-        emailRedirectTo: `${window.location.origin}/confirm`,
+        // Send the confirmation link back to the app's callback page on the
+        // live site (NUXT_PUBLIC_SITE_URL), never a local/dev origin.
+        // NOTE: this URL must also be listed under Supabase → Authentication →
+        // URL Configuration → Redirect URLs, otherwise Supabase falls back to
+        // its "Site URL".
+        emailRedirectTo: `${getSiteOrigin()}/confirm`,
         data: {
           first_name: form.firstName.trim(),
           last_name: form.lastName.trim(),

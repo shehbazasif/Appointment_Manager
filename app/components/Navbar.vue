@@ -89,7 +89,10 @@ const onKey = (e: KeyboardEvent) => {
       </button>
     </div>
 
-    <!-- Phone / tablet: full-screen sheet -->
+    <!-- Phone / tablet: full-screen sheet. Teleported to <body> because the
+         header's backdrop-blur makes it the containing block for fixed
+         children, which clipped the sheet to the header's height. -->
+    <Teleport to="body">
     <Transition
       enter-active-class="transition duration-200 ease-out"
       enter-from-class="opacity-0 -translate-y-2"
@@ -99,7 +102,8 @@ const onKey = (e: KeyboardEvent) => {
       <div
         v-if="open"
         id="mobile-menu"
-        class="fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-y-auto overscroll-contain bg-white px-4 pt-4 lg:hidden"
+        class="site-focus fixed inset-x-0 bottom-0 z-40 flex flex-col overflow-y-auto overscroll-contain bg-white px-4 pt-4 lg:hidden"
+        @keydown="onKey"
         style="top: calc(4rem + env(safe-area-inset-top)); padding-bottom: calc(1.5rem + env(safe-area-inset-bottom))"
       >
         <nav class="flex flex-col" aria-label="Mobile">
@@ -150,5 +154,6 @@ const onKey = (e: KeyboardEvent) => {
         </div>
       </div>
     </Transition>
+    </Teleport>
   </header>
 </template>

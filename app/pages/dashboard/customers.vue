@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Upload,
 } from "lucide-vue-next";
+const { t, intl } = useT();
 
 const showImport = ref(false);
 
@@ -143,7 +144,7 @@ const openCreate = () => {
 
 const handleCreate = async () => {
   if (!customerForm.firstName.trim() || !customerForm.phone.trim()) {
-    formError.value = "First name and phone number are required.";
+    formError.value = t("First name and phone number are required.");
     return;
   }
   isSubmitting.value = true;
@@ -162,7 +163,7 @@ const handleCreate = async () => {
     showCreateModal.value = false;
     await loadCustomers();
   } catch (err: any) {
-    formError.value = err?.data?.statusMessage ?? "Failed to create customer.";
+    formError.value = err?.data?.statusMessage ?? t(t("Failed to create customer."));
   } finally {
     isSubmitting.value = false;
   }
@@ -200,7 +201,7 @@ const handleEdit = async () => {
       await openDetail(selectedCustomer.value);
     }
   } catch (err: any) {
-    formError.value = err?.data?.statusMessage ?? "Failed to update customer.";
+    formError.value = err?.data?.statusMessage ?? t(t("Failed to update customer."));
   } finally {
     isSubmitting.value = false;
   }
@@ -217,7 +218,7 @@ const handleAnonymize = async () => {
     showDetailDrawer.value = false;
     await loadCustomers();
   } catch (err: any) {
-    alert(err?.data?.statusMessage ?? "Failed to anonymize customer.");
+    alert(err?.data?.statusMessage ?? t("Failed to anonymize customer."));
   } finally {
     isSubmitting.value = false;
   }
@@ -230,12 +231,12 @@ const openMessage = (c: Customer) => {
 
 const formatTime = (isoString: string) => {
   const date = new Date(isoString);
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  return date.toLocaleTimeString(intl.value, { hour: "2-digit", minute: "2-digit", hour12: false });
 };
 
 const formatDate = (isoString: string) => {
   const date = new Date(isoString);
-  return date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  return date.toLocaleDateString(intl.value, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 };
 </script>
 
@@ -244,8 +245,8 @@ const formatDate = (isoString: string) => {
     <!-- Header -->
     <div class="page-head flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div class="min-w-0">
-        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Customer CRM</p>
-        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">Clients Directory</h1>
+        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">{{ t("Customer CRM") }}</p>
+        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">{{ t("Clients Directory") }}</h1>
       </div>
       <div class="page-head-actions flex flex-wrap items-center gap-2 self-start sm:self-auto">
         <button
@@ -254,7 +255,7 @@ const formatDate = (isoString: string) => {
           class="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50 transition shadow-sm"
         >
           <Upload :size="16" />
-          <span>Import Excel</span>
+          <span>{{ t("Import Excel") }}</span>
         </button>
         <button
           type="button"
@@ -262,7 +263,7 @@ const formatDate = (isoString: string) => {
           class="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm"
         >
           <Plus :size="16" />
-          <span>Add Customer</span>
+          <span>{{ t("Add Customer") }}</span>
         </button>
       </div>
     </div>
@@ -270,13 +271,13 @@ const formatDate = (isoString: string) => {
     <!-- Search Bar -->
     <div class="rounded-2xl border border-stone-200 bg-white p-3 shadow-sm sm:p-4">
       <div class="relative max-w-md">
-        <Search :size="15" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 md:top-3 md:translate-y-0" />
+        <Search :size="15" class="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-stone-400 md:top-3 md:translate-y-0" />
         <input
           v-model="searchQuery"
           type="search"
           enterkeyhint="search"
-          placeholder="Search by name, phone number, email..."
-          class="w-full rounded-xl border border-stone-200 bg-stone-50/60 pl-9 pr-3 py-2 text-xs outline-none focus:border-stone-900 focus:bg-white"
+          :placeholder="t('Search by name, phone number, email...')"
+          class="w-full rounded-xl border border-stone-200 bg-stone-50/60 ps-9 pe-3 py-2 text-xs outline-none focus:border-stone-900 focus:bg-white"
         />
       </div>
     </div>
@@ -292,9 +293,9 @@ const formatDate = (isoString: string) => {
       class="py-16 text-center rounded-3xl border border-dashed border-stone-200 bg-white"
     >
       <Users :size="36" class="mx-auto text-stone-400" />
-      <h3 class="mt-3 font-display text-lg font-bold text-stone-900">No customers found</h3>
+      <h3 class="mt-3 font-display text-lg font-bold text-stone-900">{{ t("No customers found") }}</h3>
       <p class="mt-1 text-xs text-stone-500 max-w-sm mx-auto">
-        Add your first client profile or accept online bookings to automatically build your CRM.
+        {{ t("Add your first client profile or accept online bookings to automatically build your CRM.") }}
       </p>
       <button
         type="button"
@@ -302,7 +303,7 @@ const formatDate = (isoString: string) => {
         class="mt-4 inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white"
       >
         <Plus :size="14" />
-        <span>Add Customer</span>
+        <span>{{ t("Add Customer") }}</span>
       </button>
     </div>
 
@@ -310,7 +311,7 @@ const formatDate = (isoString: string) => {
     <!-- Phones: customer cards (tap to open the profile) -->
     <div class="space-y-3 md:hidden">
       <p class="px-1 text-xs font-semibold text-stone-500">
-        {{ filteredCustomers.length }} client{{ filteredCustomers.length === 1 ? "" : "s" }}
+        {{ filteredCustomers.length === 1 ? t("1 client") : t("{n} clients", { n: filteredCustomers.length }) }}
       </p>
       <article
         v-for="c in filteredCustomers"
@@ -338,14 +339,14 @@ const formatDate = (isoString: string) => {
             class="tap inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 text-sm font-bold text-stone-800"
           >
             <Phone :size="15" class="shrink-0" />
-            <span class="truncate">{{ c.phone }}</span>
+            <span class="truncate"><bdi dir="ltr">{{ c.phone }}</bdi></span>
           </a>
           <button
             type="button"
             @click="openMessage(c)"
             class="tap inline-flex items-center justify-center rounded-xl border border-stone-200 bg-white px-3 text-stone-700"
-            aria-label="Send message"
-            title="Send Email / SMS / WhatsApp"
+            :aria-label="t('Send message')"
+            :title="t('Send Email / SMS / WhatsApp')"
           >
             <MessageSquare :size="17" />
           </button>
@@ -355,7 +356,7 @@ const formatDate = (isoString: string) => {
             class="tap inline-flex items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 text-sm font-bold text-stone-800"
           >
             <Edit2 :size="15" />
-            <span>Edit</span>
+            <span>{{ t("Edit") }}</span>
           </button>
         </div>
       </article>
@@ -364,14 +365,14 @@ const formatDate = (isoString: string) => {
     <!-- Tablet / desktop: table -->
     <div class="hidden rounded-3xl border border-stone-200 bg-white shadow-sm overflow-hidden md:block">
       <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs text-stone-600">
+        <table class="w-full text-start text-xs text-stone-600">
           <thead class="bg-stone-50/80 border-b border-stone-200 text-[10px] font-bold uppercase tracking-wider text-stone-500">
             <tr>
-              <th class="py-3.5 pl-6 pr-3">Name</th>
-              <th class="px-3 py-3.5">Contact Phone</th>
-              <th class="px-3 py-3.5">Email Address</th>
-              <th class="px-3 py-3.5">Notes</th>
-              <th class="py-3.5 pl-3 pr-6 text-right">Actions</th>
+              <th class="py-3.5 ps-6 pe-3">{{ t("Name") }}</th>
+              <th class="px-3 py-3.5">{{ t("Contact Phone") }}</th>
+              <th class="px-3 py-3.5">{{ t("Email Address") }}</th>
+              <th class="px-3 py-3.5">{{ t("Notes") }}</th>
+              <th class="py-3.5 ps-3 pe-6 text-end">{{ t("Actions") }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-stone-100 font-medium">
@@ -382,7 +383,7 @@ const formatDate = (isoString: string) => {
               @click="openDetail(c)"
             >
               <!-- Name -->
-              <td class="py-4 pl-6 pr-3 whitespace-nowrap">
+              <td class="py-4 ps-6 pe-3 whitespace-nowrap">
                 <div class="font-bold text-stone-900 text-sm flex items-center gap-2">
                   <div class="grid size-7 place-items-center rounded-full bg-stone-900 text-[11px] font-bold text-white">
                     {{ c.firstName.charAt(0) }}{{ c.lastName.charAt(0) }}
@@ -395,7 +396,7 @@ const formatDate = (isoString: string) => {
               <td class="px-3 py-4 whitespace-nowrap">
                 <span class="flex items-center gap-1.5 text-stone-800 font-semibold">
                   <Phone :size="13" class="text-stone-400" />
-                  {{ c.phone }}
+                  <bdi dir="ltr">{{ c.phone }}</bdi>
                 </span>
               </td>
 
@@ -405,7 +406,7 @@ const formatDate = (isoString: string) => {
                   <Mail :size="13" class="text-stone-400" />
                   {{ c.email }}
                 </span>
-                <span v-else class="text-stone-300 italic">No email provided</span>
+                <span v-else class="text-stone-300 italic">{{ t("No email provided") }}</span>
               </td>
 
               <!-- Notes -->
@@ -414,13 +415,13 @@ const formatDate = (isoString: string) => {
               </td>
 
               <!-- Actions -->
-              <td class="py-4 pl-3 pr-6 text-right whitespace-nowrap" @click.stop>
+              <td class="py-4 ps-3 pe-6 text-end whitespace-nowrap" @click.stop>
                 <div class="flex items-center justify-end gap-1.5">
                   <button
                     type="button"
                     @click="openMessage(c)"
                     class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-900"
-                    title="Send Email / SMS"
+                    :title="t('Send Email / SMS')"
                   >
                     <MessageSquare :size="15" />
                   </button>
@@ -428,7 +429,7 @@ const formatDate = (isoString: string) => {
                     type="button"
                     @click="openEdit(c)"
                     class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-900"
-                    title="Edit Profile"
+                    :title="t('Edit Profile')"
                   >
                     <Edit2 :size="15" />
                   </button>
@@ -462,7 +463,7 @@ const formatDate = (isoString: string) => {
                 <h3 class="font-display text-2xl font-bold text-stone-900">
                   {{ selectedCustomer.firstName }} {{ selectedCustomer.lastName }}
                 </h3>
-                <p class="text-xs text-stone-500">Client profile & booking history</p>
+                <p class="text-xs text-stone-500">{{ t("Client profile & booking history") }}</p>
               </div>
             </div>
             <button type="button" @click="showDetailDrawer = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
@@ -473,15 +474,15 @@ const formatDate = (isoString: string) => {
           <!-- Contact Details Card -->
           <div class="rounded-2xl border border-stone-200 bg-stone-50/60 p-4 space-y-3">
             <div class="flex items-center justify-between text-xs">
-              <span class="text-stone-500 font-medium">Phone Number</span>
-              <span class="font-bold text-stone-900">{{ selectedCustomer.phone }}</span>
+              <span class="text-stone-500 font-medium">{{ t("Phone Number") }}</span>
+              <span class="font-bold text-stone-900"><bdi dir="ltr">{{ selectedCustomer.phone }}</bdi></span>
             </div>
             <div class="flex items-center justify-between text-xs">
-              <span class="text-stone-500 font-medium">Email Address</span>
+              <span class="text-stone-500 font-medium">{{ t("Email Address") }}</span>
               <span class="font-bold text-stone-900">{{ selectedCustomer.email || 'None' }}</span>
             </div>
             <div v-if="selectedCustomer.notes" class="text-xs pt-2 border-t border-stone-200/60">
-              <span class="block text-stone-500 font-semibold mb-1">Notes:</span>
+              <span class="block text-stone-500 font-semibold mb-1">{{ t("Notes:") }}</span>
               <p class="text-stone-700 leading-relaxed">{{ selectedCustomer.notes }}</p>
             </div>
           </div>
@@ -494,7 +495,7 @@ const formatDate = (isoString: string) => {
               class="flex items-center justify-center gap-2 rounded-xl bg-stone-900 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition"
             >
               <MessageSquare :size="14" />
-              <span>Send Message</span>
+              <span>{{ t("Send Message") }}</span>
             </button>
             <button
               type="button"
@@ -502,7 +503,7 @@ const formatDate = (isoString: string) => {
               class="flex items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50 transition"
             >
               <Edit2 :size="14" />
-              <span>Edit Details</span>
+              <span>{{ t("Edit Details") }}</span>
             </button>
           </div>
 
@@ -511,25 +512,25 @@ const formatDate = (isoString: string) => {
             <div class="flex items-center justify-between border-b border-stone-100 pb-2">
               <div class="flex items-center gap-2">
                 <History :size="16" class="text-rose-600" />
-                <h4 class="font-display text-base font-bold text-stone-900">Appointment History</h4>
+                <h4 class="font-display text-base font-bold text-stone-900">{{ t("Appointment History") }}</h4>
               </div>
               <span v-if="customerDetail" class="text-xs text-stone-500 font-medium">
-                {{ customerDetail.totalAppointments }} total
+                {{ t("{n} total", { n: customerDetail.totalAppointments }) }}
               </span>
             </div>
 
             <div v-if="isDetailLoading" class="py-8 text-center text-xs text-stone-400 animate-pulse">
-              Loading appointment history...
+              {{ t("Loading appointment history...") }}
             </div>
 
             <div
               v-else-if="!customerDetail?.appointments || customerDetail.appointments.length === 0"
               class="py-8 text-center text-xs text-stone-400 italic"
             >
-              No past or upcoming appointments recorded for this client.
+              {{ t("No past or upcoming appointments recorded for this client.") }}
             </div>
 
-            <div v-else class="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+            <div v-else class="space-y-2.5 max-h-80 overflow-y-auto pe-1">
               <div
                 v-for="item in customerDetail.appointments"
                 :key="item.appointment.id"
@@ -538,7 +539,7 @@ const formatDate = (isoString: string) => {
                 <div class="flex items-center justify-between">
                   <span class="font-bold text-stone-900">{{ formatDate(item.appointment.startAt) }} · {{ formatTime(item.appointment.startAt) }}</span>
                   <span class="rounded bg-stone-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-stone-700">
-                    {{ item.appointment.status }}
+                    {{ t(statusText(item.appointment.status)) }}
                   </span>
                 </div>
                 <div v-if="item.service" class="font-medium text-stone-700 flex items-center gap-2">
@@ -548,7 +549,7 @@ const formatDate = (isoString: string) => {
                   <span class="font-bold text-stone-900">{{ formatMoney(item.service.priceCents, item.service.currency) }}</span>
                 </div>
                 <div class="text-[11px] text-stone-500">
-                  Staff: {{ item.staff?.name ?? 'Unassigned' }}
+                  {{ t("Staff") }}: {{ item.staff?.name ?? t("Unassigned") }}
                 </div>
               </div>
             </div>
@@ -563,7 +564,7 @@ const formatDate = (isoString: string) => {
             class="w-full flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition"
           >
             <Trash2 :size="14" />
-            <span>Anonymize & Remove Client PII</span>
+            <span>{{ t("Anonymize & Remove Client PII") }}</span>
           </button>
         </div>
       </div>
@@ -576,7 +577,7 @@ const formatDate = (isoString: string) => {
     >
       <div class="m-sheet-panel w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
-          <h3 class="font-display text-xl font-bold text-stone-900">Add New Client</h3>
+          <h3 class="font-display text-xl font-bold text-stone-900">{{ t("Add New Client") }}</h3>
           <button type="button" @click="showCreateModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
@@ -585,28 +586,28 @@ const formatDate = (isoString: string) => {
         <form @submit.prevent="handleCreate" class="space-y-4">
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">First Name</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("First Name") }}</label>
               <input
                 v-model="customerForm.firstName"
                 type="text"
                 required
-                placeholder="Maria"
+                :placeholder="t('Maria')"
                 class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
               />
             </div>
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Last Name</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Last Name") }}</label>
               <input
                 v-model="customerForm.lastName"
                 type="text"
-                placeholder="Georgiou"
+                :placeholder="t('Georgiou')"
                 class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
               />
             </div>
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Phone Number</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Phone Number") }}</label>
             <input
               v-model="customerForm.phone"
               type="tel"
@@ -617,21 +618,21 @@ const formatDate = (isoString: string) => {
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Email Address</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Email Address") }}</label>
             <input
               v-model="customerForm.email"
               type="email"
-              placeholder="client@example.com"
+              :placeholder="t('client@example.com')"
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
             />
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Notes</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Notes") }}</label>
             <textarea
               v-model="customerForm.notes"
               rows="2"
-              placeholder="Preferences, allergies, notes..."
+              :placeholder="t('Preferences, allergies, notes...')"
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
             ></textarea>
           </div>
@@ -646,14 +647,14 @@ const formatDate = (isoString: string) => {
               @click="showCreateModal = false"
               class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
             >
-              Cancel
+              {{ t("Cancel") }}
             </button>
             <button
               type="submit"
               :disabled="isSubmitting"
               class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
             >
-              {{ isSubmitting ? "Creating..." : "Save Client" }}
+              {{ isSubmitting ? t("Creating...") : t("Save Client") }}
             </button>
           </div>
         </form>
@@ -667,7 +668,7 @@ const formatDate = (isoString: string) => {
     >
       <div class="m-sheet-panel w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
-          <h3 class="font-display text-xl font-bold text-stone-900">Edit Client Profile</h3>
+          <h3 class="font-display text-xl font-bold text-stone-900">{{ t("Edit Client Profile") }}</h3>
           <button type="button" @click="showEditModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
@@ -676,7 +677,7 @@ const formatDate = (isoString: string) => {
         <form @submit.prevent="handleEdit" class="space-y-4">
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">First Name</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("First Name") }}</label>
               <input
                 v-model="customerForm.firstName"
                 type="text"
@@ -685,7 +686,7 @@ const formatDate = (isoString: string) => {
               />
             </div>
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Last Name</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Last Name") }}</label>
               <input
                 v-model="customerForm.lastName"
                 type="text"
@@ -696,7 +697,7 @@ const formatDate = (isoString: string) => {
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Phone Number</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Phone Number") }}</label>
             <input
               v-model="customerForm.phone"
               type="tel"
@@ -706,7 +707,7 @@ const formatDate = (isoString: string) => {
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Email Address</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Email Address") }}</label>
             <input
               v-model="customerForm.email"
               type="email"
@@ -715,7 +716,7 @@ const formatDate = (isoString: string) => {
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Notes</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Notes") }}</label>
             <textarea
               v-model="customerForm.notes"
               rows="2"
@@ -733,14 +734,14 @@ const formatDate = (isoString: string) => {
               @click="showEditModal = false"
               class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
             >
-              Cancel
+              {{ t("Cancel") }}
             </button>
             <button
               type="submit"
               :disabled="isSubmitting"
               class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
             >
-              {{ isSubmitting ? "Updating..." : "Save Changes" }}
+              {{ isSubmitting ? t("Updating...") : t("Save Changes") }}
             </button>
           </div>
         </form>
@@ -755,10 +756,10 @@ const formatDate = (isoString: string) => {
       <div class="m-sheet-panel w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-4">
         <div class="flex items-center gap-3 text-rose-600">
           <AlertCircle :size="24" />
-          <h3 class="font-display text-lg font-bold text-stone-900">Anonymize Customer Data?</h3>
+          <h3 class="font-display text-lg font-bold text-stone-900">{{ t("Anonymize Customer Data?") }}</h3>
         </div>
         <p class="text-xs text-stone-600 leading-relaxed">
-          This will wipe personal information (Name, Email, Phone) for <strong>{{ selectedCustomer.firstName }} {{ selectedCustomer.lastName }}</strong> to comply with privacy requests. Past appointments will remain preserved in historical statistics.
+          {{ t("This will wipe personal information (Name, Email, Phone) for") }} <strong>{{ selectedCustomer.firstName }} {{ selectedCustomer.lastName }}</strong> {{ t("to comply with privacy requests. Past appointments will remain preserved in historical statistics.") }}
         </p>
 
         <div class="m-sheet-actions flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
@@ -767,7 +768,7 @@ const formatDate = (isoString: string) => {
             @click="showAnonymizeConfirm = false"
             class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
           >
-            Cancel
+            {{ t("Cancel") }}
           </button>
           <button
             type="button"
@@ -775,7 +776,7 @@ const formatDate = (isoString: string) => {
             @click="handleAnonymize"
             class="rounded-xl bg-rose-600 px-5 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50"
           >
-            {{ isSubmitting ? "Processing..." : "Confirm Anonymize" }}
+            {{ isSubmitting ? t("Processing...") : t("Confirm Anonymize") }}
           </button>
         </div>
       </div>

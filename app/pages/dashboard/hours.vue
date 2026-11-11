@@ -8,6 +8,7 @@ import {
   Sparkles,
   CalendarDays,
 } from "lucide-vue-next";
+const { t } = useT();
 
 definePageMeta({
   layout: "dashboard",
@@ -83,7 +84,7 @@ const loadHours = async () => {
     });
     schedule.value = ordered;
   } catch (err: any) {
-    errorMessage.value = err?.data?.statusMessage ?? "Failed to load working hours.";
+    errorMessage.value = err?.data?.statusMessage ?? t("Failed to load working hours.");
   } finally {
     isLoading.value = false;
   }
@@ -127,12 +128,12 @@ const saveHours = async () => {
       body: { hours: payload },
     });
 
-    successMessage.value = "Working hours saved successfully. Online booking slots updated.";
+    successMessage.value = t("Working hours saved successfully. Online booking slots updated.");
     setTimeout(() => {
       successMessage.value = "";
     }, 3000);
   } catch (err: any) {
-    errorMessage.value = err?.data?.statusMessage ?? "Failed to save hours.";
+    errorMessage.value = err?.data?.statusMessage ?? t(t("Failed to save hours."));
   } finally {
     isSaving.value = false;
   }
@@ -170,8 +171,8 @@ const applyPreset = (type: "STANDARD" | "EXTENDED" | "WEEKEND_OFF") => {
     <!-- Header -->
     <div class="page-head flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div class="min-w-0">
-        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Availability & Operations</p>
-        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">Working Hours</h1>
+        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">{{ t("Availability & Operations") }}</p>
+        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">{{ t("Working Hours") }}</h1>
       </div>
       <button
         type="button"
@@ -180,16 +181,16 @@ const applyPreset = (type: "STANDARD" | "EXTENDED" | "WEEKEND_OFF") => {
         class="max-md:w-full max-md:justify-center max-md:min-h-11 inline-flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50 transition shadow-sm self-start sm:self-auto"
       >
         <Save :size="15" />
-        <span>{{ isSaving ? "Saving..." : "Save Schedule" }}</span>
+        <span>{{ isSaving ? t("Saving...") : t("Save Schedule") }}</span>
       </button>
     </div>
 
     <!-- Country / time zone for these hours -->
     <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm space-y-3 sm:p-5">
       <div>
-        <h2 class="text-sm font-bold text-stone-900">Your business location &amp; time zone</h2>
+        <h2 class="text-sm font-bold text-stone-900">{{ t("Your business location & time zone") }}</h2>
         <p class="text-xs text-stone-500">
-          The hours below are in this time zone. Customers anywhere see slots in your local time.
+          {{ t("The hours below are in this time zone. Customers anywhere see slots in your local time.") }}
         </p>
       </div>
       <RegionFields
@@ -202,10 +203,9 @@ const applyPreset = (type: "STANDARD" | "EXTENDED" | "WEEKEND_OFF") => {
         v-if="browserZone && region.timezone && browserZone !== region.timezone"
         class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800"
       >
-        This device is in {{ browserZone.replace(/_/g, " ") }}, but your business is set to
-        {{ region.timezone.replace(/_/g, " ") }}.
+        {{ t("This device is in {device}, but your business is set to {business}.", { device: browserZone.replace(/_/g, " "), business: region.timezone.replace(/_/g, " ") }) }}
         <button type="button" class="font-bold underline" @click="region.timezone = browserZone">
-          Use {{ browserZone.replace(/_/g, " ") }}
+          {{ t("Use {zone}", { zone: browserZone.replace(/_/g, " ") }) }}
         </button>
       </p>
     </div>
@@ -213,7 +213,7 @@ const applyPreset = (type: "STANDARD" | "EXTENDED" | "WEEKEND_OFF") => {
     <!-- Presets Toolbar -->
     <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div class="text-xs text-stone-500">
-        Quick Schedule Presets:
+        {{ t("Quick Schedule Presets:") }}
       </div>
       <div class="flex flex-wrap gap-2">
         <button
@@ -221,21 +221,21 @@ const applyPreset = (type: "STANDARD" | "EXTENDED" | "WEEKEND_OFF") => {
           @click="applyPreset('STANDARD')"
           class="rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-100 transition"
         >
-          Standard (Mon - Sat)
+          {{ t("Standard (Mon - Sat)") }}
         </button>
         <button
           type="button"
           @click="applyPreset('EXTENDED')"
           class="rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-100 transition"
         >
-          Extended (8:30 - 21:00)
+          {{ t("Extended (8:30 - 21:00)") }}
         </button>
         <button
           type="button"
           @click="applyPreset('WEEKEND_OFF')"
           class="rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-100 transition"
         >
-          Mon - Fri Only
+          {{ t("Mon - Fri Only") }}
         </button>
       </div>
     </div>
@@ -268,7 +268,7 @@ const applyPreset = (type: "STANDARD" | "EXTENDED" | "WEEKEND_OFF") => {
                 'text-sm cursor-pointer select-none',
               ]"
             >
-              {{ day.dayName }}
+              {{ t(day.dayName) }}
             </label>
           </div>
 
@@ -281,7 +281,7 @@ const applyPreset = (type: "STANDARD" | "EXTENDED" | "WEEKEND_OFF") => {
                   type="time"
                   class="rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs font-semibold text-stone-800 outline-none focus:border-stone-900 focus:bg-white"
                 />
-                <span class="text-xs text-stone-400 font-bold">to</span>
+                <span class="text-xs text-stone-400 font-bold">{{ t("to") }}</span>
                 <input
                   v-model="day.endTime"
                   type="time"
@@ -289,12 +289,12 @@ const applyPreset = (type: "STANDARD" | "EXTENDED" | "WEEKEND_OFF") => {
                 />
               </div>
               <span class="hidden sm:inline rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 uppercase border border-emerald-200">
-                Open
+                {{ t("Open") }}
               </span>
             </template>
             <template v-else>
               <span class="rounded-md bg-stone-100 px-3 py-1.5 text-xs font-bold text-stone-500 uppercase">
-                Closed
+                {{ t("Closed") }}
               </span>
             </template>
           </div>

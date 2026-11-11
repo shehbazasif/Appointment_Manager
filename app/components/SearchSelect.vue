@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
 import { ChevronDown, Search, Check, X } from "lucide-vue-next";
+const { t } = useT();
 
 /**
  * Searchable dropdown (combobox). Tap to open, type to filter.
@@ -140,13 +141,13 @@ const showGroup = (i: number) => {
       :aria-expanded="open"
       :aria-controls="listId"
       aria-haspopup="listbox"
-      class="flex min-h-11 w-full items-center gap-2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2.5 text-left text-xs outline-none transition focus:border-stone-900 focus:bg-white disabled:opacity-60 max-md:text-base"
+      class="flex min-h-11 w-full items-center gap-2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2.5 text-start text-xs outline-none transition focus:border-stone-900 focus:bg-white disabled:opacity-60 max-md:text-base"
       :class="open ? 'border-stone-900 bg-white' : ''"
       @click="open ? close() : openList()"
       @keydown.down.prevent="openList"
     >
       <span :class="['min-w-0 flex-1 truncate', displayText ? 'text-stone-900' : 'text-stone-400']">
-        <slot name="selected" :option="selected">{{ displayText || placeholder }}</slot>
+        <slot name="selected" :option="selected">{{ displayText || t(placeholder) }}</slot>
       </span>
       <span v-if="selected?.hint" class="shrink-0 text-[11px] text-stone-400">{{ selected.hint }}</span>
       <ChevronDown :size="16" class="shrink-0 text-stone-400 transition" :class="open ? 'rotate-180' : ''" />
@@ -154,10 +155,10 @@ const showGroup = (i: number) => {
 
     <div
       v-if="open"
-      class="absolute right-0 top-full z-40 mt-1 w-full min-w-56 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl"
+      class="absolute end-0 top-full z-40 mt-1 w-full min-w-56 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl"
     >
       <div class="relative border-b border-stone-100 p-2">
-        <Search :size="15" class="pointer-events-none absolute left-4.5 top-1/2 -translate-y-1/2 text-stone-400" />
+        <Search :size="15" class="pointer-events-none absolute start-4.5 top-1/2 -translate-y-1/2 text-stone-400" />
         <input
           ref="searchEl"
           v-model="query"
@@ -169,15 +170,15 @@ const showGroup = (i: number) => {
           autocapitalize="off"
           spellcheck="false"
           enterkeyhint="done"
-          :placeholder="searchPlaceholder"
-          class="w-full rounded-lg border border-stone-200 bg-stone-50 py-2 pl-8 pr-8 text-xs outline-none focus:border-stone-900 focus:bg-white"
+          :placeholder="t(searchPlaceholder)"
+          class="w-full rounded-lg border border-stone-200 bg-stone-50 py-2 ps-8 pe-8 text-xs outline-none focus:border-stone-900 focus:bg-white"
           @keydown="onKey"
         />
         <button
           v-if="query"
           type="button"
-          class="absolute right-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-stone-400 hover:text-stone-700"
-          aria-label="Clear search"
+          class="absolute end-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-stone-400 hover:text-stone-700"
+          :aria-label="t('Clear search')"
           @click="query = ''; searchEl?.focus()"
         >
           <X :size="14" />
@@ -228,10 +229,10 @@ const showGroup = (i: number) => {
           @pointerenter="active = filtered.length"
           @click="choose(customValue)"
         >
-          Use “{{ customValue }}”
+          {{ t("Use “{value}”", { value: customValue }) }}
         </li>
         <li v-if="!filtered.length && !customValue" class="px-3 py-4 text-center text-xs text-stone-500">
-          No matches
+          {{ t("No matches") }}
         </li>
       </ul>
     </div>

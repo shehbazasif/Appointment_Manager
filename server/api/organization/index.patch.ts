@@ -34,6 +34,7 @@ export default defineEventHandler(async (event) => {
     input.bookingActive !== undefined ||
     input.onLocationEnabled !== undefined ||
     input.hidePricesInList !== undefined ||
+    input.language !== undefined ||
     input.timezone !== undefined ||
     input.currency !== undefined;
 
@@ -91,12 +92,19 @@ export default defineEventHandler(async (event) => {
           ...(input.bookingActive !== undefined ? { online_booking_enabled: input.bookingActive } : {}),
           ...(input.onLocationEnabled !== undefined ? { on_location_enabled: input.onLocationEnabled } : {}),
           ...(input.hidePricesInList !== undefined ? { hide_prices_in_list: input.hidePricesInList } : {}),
+          ...(input.language !== undefined ? { language: input.language } : {}),
           ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
           ...(input.currency !== undefined ? { currency: input.currency } : {}),
           updated_at: new Date().toISOString(),
         },
         { onConflict: "business_id" },
       );
+    if (settingsError && /column .*language|valid_language/.test(String(settingsError.message ?? "")))
+      throw createError({
+        statusCode: 400,
+        statusMessage:
+          "The language option needs a database update first. Run scripts/business-language.sql in Supabase (SQL Editor) once, then save again.",
+      });
     if (settingsError && String(settingsError.message ?? "").includes("hide_prices_in_list"))
       throw createError({
         statusCode: 400,

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from "vue";
 import { Mail, MessageSquare, Phone, Send, Check, X, Sparkles } from "lucide-vue-next";
+const { t } = useT();
 
 const props = defineProps<{
   modelValue: boolean;
@@ -38,10 +39,10 @@ watch(
       successMsg.value = "";
       updateRecipient();
       if (!form.message) {
-        form.message = `Hello ${props.customer?.firstName ?? "there"},\n\nRegarding your appointment at our studio...`;
+        form.message = `${t("Hello {name},", { name: props.customer?.firstName ?? t("there") })}\n\n${t("Regarding your appointment at our studio...")}`;
       }
       if (!form.subject) {
-        form.subject = "Your appointment update";
+        form.subject = t("Your appointment update");
       }
     }
   },
@@ -73,8 +74,8 @@ const externalLink = computed(() => {
 
 const primaryLabel = computed(() => {
   if (activeChannel.value === "EMAIL") return isSubmitting.value ? "Sending..." : "Send Email";
-  if (activeChannel.value === "WHATSAPP") return "Open WhatsApp";
-  return "Open SMS App";
+  if (activeChannel.value === "WHATSAPP") return t("Open WhatsApp");
+  return t("Open SMS App");
 });
 
 /**
@@ -108,26 +109,26 @@ const sendExternal = async () => {
 
   successMsg.value =
     activeChannel.value === "WHATSAPP"
-      ? "WhatsApp opened with your message pre-filled — press send there to deliver it."
-      : "SMS app opened with your message pre-filled — press send there to deliver it.";
+      ? t("WhatsApp opened with your message pre-filled — press send there to deliver it.")
+      : t("SMS app opened with your message pre-filled — press send there to deliver it.");
   emit("sent");
 };
 
 const send = async () => {
   if (!form.recipient.trim()) {
-    errorMsg.value = "Recipient is required.";
+    errorMsg.value = t("Recipient is required.");
     return;
   }
   if (!form.message.trim()) {
-    errorMsg.value = "Message cannot be empty.";
+    errorMsg.value = t("Message cannot be empty.");
     return;
   }
   if (activeChannel.value === "EMAIL" && !form.subject.trim()) {
-    errorMsg.value = "Email subject is required.";
+    errorMsg.value = t(t("Email subject is required."));
     return;
   }
   if (activeChannel.value !== "EMAIL" && digitsOnly(form.recipient.trim()).length < 6) {
-    errorMsg.value = "Please enter a valid phone number (with country code, e.g. +30 69...).";
+    errorMsg.value = t("Please enter a valid phone number (with country code, e.g. +30 69...).");
     return;
   }
 
@@ -154,13 +155,13 @@ const send = async () => {
       },
     });
 
-    successMsg.value = "Email sent successfully!";
+    successMsg.value = t("Email sent successfully!");
     setTimeout(() => {
       emit("sent");
       emit("update:modelValue", false);
     }, 1200);
   } catch (err: any) {
-    errorMsg.value = err?.data?.statusMessage ?? "Failed to send communication.";
+    errorMsg.value = err?.data?.statusMessage ?? t("Failed to send communication.");
   } finally {
     isSubmitting.value = false;
   }
@@ -179,9 +180,9 @@ const send = async () => {
       <div class="flex items-center justify-between border-b border-stone-100 pb-4">
         <div>
           <h3 class="font-display text-xl font-bold text-stone-900">
-            Contact {{ customer ? `${customer.firstName} ${customer.lastName}` : "Customer" }}
+            {{ t("Contact {name}", { name: customer ? `${customer.firstName} ${customer.lastName}` : t("Customer") }) }}
           </h3>
-          <p class="text-xs text-stone-500 mt-0.5">Send a real-time notification or message.</p>
+          <p class="text-xs text-stone-500 mt-0.5">{{ t("Send a real-time notification or message.") }}</p>
         </div>
         <button
           type="button"
@@ -205,7 +206,7 @@ const send = async () => {
           ]"
         >
           <Mail :size="14" />
-          <span>Email</span>
+          <span>{{ t("Email") }}</span>
         </button>
         <button
           type="button"
@@ -218,7 +219,7 @@ const send = async () => {
           ]"
         >
           <Phone :size="14" />
-          <span>SMS</span>
+          <span>{{ t("SMS") }}</span>
         </button>
         <button
           type="button"
@@ -231,7 +232,7 @@ const send = async () => {
           ]"
         >
           <MessageSquare :size="14" />
-          <span>WhatsApp</span>
+          <span>{{ t("WhatsApp") }}</span>
         </button>
       </div>
 
@@ -242,15 +243,15 @@ const send = async () => {
           class="rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs text-stone-600"
         >
           <template v-if="activeChannel === 'WHATSAPP'">
-            We'll open the customer's WhatsApp chat with your message already written — just press send there. No WhatsApp API costs.
+            {{ t("We'll open the customer's WhatsApp chat with your message already written — just press send there. No WhatsApp API costs.") }}
           </template>
           <template v-else>
-            We'll open the customer's SMS app with your message pre-filled (message body support varies by device).
+            {{ t("We'll open the customer's SMS app with your message pre-filled (message body support varies by device).") }}
           </template>
         </p>
         <div>
           <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
-            {{ activeChannel === "EMAIL" ? "Email Address" : "Phone Number" }}
+            {{ activeChannel === "EMAIL" ? t("Email Address") : t("Phone Number") }}
           </label>
           <input
             v-model="form.recipient"
@@ -263,26 +264,26 @@ const send = async () => {
 
         <div v-if="activeChannel === 'EMAIL'">
           <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
-            Subject
+            {{ t("Subject") }}
           </label>
           <input
             v-model="form.subject"
             type="text"
             required
-            placeholder="Appointment reminder..."
+            :placeholder="t('Appointment reminder...')"
             class="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2.5 text-sm outline-none focus:border-stone-900 focus:bg-white transition"
           />
         </div>
 
         <div>
           <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
-            Message Body
+            {{ t("Message Body") }}
           </label>
           <textarea
             v-model="form.message"
             rows="4"
             required
-            placeholder="Type your message here..."
+            :placeholder="t('Type your message here...')"
             class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-sm outline-none focus:border-stone-900 focus:bg-white transition"
           ></textarea>
         </div>
@@ -310,7 +311,7 @@ const send = async () => {
             @click="emit('update:modelValue', false)"
             class="rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-semibold text-stone-700 hover:bg-stone-50"
           >
-            Cancel
+            {{ t("Cancel") }}
           </button>
           <button
             type="submit"

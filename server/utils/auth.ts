@@ -184,6 +184,7 @@ export const serializeBusiness = (
   bookingActive: settings?.online_booking_enabled ?? false,
   onLocationEnabled: settings?.on_location_enabled ?? false,
   hidePricesInList: settings?.hide_prices_in_list ?? false,
+  language: settings?.language ?? "en",
   // Name-change security limiter (2 free changes, then a 14-day cooldown)
   nameChangeCount: b.name_change_count ?? 0,
   nameChangedAt: b.name_changed_at ?? null,

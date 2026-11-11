@@ -9,6 +9,7 @@ import {
   MessageCircle,
   Mail,
 } from "lucide-vue-next";
+const { t } = useT();
 
 definePageMeta({
   layout: "dashboard",
@@ -60,16 +61,16 @@ const copyLink = async () => {
 const whatsappShare = () => {
   if (!bookingUrl.value) return;
   const text = encodeURIComponent(
-    `Book your appointment at ${org.value?.name ?? "our studio"}: ${bookingUrl.value}`,
+    `${t("Book your appointment at {name}", { name: org.value?.name ?? t("our studio") })}: ${bookingUrl.value}`,
   );
   openExternalLink(`https://wa.me/?text=${text}`);
 };
 
 const emailShare = () => {
   if (!bookingUrl.value) return;
-  const subject = encodeURIComponent(`Book with ${org.value?.name ?? "us"}`);
+  const subject = encodeURIComponent(t("Book with {name}", { name: org.value?.name ?? t("us") }));
   const body = encodeURIComponent(
-    `Hi!\n\nYou can book your appointment online, any time:\n${bookingUrl.value}\n\nSee you soon!`,
+    `${t("Hi!")}\n\n${t("You can book your appointment online, any time:")}\n${bookingUrl.value}\n\n${t("See you soon!")}`,
   );
   window.location.href = `mailto:?subject=${subject}&body=${body}`;
 };
@@ -98,10 +99,10 @@ const qrSrc = computed(() => {
   <div class="space-y-7 pb-16 max-w-4xl">
     <!-- Header -->
     <div class="page-head">
-      <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Share &amp; Grow</p>
-      <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">Share Booking Link</h1>
+      <p class="text-xs font-bold uppercase tracking-wider text-rose-600">{{ t("Share & Grow") }}</p>
+      <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">{{ t("Share Booking Link") }}</h1>
       <p class="text-xs text-stone-500 mt-1">
-        One link for customers to book appointments 24/7 — put it on Instagram, Google Business, or WhatsApp.
+        {{ t("One link for customers to book appointments 24/7 — put it on Instagram, Google Business, or WhatsApp.") }}
       </p>
     </div>
 
@@ -115,11 +116,11 @@ const qrSrc = computed(() => {
       <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm space-y-5">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <span class="text-[10px] font-bold uppercase tracking-wider text-rose-600">Customer Booking Hub</span>
-            <h2 class="font-display text-xl font-bold text-stone-900 mt-0.5">Your Public Booking Page</h2>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-rose-600">{{ t("Customer Booking Hub") }}</span>
+            <h2 class="font-display text-xl font-bold text-stone-900 mt-0.5">{{ t("Your Public Booking Page") }}</h2>
           </div>
           <div class="flex items-center gap-3 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-2.5">
-            <span class="text-xs font-bold text-stone-800">Online Booking</span>
+            <span class="text-xs font-bold text-stone-800">{{ t("Online Booking") }}</span>
             <input
               type="checkbox"
               v-model="org.bookingActive"
@@ -143,7 +144,7 @@ const qrSrc = computed(() => {
             >
               <Check v-if="copied" :size="14" class="text-emerald-600" />
               <Copy v-else :size="14" class="text-stone-400" />
-              <span>{{ copied ? "Copied!" : "Copy Link" }}</span>
+              <span>{{ copied ? t("Copied!") : t("Copy Link") }}</span>
             </button>
             <NuxtLink
               :to="`/book/${org.slug}`"
@@ -151,7 +152,7 @@ const qrSrc = computed(() => {
               class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white hover:bg-stone-800 transition"
             >
               <ExternalLink :size="14" />
-              <span>Open Page</span>
+              <span>{{ t("Open Page") }}</span>
             </NuxtLink>
           </div>
         </div>
@@ -164,7 +165,7 @@ const qrSrc = computed(() => {
             class="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition"
           >
             <MessageCircle :size="16" />
-            <span>Share on WhatsApp</span>
+            <span>{{ t("Share on WhatsApp") }}</span>
           </button>
           <button
             type="button"
@@ -172,7 +173,7 @@ const qrSrc = computed(() => {
             class="inline-flex items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-xs font-bold text-stone-700 hover:bg-stone-100 transition"
           >
             <Mail :size="16" />
-            <span>Share via Email</span>
+            <span>{{ t("Share via Email") }}</span>
           </button>
         </div>
       </div>
@@ -183,7 +184,7 @@ const qrSrc = computed(() => {
           <img
             v-if="qrSrc"
             :src="qrSrc"
-            alt="Booking page QR code"
+            :alt="t('Booking page QR code')"
             :width="qrSize"
             :height="qrSize"
             class="rounded-xl"
@@ -192,10 +193,10 @@ const qrSrc = computed(() => {
         <div class="space-y-3">
           <div class="flex items-center gap-2">
             <QrCode :size="18" class="text-rose-600" />
-            <h3 class="font-display text-lg font-bold text-stone-900">QR code for your counter or window</h3>
+            <h3 class="font-display text-lg font-bold text-stone-900">{{ t("QR code for your counter or window") }}</h3>
           </div>
           <p class="text-xs text-stone-600 leading-relaxed">
-            Print it and stick it at the reception — customers scan and book instantly. Download the image and send it to any print shop.
+            {{ t("Print it and stick it at the reception — customers scan and book instantly. Download the image and send it to any print shop.") }}
           </p>
           <div class="flex items-center gap-3">
             <a
@@ -205,13 +206,13 @@ const qrSrc = computed(() => {
               class="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white hover:bg-stone-800 transition"
             >
               <Share2 :size="14" />
-              <span>Download QR</span>
+              <span>{{ t("Download QR") }}</span>
             </a>
             <NuxtLink
               to="/dashboard/settings"
               class="text-xs font-bold text-stone-500 hover:text-stone-900 transition"
             >
-              Booking page settings →
+              {{ t("Booking page settings →") }}
             </NuxtLink>
           </div>
         </div>

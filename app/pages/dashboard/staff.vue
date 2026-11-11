@@ -17,6 +17,7 @@ import {
   Upload,
   MessageCircle,
 } from "lucide-vue-next";
+const { t, intl } = useT();
 
 const showImport = ref(false);
 
@@ -88,6 +89,11 @@ const staffForm = reactive({
   serviceIds: [] as string[],
 });
 
+// Options for the services multi-select (name + duration)
+const serviceOptions = computed(() =>
+  services.value.map((s: any) => ({ value: s.id, label: s.name, hint: `${s.durationMinutes}m` })),
+);
+
 // On-location mode: staff must have a WhatsApp number (with country code)
 const onLocation = ref(false);
 const phoneProblem = () => {
@@ -95,7 +101,7 @@ const phoneProblem = () => {
   const p = staffForm.phone.replace(/[\s\-().]/g, "");
   return /^\+[1-9]\d{6,14}$/.test(p)
     ? ""
-    : "WhatsApp phone number with country code is required (example: +923001234567).";
+    : t("WhatsApp phone number with country code is required (example: +923001234567).");
 };
 
 // Today's duty hours (from the weekly staff schedule, 0 = Sunday)
@@ -113,7 +119,7 @@ const todayDuty = (staffId: string) => {
     (r) => r.staffId === staffId && r.dayOfWeek === today,
   );
   if (!row) return "";
-  return row.isOff ? "Off today" : `Today ${row.startTime}–${row.endTime}`;
+  return row.isOff ? t("Off today") : t("Today {from}–{to}", { from: row.startTime, to: row.endTime });
 };
 
 // Call / WhatsApp straight from the staff card
@@ -164,7 +170,7 @@ const openCreate = () => {
 
 const handleCreate = async () => {
   if (!staffForm.name.trim() || !staffForm.role.trim()) {
-    formError.value = "Name and role are required.";
+    formError.value = t("Name and role are required.");
     return;
   }
   if (phoneProblem()) {
@@ -188,7 +194,7 @@ const handleCreate = async () => {
     showCreateModal.value = false;
     await loadData();
   } catch (err: any) {
-    formError.value = err?.data?.statusMessage ?? "Failed to create staff member.";
+    formError.value = err?.data?.statusMessage ?? t(t("Failed to create staff member."));
   } finally {
     isSubmitting.value = false;
   }
@@ -229,7 +235,7 @@ const handleEdit = async () => {
     showEditModal.value = false;
     await loadData();
   } catch (err: any) {
-    formError.value = err?.data?.statusMessage ?? "Failed to update staff member.";
+    formError.value = err?.data?.statusMessage ?? t(t("Failed to update staff member."));
   } finally {
     isSubmitting.value = false;
   }
@@ -243,7 +249,7 @@ const toggleActive = async (member: StaffMember) => {
     });
     await loadData();
   } catch (err: any) {
-    alert(err?.data?.statusMessage ?? "Failed to toggle status.");
+    alert(err?.data?.statusMessage ?? t(t("Failed to toggle status.")));
   }
 };
 
@@ -264,7 +270,7 @@ const handleSaveServices = async () => {
     showServicesModal.value = false;
     await loadData();
   } catch (err: any) {
-    alert(err?.data?.statusMessage ?? "Failed to save assigned services.");
+    alert(err?.data?.statusMessage ?? t("Failed to save assigned services."));
   } finally {
     isSubmitting.value = false;
   }
@@ -287,12 +293,12 @@ const openSchedule = async (member: StaffMember) => {
 
 const formatTime = (isoString: string) => {
   const date = new Date(isoString);
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  return date.toLocaleTimeString(intl.value, { hour: "2-digit", minute: "2-digit", hour12: false });
 };
 
 const formatDate = (isoString: string) => {
   const date = new Date(isoString);
-  return date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  return date.toLocaleDateString(intl.value, { weekday: "short", month: "short", day: "numeric" });
 };
 </script>
 
@@ -301,8 +307,8 @@ const formatDate = (isoString: string) => {
     <!-- Header -->
     <div class="page-head flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div class="min-w-0">
-        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Team & Providers</p>
-        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">Staff Members</h1>
+        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">{{ t("Team & Providers") }}</p>
+        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">{{ t("Staff Members") }}</h1>
       </div>
       <div class="page-head-actions flex flex-wrap items-center gap-2 self-start sm:self-auto">
         <button
@@ -311,7 +317,7 @@ const formatDate = (isoString: string) => {
           class="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50 transition shadow-sm"
         >
           <Upload :size="16" />
-          <span>Import Excel</span>
+          <span>{{ t("Import Excel") }}</span>
         </button>
         <button
           type="button"
@@ -319,7 +325,7 @@ const formatDate = (isoString: string) => {
           class="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm"
         >
           <Plus :size="16" />
-          <span>Add Staff Member</span>
+          <span>{{ t("Add Staff Member") }}</span>
         </button>
       </div>
     </div>
@@ -335,9 +341,9 @@ const formatDate = (isoString: string) => {
       class="py-16 text-center rounded-3xl border border-dashed border-stone-200 bg-white"
     >
       <UserCheck :size="36" class="mx-auto text-stone-400" />
-      <h3 class="mt-3 font-display text-lg font-bold text-stone-900">No team members added yet</h3>
+      <h3 class="mt-3 font-display text-lg font-bold text-stone-900">{{ t("No team members added yet") }}</h3>
       <p class="mt-1 text-xs text-stone-500 max-w-sm mx-auto">
-        Add your staff specialists to assign incoming appointments and manage individual schedules.
+        {{ t("Add your staff specialists to assign incoming appointments and manage individual schedules.") }}
       </p>
       <button
         type="button"
@@ -345,7 +351,7 @@ const formatDate = (isoString: string) => {
         class="mt-4 inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white"
       >
         <Plus :size="14" />
-        <span>Add First Staff Member</span>
+        <span>{{ t("Add First Staff Member") }}</span>
       </button>
     </div>
 
@@ -389,7 +395,7 @@ const formatDate = (isoString: string) => {
               ]"
               :title="member.active ? 'Click to deactivate' : 'Click to activate'"
             >
-              {{ member.active ? "Active" : "Inactive" }}
+              {{ member.active ? t("Active") : t("Inactive") }}
             </button>
           </div>
 
@@ -397,7 +403,7 @@ const formatDate = (isoString: string) => {
           <div class="space-y-1.5 text-xs text-stone-500 pt-1">
             <div v-if="member.phone" class="flex items-center gap-2 text-stone-700">
               <Phone :size="13" class="text-stone-400" />
-              <span>{{ member.phone }}</span>
+              <span><bdi dir="ltr">{{ member.phone }}</bdi></span>
             </div>
             <div v-if="member.email" class="flex min-w-0 items-center gap-2 text-stone-700">
               <Mail :size="13" class="shrink-0 text-stone-400" />
@@ -416,7 +422,7 @@ const formatDate = (isoString: string) => {
               class="tap inline-flex items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white py-2 text-xs font-bold text-stone-800 hover:bg-stone-50"
             >
               <Phone :size="14" />
-              <span>Call</span>
+              <span>{{ t("Call") }}</span>
             </a>
             <a
               :href="waHref(member.phone)"
@@ -425,14 +431,14 @@ const formatDate = (isoString: string) => {
               class="tap inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-700"
             >
               <MessageCircle :size="14" />
-              <span>WhatsApp</span>
+              <span>{{ t("WhatsApp") }}</span>
             </a>
           </div>
 
           <!-- Assigned Services Count -->
           <div class="rounded-xl bg-stone-50 p-2.5 text-xs flex items-center justify-between border border-stone-200/60">
-            <span class="text-stone-500 font-medium">Assigned Services</span>
-            <span class="font-bold text-stone-900">{{ member.serviceIds?.length ?? 0 }} services</span>
+            <span class="text-stone-500 font-medium">{{ t("Assigned Services") }}</span>
+            <span class="font-bold text-stone-900">{{ t("{n} services", { n: member.serviceIds?.length ?? 0 }) }}</span>
           </div>
         </div>
 
@@ -442,30 +448,30 @@ const formatDate = (isoString: string) => {
             type="button"
             @click="openServicesAssign(member)"
             class="tap flex items-center justify-center gap-1 rounded-xl border border-stone-200 bg-white py-2 text-[11px] font-bold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
-            title="Assign Services"
+            :title="t('Assign Services')"
           >
             <Sparkles :size="12" />
-            <span>Services</span>
+            <span>{{ t("Services") }}</span>
           </button>
 
           <button
             type="button"
             @click="openSchedule(member)"
             class="tap flex items-center justify-center gap-1 rounded-xl border border-stone-200 bg-white py-2 text-[11px] font-bold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
-            title="View Schedule"
+            :title="t('View Schedule')"
           >
             <Calendar :size="12" />
-            <span>Schedule</span>
+            <span>{{ t("Schedule") }}</span>
           </button>
 
           <button
             type="button"
             @click="openEdit(member)"
             class="tap flex items-center justify-center gap-1 rounded-xl border border-stone-200 bg-white py-2 text-[11px] font-bold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
-            title="Edit Staff"
+            :title="t('Edit Staff')"
           >
             <Edit2 :size="12" />
-            <span>Edit</span>
+            <span>{{ t("Edit") }}</span>
           </button>
         </div>
       </div>
@@ -478,7 +484,7 @@ const formatDate = (isoString: string) => {
     >
       <div class="m-sheet-panel w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
-          <h3 class="font-display text-xl font-bold text-stone-900">Add Staff Member</h3>
+          <h3 class="font-display text-xl font-bold text-stone-900">{{ t("Add Staff Member") }}</h3>
           <button type="button" @click="showCreateModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
@@ -486,30 +492,33 @@ const formatDate = (isoString: string) => {
 
         <form @submit.prevent="handleCreate" class="space-y-4">
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Full Name</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Full Name") }}</label>
             <input
               v-model="staffForm.name"
               type="text"
               required
-              placeholder="e.g. Maria Papadaki"
+              :placeholder="t('e.g. Maria Papadaki')"
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
             />
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Role / Position</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Role / Position") }}</label>
             <input
               v-model="staffForm.role"
               type="text"
               required
-              placeholder="e.g. Master Barber, Senior Stylist"
+              :placeholder="t('e.g. Master Barber, Senior Stylist')"
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
             />
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid gap-3 sm:grid-cols-2 sm:items-end">
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ onLocation ? "WhatsApp Phone (required)" : "Phone (Optional)" }}</label>
+              <label class="mb-1.5 flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-stone-600">
+                <span class="truncate">{{ onLocation ? t("WhatsApp phone") : t("Phone (Optional)") }}</span>
+                <span v-if="onLocation" class="text-rose-600" :title="t('Required')">*</span>
+              </label>
               <input
                 v-model="staffForm.phone"
                 type="tel"
@@ -519,34 +528,25 @@ const formatDate = (isoString: string) => {
               />
             </div>
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Email (Optional)</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Email (Optional)") }}</label>
               <input
                 v-model="staffForm.email"
                 type="email"
-                placeholder="staff@example.com"
+                :placeholder="t('staff@example.com')"
                 class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
               />
             </div>
           </div>
 
-          <!-- Services Assignment Multi-check -->
-          <div class="space-y-2">
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600">Assign Services Offered</label>
-            <div class="max-h-36 overflow-y-auto rounded-xl border border-stone-200 bg-stone-50/50 p-2.5 space-y-1.5">
-              <label
-                v-for="s in services"
-                :key="s.id"
-                class="flex items-center gap-2 text-xs font-medium text-stone-800 p-1 hover:bg-white rounded cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  :value="s.id"
-                  v-model="staffForm.serviceIds"
-                  class="rounded border-stone-300 text-stone-900 focus:ring-stone-900"
-                />
-                <span>{{ s.name }} ({{ s.durationMinutes }}m)</span>
-              </label>
-            </div>
+          <!-- Services this person can do (multi-select with tags) -->
+          <div class="space-y-1.5">
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600">{{ t("Assign Services Offered") }}</label>
+            <TagMultiSelect
+              v-model="staffForm.serviceIds"
+              :options="serviceOptions"
+              placeholder="Choose services…"
+              empty-text="No services yet"
+            />
           </div>
 
           <p v-if="formError" class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 font-medium">
@@ -559,14 +559,14 @@ const formatDate = (isoString: string) => {
               @click="showCreateModal = false"
               class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
             >
-              Cancel
+              {{ t("Cancel") }}
             </button>
             <button
               type="submit"
               :disabled="isSubmitting"
               class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
             >
-              {{ isSubmitting ? "Creating..." : "Save Member" }}
+              {{ isSubmitting ? t("Creating...") : t("Save Member") }}
             </button>
           </div>
         </form>
@@ -580,7 +580,7 @@ const formatDate = (isoString: string) => {
     >
       <div class="m-sheet-panel w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
-          <h3 class="font-display text-xl font-bold text-stone-900">Edit Staff Member</h3>
+          <h3 class="font-display text-xl font-bold text-stone-900">{{ t("Edit Staff Member") }}</h3>
           <button type="button" @click="showEditModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
@@ -588,7 +588,7 @@ const formatDate = (isoString: string) => {
 
         <form @submit.prevent="handleEdit" class="space-y-4">
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Full Name</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Full Name") }}</label>
             <input
               v-model="staffForm.name"
               type="text"
@@ -598,7 +598,7 @@ const formatDate = (isoString: string) => {
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Role / Position</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Role / Position") }}</label>
             <input
               v-model="staffForm.role"
               type="text"
@@ -609,7 +609,7 @@ const formatDate = (isoString: string) => {
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Phone</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Phone") }}</label>
               <input
                 v-model="staffForm.phone"
                 type="tel"
@@ -617,7 +617,7 @@ const formatDate = (isoString: string) => {
               />
             </div>
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Email</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Email") }}</label>
               <input
                 v-model="staffForm.email"
                 type="email"
@@ -634,7 +634,7 @@ const formatDate = (isoString: string) => {
               class="rounded border-stone-300 text-stone-900"
             />
             <label for="activeCheckbox" class="text-xs font-semibold text-stone-700 cursor-pointer">
-              Active (available for bookings)
+              {{ t("Active (available for bookings)") }}
             </label>
           </div>
 
@@ -648,14 +648,14 @@ const formatDate = (isoString: string) => {
               @click="showEditModal = false"
               class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
             >
-              Cancel
+              {{ t("Cancel") }}
             </button>
             <button
               type="submit"
               :disabled="isSubmitting"
               class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
             >
-              {{ isSubmitting ? "Saving..." : "Save Changes" }}
+              {{ isSubmitting ? t("Saving...") : t("Save Changes") }}
             </button>
           </div>
         </form>
@@ -670,32 +670,20 @@ const formatDate = (isoString: string) => {
       <div class="m-sheet-panel w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
           <div>
-            <h3 class="font-display text-xl font-bold text-stone-900">Assign Services</h3>
-            <p class="text-xs text-stone-500">Select services that {{ selectedStaff.name }} can perform.</p>
+            <h3 class="font-display text-xl font-bold text-stone-900">{{ t("Assign Services") }}</h3>
+            <p class="text-xs text-stone-500">{{ t("Select services that {name} can perform.", { name: selectedStaff.name }) }}</p>
           </div>
           <button type="button" @click="showServicesModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
         </div>
 
-        <div class="max-h-64 overflow-y-auto rounded-2xl border border-stone-200 bg-stone-50/50 p-3 space-y-2">
-          <label
-            v-for="s in services"
-            :key="s.id"
-            class="flex items-center justify-between p-2 rounded-xl bg-white border border-stone-200/70 hover:border-stone-400 cursor-pointer text-xs"
-          >
-            <div class="flex items-center gap-2">
-              <input
-                type="checkbox"
-                :value="s.id"
-                v-model="staffForm.serviceIds"
-                class="rounded border-stone-300 text-stone-900"
-              />
-              <span class="font-semibold text-stone-800">{{ s.name }}</span>
-            </div>
-            <span class="text-stone-500">{{ s.durationMinutes }}m · {{ formatMoney(s.priceCents, s.currency) }}</span>
-          </label>
-        </div>
+        <TagMultiSelect
+          v-model="staffForm.serviceIds"
+          :options="serviceOptions"
+          placeholder="Choose services…"
+          empty-text="No services yet"
+        />
 
         <div class="m-sheet-actions flex items-center justify-end gap-2.5 pt-3 border-t border-stone-100">
           <button
@@ -703,7 +691,7 @@ const formatDate = (isoString: string) => {
             @click="showServicesModal = false"
             class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
           >
-            Cancel
+            {{ t("Cancel") }}
           </button>
           <button
             type="button"
@@ -711,7 +699,7 @@ const formatDate = (isoString: string) => {
             @click="handleSaveServices"
             class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
           >
-            {{ isSubmitting ? "Saving..." : "Save Assigned Services" }}
+            {{ isSubmitting ? t("Saving...") : t("Save Assigned Services") }}
           </button>
         </div>
       </div>
@@ -725,7 +713,7 @@ const formatDate = (isoString: string) => {
       <div class="m-sheet-panel w-full max-w-lg rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
           <div>
-            <span class="text-[10px] font-bold uppercase tracking-wider text-rose-600">Individual Schedule</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-rose-600">{{ t("Individual Schedule") }}</span>
             <h3 class="font-display text-xl font-bold text-stone-900">{{ selectedStaff.name }}</h3>
           </div>
           <button type="button" @click="showScheduleModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
@@ -734,17 +722,17 @@ const formatDate = (isoString: string) => {
         </div>
 
         <div v-if="isScheduleLoading" class="py-12 text-center text-xs text-stone-400 animate-pulse">
-          Loading assigned appointments...
+          {{ t("Loading assigned appointments...") }}
         </div>
 
         <div
           v-else-if="staffSchedule.length === 0"
           class="py-12 text-center text-xs text-stone-500 italic"
         >
-          No appointments currently assigned to {{ selectedStaff.name }}.
+          {{ t("No appointments currently assigned to {name}.", { name: selectedStaff.name }) }}
         </div>
 
-        <div v-else class="max-h-80 overflow-y-auto space-y-2.5 pr-1">
+        <div v-else class="max-h-80 overflow-y-auto space-y-2.5 pe-1">
           <div
             v-for="item in staffSchedule"
             :key="item.appointment.id"
@@ -753,11 +741,11 @@ const formatDate = (isoString: string) => {
             <div class="flex items-center justify-between">
               <span class="font-bold text-stone-900">{{ formatDate(item.appointment.startAt) }} · {{ formatTime(item.appointment.startAt) }}</span>
               <span class="rounded bg-stone-200/70 px-1.5 py-0.5 text-[9px] font-bold uppercase text-stone-700">
-                {{ item.appointment.status }}
+                {{ t(statusText(item.appointment.status)) }}
               </span>
             </div>
             <div class="font-semibold text-stone-800">
-              {{ item.customer.firstName }} {{ item.customer.lastName }} ({{ item.customer.phone }})
+              {{ item.customer.firstName }} {{ item.customer.lastName }} (<bdi dir="ltr">{{ item.customer.phone }}</bdi>)
             </div>
             <div class="text-[11px] text-stone-500">
               {{ item.service.name }} ({{ item.service.durationMinutes }}m)
@@ -771,7 +759,7 @@ const formatDate = (isoString: string) => {
             @click="showScheduleModal = false"
             class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
           >
-            Close
+            {{ t("Close") }}
           </button>
         </div>
       </div>

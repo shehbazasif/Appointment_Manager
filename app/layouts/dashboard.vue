@@ -23,6 +23,8 @@ import {
   Ellipsis,
   ScanLine,
 } from "lucide-vue-next";
+const { t } = useT();
+useLocaleHead();
 
 type MeResponse = {
   user: { id: string; email: string; firstName: string; lastName: string };
@@ -34,6 +36,7 @@ type MeResponse = {
     logoUrl?: string | null;
     city?: string;
     currency?: string;
+    language?: string;
   } | null;
   role: string | null;
 };
@@ -82,6 +85,8 @@ const isMoreActive = computed(() => moreItems.some((i) => isActive(i.to)));
 const loadMe = async () => {
   try {
     me.value = await $fetch<MeResponse>("/api/me");
+    // show the dashboard in the business language (unless this person picked one)
+    await applyLocale(me.value?.organization?.language);
   } catch (error: any) {
     if (error?.statusCode === 401) {
       await navigateTo("/login", { replace: true });
@@ -205,7 +210,7 @@ provide("refreshBusinessProfile", loadMe);
           v-if="route.path !== '/dashboard'"
           type="button"
           class="flex size-11 shrink-0 items-center justify-center rounded-xl text-stone-700 hover:bg-stone-100 lg:hidden"
-          aria-label="Back"
+          :aria-label="t('Back')"
           @click="goBack"
         >
           <ChevronLeft :size="24" />
@@ -246,7 +251,7 @@ provide("refreshBusinessProfile", loadMe);
               {{
                 me?.organization?.slug
                   ? `/book/${me.organization.slug}`
-                  : "Studio Hub"
+                  : t("Studio Hub")
               }}
             </span>
           </div>
@@ -255,7 +260,7 @@ provide("refreshBusinessProfile", loadMe);
         <!-- Business Name Tag -->
         <div
           v-if="me?.organization"
-          class="hidden items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs sm:flex ml-4"
+          class="hidden items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs sm:flex ms-4"
         >
           <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
           <span class="font-semibold text-stone-800">{{
@@ -267,50 +272,55 @@ provide("refreshBusinessProfile", loadMe);
       <!-- Header Actions -->
       <div class="flex items-center gap-2.5">
         <!-- Public Booking Link Controls -->
-        <div
-          v-if="me?.organization?.slug"
-          class="hidden sm:flex items-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50/80 p-1"
-        >
+        <div v-if="me?.organization?.slug" class="flex items-center gap-1.5">
+          <!-- Copy booking link: main action, filled rose -->
           <button
             type="button"
             @click="copyBookingLink"
-            class="flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-stone-700 shadow-2xs border border-stone-200/60 hover:bg-stone-50 hover:text-stone-900 transition"
+            class="inline-flex h-9 items-center gap-1.5 rounded-xl px-2.5 text-xs font-bold shadow-sm transition active:scale-[0.97] sm:px-3"
+            :class="copied ? 'bg-emerald-600 text-white shadow-emerald-600/25' : 'bg-rose-600 text-white shadow-rose-600/25 hover:bg-rose-700'"
             :title="bookingUrl"
+            :aria-label="copied ? t('Copied!') : t('Copy booking link')"
           >
-            <Check v-if="copied" :size="13" class="text-emerald-600" />
-            <Copy v-else :size="13" class="text-stone-400" />
-            <span>{{ copied ? "Copied!" : "Copy booking link" }}</span>
+            <Check v-if="copied" :size="15" />
+            <Copy v-else :size="15" />
+            <span class="hidden sm:inline">{{ copied ? t("Copied!") : t("Copy booking link") }}</span>
           </button>
 
+          <!-- Preview the public booking page -->
           <NuxtLink
             :to="`/book/${me.organization.slug}`"
             target="_blank"
-            class="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-stone-600 hover:text-stone-900 transition"
+            class="inline-flex h-9 items-center gap-1.5 rounded-xl border-2 border-stone-900 bg-white px-2.5 text-xs font-bold text-stone-900 transition hover:bg-stone-900 hover:text-white sm:px-3"
+            :aria-label="t('Preview')"
+            :title="t('Preview')"
           >
-            <ExternalLink :size="13" />
-            <span>Preview</span>
+            <ExternalLink :size="15" />
+            <span class="hidden sm:inline">{{ t("Preview") }}</span>
           </NuxtLink>
         </div>
 
+        <LanguageSwitcher compact :business-language="me?.organization?.language ?? null" />
+
         <!-- User Profile & Sign Out -->
-        <div class="flex items-center gap-2 pl-2 border-l border-stone-200">
-          <div class="hidden text-right text-xs md:block">
+        <div class="flex items-center gap-2 ps-2 border-s border-stone-200">
+          <div class="hidden text-end text-xs md:block">
             <div class="font-semibold text-stone-900">
               {{
                 user?.user_metadata?.first_name
                   ? `${user.user_metadata.first_name} ${user?.user_metadata?.last_name ?? ""}`
-                  : (user?.email ?? "User")
+                  : (user?.email ?? t("User"))
               }}
             </div>
             <div class="text-[10px] text-stone-400 uppercase tracking-wider">
-              {{ me?.role ?? "Owner" }}
+              {{ t(me?.role ? me.role.charAt(0).toUpperCase() + me.role.slice(1).toLowerCase() : t("Owner")) }}
             </div>
           </div>
           <button
             type="button"
             @click="handleSignOut"
             class="hidden lg:flex size-9 items-center justify-center rounded-xl border border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-100 hover:text-stone-900 transition"
-            title="Sign out"
+            :title="t('Sign out')"
           >
             <LogOut :size="16" />
           </button>
@@ -328,23 +338,22 @@ provide("refreshBusinessProfile", loadMe);
           class="inline-flex size-2 rounded-full bg-amber-500 animate-pulse"
         ></span>
         <span
-          >Your business workspace is being set up. Retrying
-          automatically...</span
+          >{{ t("Your business workspace is being set up. Retrying automatically...") }}</span
         >
       </div>
       <button
         type="button"
-        class="font-semibold text-amber-900 underline hover:text-amber-950 ml-4 shrink-0"
+        class="font-semibold text-amber-900 underline hover:text-amber-950 ms-4 shrink-0"
         @click="retryBootstrap"
       >
-        Retry now
+        {{ t("Retry now") }}
       </button>
     </div>
 
     <div class="flex flex-1 min-h-0">
       <!-- Sidebar Desktop -->
       <aside
-        class="hidden w-64 shrink-0 flex-col justify-between border-r border-stone-200 bg-white p-4 lg:flex min-h-0 overflow-y-auto"
+        class="hidden w-64 shrink-0 flex-col justify-between border-e border-stone-200 bg-white p-4 lg:flex min-h-0 overflow-y-auto"
       >
         <div class="flex flex-col min-h-0">
           <nav class="space-y-1">
@@ -361,7 +370,7 @@ provide("refreshBusinessProfile", loadMe);
               ]"
             >
               <component :is="item.icon" :size="18" />
-              <span>{{ item.name }}</span>
+              <span>{{ t(item.name) }}</span>
             </NuxtLink>
           </nav>
 
@@ -377,10 +386,10 @@ provide("refreshBusinessProfile", loadMe);
               ]"
             >
               <Settings :size="18" />
-              <span>Settings</span>
+              <span>{{ t("Settings") }}</span>
               <ChevronRight
                 :size="14"
-                class="ml-auto opacity-50"
+                class="ms-auto opacity-50"
               />
             </NuxtLink>
           </div>
@@ -391,7 +400,7 @@ provide("refreshBusinessProfile", loadMe);
           class="rounded-2xl border border-stone-200 bg-stone-50/70 p-3.5 text-xs mt-4"
         >
           <div class="flex items-center justify-between">
-            <span class="font-semibold text-stone-800">Booking status</span>
+            <span class="font-semibold text-stone-800">{{ t("Booking status") }}</span>
             <span
               :class="[
                 me?.organization?.bookingActive
@@ -400,17 +409,17 @@ provide("refreshBusinessProfile", loadMe);
                 'rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
               ]"
             >
-              {{ me?.organization?.bookingActive ? "Live" : "Paused" }}
+              {{ me?.organization?.bookingActive ? t("Live") : t("Paused") }}
             </span>
           </div>
           <p class="mt-2 text-stone-500 text-[11px] leading-relaxed">
-            Customers can book appointments directly via your public link.
+            {{ t("Customers can book appointments directly via your public link.") }}
           </p>
           <NuxtLink
             :to="settingsLink"
             class="mt-3 block text-center rounded-lg bg-white border border-stone-200 py-1.5 font-semibold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
           >
-            Settings
+            {{ t("Settings") }}
           </NuxtLink>
         </div>
       </aside>
@@ -424,7 +433,7 @@ provide("refreshBusinessProfile", loadMe);
 
       <aside
         v-if="mobileMenuOpen"
-        class="fixed inset-y-0 left-0 z-50 w-72 flex-col justify-between border-r border-stone-200 bg-white p-5 shadow-2xl flex lg:hidden"
+        class="fixed inset-y-0 start-0 z-50 w-72 flex-col justify-between border-e border-stone-200 bg-white p-5 shadow-2xl flex lg:hidden"
       >
         <div class="space-y-6 flex flex-col min-h-0">
           <div class="flex items-center justify-between">
@@ -469,7 +478,7 @@ provide("refreshBusinessProfile", loadMe);
               ]"
             >
               <component :is="item.icon" :size="18" />
-              <span>{{ item.name }}</span>
+              <span>{{ t(item.name) }}</span>
             </NuxtLink>
 
             <!-- Settings pinned at the bottom of the mobile drawer -->
@@ -484,7 +493,7 @@ provide("refreshBusinessProfile", loadMe);
               ]"
             >
               <Settings :size="18" />
-              <span>Settings</span>
+              <span>{{ t("Settings") }}</span>
             </NuxtLink>
           </nav>
         </div>
@@ -497,7 +506,7 @@ provide("refreshBusinessProfile", loadMe);
           >
             <Copy :size="14" />
             <span>{{
-              copied ? "Copied Booking Link!" : "Copy Booking Link"
+              copied ? t("Copied Booking Link!") : t("Copy Booking Link")
             }}</span>
           </button>
           <button
@@ -506,7 +515,7 @@ provide("refreshBusinessProfile", loadMe);
             class="w-full flex items-center justify-center gap-2 rounded-xl bg-stone-100 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"
           >
             <LogOut :size="14" />
-            <span>Sign out</span>
+            <span>{{ t("Sign out") }}</span>
           </button>
         </div>
       </aside>
@@ -546,7 +555,7 @@ provide("refreshBusinessProfile", loadMe);
             ]"
           >
             <component :is="item.icon" :size="22" />
-            <span>{{ item.name }}</span>
+            <span>{{ t(item.name) }}</span>
           </NuxtLink>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-2">
@@ -557,7 +566,7 @@ provide("refreshBusinessProfile", loadMe);
           >
             <Check v-if="copied" :size="14" class="text-emerald-600" />
             <Copy v-else :size="14" />
-            <span>{{ copied ? "Copied!" : "Copy booking link" }}</span>
+            <span>{{ copied ? t("Copied!") : t("Copy booking link") }}</span>
           </button>
           <button
             type="button"
@@ -565,7 +574,7 @@ provide("refreshBusinessProfile", loadMe);
             class="flex items-center justify-center gap-2 rounded-xl bg-rose-50 py-3 text-xs font-semibold text-rose-600"
           >
             <LogOut :size="14" />
-            <span>Sign out</span>
+            <span>{{ t("Sign out") }}</span>
           </button>
         </div>
       </div>
@@ -599,7 +608,7 @@ provide("refreshBusinessProfile", loadMe);
             >
               <component :is="tab.icon" :size="22" />
             </span>
-            <span>{{ tab.name }}</span>
+            <span>{{ t(tab.name) }}</span>
           </NuxtLink>
           <button
             type="button"
@@ -622,7 +631,7 @@ provide("refreshBusinessProfile", loadMe);
             >
               <Ellipsis :size="22" />
             </span>
-            <span>More</span>
+            <span>{{ t("More") }}</span>
           </button>
         </div>
       </nav>

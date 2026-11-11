@@ -24,6 +24,7 @@ import {
   MapPinned,
   MessageCircle,
 } from "lucide-vue-next";
+const { t, intl } = useT();
 
 definePageMeta({
   layout: "dashboard",
@@ -107,7 +108,7 @@ const FIELD_STATUSES = [
   { value: "ON_THE_WAY", label: "On the way" },
   { value: "ON_LOCATION", label: "On location" },
 ];
-const fieldLabel = (v?: string | null) => FIELD_STATUSES.find((f) => f.value === v)?.label ?? "Not assigned";
+const fieldLabel = (v?: string | null) => t(FIELD_STATUSES.find((f) => f.value === v)?.label ?? "Not assigned");
 const getFieldBadge = (v?: string | null) =>
   v === "ASSIGNED"
     ? "bg-blue-50 text-blue-700 border-blue-200"
@@ -125,15 +126,15 @@ const whatsappUrl = (item: AppointmentDetail) => {
   if (!phone) return "";
   const a = item.appointment;
   const lines = [
-    `Hello ${item.staff?.name ?? ""}, new job for you:`,
+    t("Hello {name}, new job for you:", { name: item.staff?.name ?? "" }),
     ``,
-    `Customer: ${item.customer.firstName} ${item.customer.lastName === "Customer" ? "" : item.customer.lastName}`.trim(),
-    `Phone: ${item.customer.phone}`,
-    `Service: ${item.service.name}`,
-    `When: ${formatDate(a.startAt)} ${formatTime(a.startAt)}`,
-    a.location ? `Location: ${mapsUrl(item)}` : "",
-    a.location?.note ? `Landmark: ${a.location.note}` : "",
-    a.notes ? `Notes: ${a.notes}` : "",
+    `${t("Customer")}: ${item.customer.firstName} ${item.customer.lastName === "Customer" ? "" : item.customer.lastName}`.trim(),
+    `${t("Phone")}: ${item.customer.phone}`,
+    `${t("Service")}: ${item.service.name}`,
+    `${t("When")}: ${formatDate(a.startAt)} ${formatTime(a.startAt)}`,
+    a.location ? `${t("Location")}: ${mapsUrl(item)}` : "",
+    a.location?.note ? `${t("Landmark")}: ${a.location.note}` : "",
+    a.notes ? `${t("Notes")}: ${a.notes}` : "",
   ];
   return `https://wa.me/${phone}?text=${encodeURIComponent(lines.join("\n").replace(/\n{3,}/g, "\n\n"))}`;
 };
@@ -333,12 +334,12 @@ const filteredAppointments = computed(() => {
 
 const formatTime = (isoString: string) => {
   const date = new Date(isoString);
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  return date.toLocaleTimeString(intl.value, { hour: "2-digit", minute: "2-digit", hour12: false });
 };
 
 const formatDate = (isoString: string) => {
   const date = new Date(isoString);
-  return date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  return date.toLocaleDateString(intl.value, { weekday: "short", month: "short", day: "numeric" });
 };
 
 const updateFieldStatus = async (id: string, fieldStatus: string) => {
@@ -346,7 +347,7 @@ const updateFieldStatus = async (id: string, fieldStatus: string) => {
     await $fetch(`/api/appointments/${id}`, { method: "PATCH", body: { fieldStatus } });
     await loadData();
   } catch (err: any) {
-    alert(err?.data?.statusMessage ?? "Status update failed.");
+    alert(err?.data?.statusMessage ?? t(t("Status update failed.")));
   }
 };
 
@@ -358,7 +359,7 @@ const updateStatus = async (id: string, status: string) => {
     });
     await loadData();
   } catch (err: any) {
-    alert(err?.data?.statusMessage ?? "Status update failed.");
+    alert(err?.data?.statusMessage ?? t(t("Status update failed.")));
   }
 };
 
@@ -386,7 +387,7 @@ const handleCreateAppointment = async () => {
 
     if (createForm.isNewCustomer) {
       if (!createForm.newCustomerFirstName.trim() || !createForm.newCustomerPhone.trim()) {
-        formError.value = "First name and phone number are required for new customer.";
+        formError.value = t("First name and phone number are required for new customer.");
         isSubmitting.value = false;
         return;
       }
@@ -420,7 +421,7 @@ const handleCreateAppointment = async () => {
     showCreateModal.value = false;
     await loadData();
   } catch (err: any) {
-    formError.value = err?.data?.statusMessage ?? "Failed to create appointment.";
+    formError.value = err?.data?.statusMessage ?? t("Failed to create appointment.");
   } finally {
     isSubmitting.value = false;
   }
@@ -468,7 +469,7 @@ const handleEditAppointment = async () => {
     showEditModal.value = false;
     await loadData();
   } catch (err: any) {
-    formError.value = err?.data?.statusMessage ?? "Failed to update appointment.";
+    formError.value = err?.data?.statusMessage ?? t("Failed to update appointment.");
   } finally {
     isSubmitting.value = false;
   }
@@ -491,7 +492,7 @@ const handleAssignStaff = async () => {
     showAssignModal.value = false;
     await loadData();
   } catch (err: any) {
-    alert(err?.data?.statusMessage ?? "Failed to assign staff.");
+    alert(err?.data?.statusMessage ?? t("Failed to assign staff."));
   } finally {
     isSubmitting.value = false;
   }
@@ -527,8 +528,8 @@ const getStatusBadge = (status: string) => {
     <!-- Header -->
     <div class="page-head flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div class="min-w-0">
-        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Scheduling</p>
-        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">Appointments</h1>
+        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">{{ t("Scheduling") }}</p>
+        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">{{ t("Appointments") }}</h1>
       </div>
       <div class="page-head-actions flex items-center gap-2">
         <NuxtLink
@@ -536,7 +537,7 @@ const getStatusBadge = (status: string) => {
           class="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3.5 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
         >
           <Calendar :size="15" />
-          <span>Calendar View</span>
+          <span>{{ t("Calendar View") }}</span>
         </NuxtLink>
         <button
           type="button"
@@ -544,7 +545,7 @@ const getStatusBadge = (status: string) => {
           class="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm"
         >
           <Plus :size="16" />
-          <span>New Booking</span>
+          <span>{{ t("New Booking") }}</span>
         </button>
       </div>
     </div>
@@ -554,13 +555,13 @@ const getStatusBadge = (status: string) => {
       <!-- Phones: search + Filters toggle in one row -->
       <div class="flex items-center gap-2 md:hidden">
         <div class="relative min-w-0 flex-1">
-          <Search :size="16" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+          <Search :size="16" class="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
           <input
             v-model="searchQuery"
             type="search"
             enterkeyhint="search"
-            placeholder="Search client, phone..."
-            class="w-full rounded-xl border border-stone-200 bg-stone-50/60 pl-10 pr-3 py-2 outline-none focus:border-stone-900 focus:bg-white"
+            :placeholder="t('Search client, phone...')"
+            class="w-full rounded-xl border border-stone-200 bg-stone-50/60 ps-10 pe-3 py-2 outline-none focus:border-stone-900 focus:bg-white"
           />
         </div>
         <button
@@ -573,7 +574,7 @@ const getStatusBadge = (status: string) => {
           ]"
         >
           <Filter :size="16" />
-          <span>Filters</span>
+          <span>{{ t("Filters") }}</span>
           <span
             v-if="activeFilterCount"
             class="grid size-5 place-items-center rounded-full bg-rose-500 text-[11px] text-white"
@@ -585,63 +586,63 @@ const getStatusBadge = (status: string) => {
       <div :class="[filtersOpen ? 'grid' : 'hidden', 'gap-3 md:grid md:grid-cols-4']">
         <!-- Search Input (tablet / desktop) -->
         <div class="relative hidden md:col-span-1 md:block">
-          <Search :size="15" class="absolute left-3.5 top-3 text-stone-400" />
+          <Search :size="15" class="absolute start-3.5 top-3 text-stone-400" />
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Search client, phone, service..."
-            class="w-full rounded-xl border border-stone-200 bg-stone-50/60 pl-9 pr-3 py-2 text-xs outline-none focus:border-stone-900 focus:bg-white"
+            :placeholder="t('Search client, phone, service...')"
+            class="w-full rounded-xl border border-stone-200 bg-stone-50/60 ps-9 pe-3 py-2 text-xs outline-none focus:border-stone-900 focus:bg-white"
           />
         </div>
 
         <!-- Date Range Filter -->
         <div>
-          <select
+          <AppSelect
             v-model="dateFilter"
             class="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs font-medium text-stone-800 outline-none focus:border-stone-900 focus:bg-white"
           >
-            <option value="ALL">All Dates</option>
-            <option value="TODAY">Today's Schedule</option>
-            <option value="TOMORROW">Tomorrow</option>
-            <option value="UPCOMING">Upcoming Queue</option>
-          </select>
+            <option value="ALL">{{ t("All Dates") }}</option>
+            <option value="TODAY">{{ t("Today's Schedule") }}</option>
+            <option value="TOMORROW">{{ t("Tomorrow") }}</option>
+            <option value="UPCOMING">{{ t("Upcoming Queue") }}</option>
+          </AppSelect>
         </div>
 
         <!-- Status Filter -->
         <div>
-          <select
+          <AppSelect
             v-model="statusFilter"
             class="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs font-medium text-stone-800 outline-none focus:border-stone-900 focus:bg-white"
           >
-            <option value="ALL">All Statuses</option>
+            <option value="ALL">{{ t("All Statuses") }}</option>
             <template v-if="onLocation">
-              <option value="NONE">Not assigned</option>
-              <option v-for="f in FIELD_STATUSES" :key="f.value" :value="f.value">{{ f.label }}</option>
+              <option value="NONE">{{ t("Not assigned") }}</option>
+              <option v-for="f in FIELD_STATUSES" :key="f.value" :value="f.value">{{ t(f.label) }}</option>
             </template>
             <template v-else>
-            <option value="PENDING">Pending</option>
-            <option value="CONFIRMED">Confirmed</option>
-            <option value="CHECKED_IN">Checked-in</option>
-            <option value="COMPLETED">Completed</option>
-            <option value="CANCELLED">Cancelled</option>
-            <option value="NO_SHOW">No-Show</option>
-            <option value="RESCHEDULED">Rescheduled</option>
+            <option value="PENDING">{{ t("Pending") }}</option>
+            <option value="CONFIRMED">{{ t("Confirmed") }}</option>
+            <option value="CHECKED_IN">{{ t("Checked-in") }}</option>
+            <option value="COMPLETED">{{ t("Completed") }}</option>
+            <option value="CANCELLED">{{ t("Cancelled") }}</option>
+            <option value="NO_SHOW">{{ t("No-Show") }}</option>
+            <option value="RESCHEDULED">{{ t("Rescheduled") }}</option>
             </template>
-          </select>
+          </AppSelect>
         </div>
 
         <!-- Staff Member Filter -->
         <div>
-          <select
+          <AppSelect
             v-model="staffFilter"
             class="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs font-medium text-stone-800 outline-none focus:border-stone-900 focus:bg-white"
           >
-            <option value="ALL">All Staff Members</option>
-            <option value="unassigned">⚠️ Unassigned Only</option>
+            <option value="ALL">{{ t("All Staff Members") }}</option>
+            <option value="unassigned">{{ t("⚠️ Unassigned Only") }}</option>
             <option v-for="s in staffList" :key="s.id" :value="s.id">
               {{ s.name }}
             </option>
-          </select>
+          </AppSelect>
         </div>
 
         <button
@@ -650,7 +651,7 @@ const getStatusBadge = (status: string) => {
           @click="clearFilters"
           class="tap rounded-xl border border-stone-200 text-sm font-semibold text-stone-600 md:hidden"
         >
-          Clear filters
+          {{ t("Clear filters") }}
         </button>
       </div>
     </div>
@@ -666,9 +667,9 @@ const getStatusBadge = (status: string) => {
       class="py-16 text-center rounded-3xl border border-dashed border-stone-200 bg-white"
     >
       <CalendarCheck :size="36" class="mx-auto text-stone-400" />
-      <h3 class="mt-3 font-display text-lg font-bold text-stone-900">No appointments found</h3>
+      <h3 class="mt-3 font-display text-lg font-bold text-stone-900">{{ t("No appointments found") }}</h3>
       <p class="mt-1 text-xs text-stone-500 max-w-sm mx-auto">
-        Try adjusting your search criteria or create a new appointment manually.
+        {{ t("Try adjusting your search criteria or create a new appointment manually.") }}
       </p>
       <button
         type="button"
@@ -676,15 +677,15 @@ const getStatusBadge = (status: string) => {
         class="mt-4 inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white"
       >
         <Plus :size="14" />
-        <span>Create Booking</span>
+        <span>{{ t("Create Booking") }}</span>
       </button>
     </div>
 
     <template v-else>
     <!-- Phones: booking cards (tap a card to edit / reschedule) -->
-    <div class="space-y-3 md:hidden">
-      <p class="px-1 text-xs font-semibold text-stone-500">
-        {{ filteredAppointments.length }} booking{{ filteredAppointments.length === 1 ? "" : "s" }}
+    <div class="grid gap-3 md:grid-cols-2 xl:hidden">
+      <p class="px-1 text-xs font-semibold text-stone-500 md:col-span-2">
+        {{ filteredAppointments.length === 1 ? t("1 booking") : t("{n} bookings", { n: filteredAppointments.length }) }}
       </p>
       <article
         v-for="item in filteredAppointments"
@@ -701,16 +702,16 @@ const getStatusBadge = (status: string) => {
             <div class="text-sm font-bold text-stone-900">
               {{ formatDate(item.appointment.startAt) }} · {{ formatTime(item.appointment.startAt) }}
             </div>
-            <div class="text-[11px] font-medium text-stone-500">{{ item.service.durationMinutes }} min</div>
+            <div class="text-[11px] font-medium text-stone-500">{{ t("{n} min", { n: item.service.durationMinutes }) }}</div>
           </div>
           <span
             v-if="onLocation"
             :class="[
-              getFieldBadge(item.appointment.fieldStatus),
+              getFieldBadge(item.appointment.fieldStatus ?? (item.staff ? 'ASSIGNED' : null)),
               'shrink-0 rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-wider',
             ]"
           >
-            {{ fieldLabel(item.appointment.fieldStatus) }}
+            {{ fieldLabel(item.appointment.fieldStatus ?? (item.staff ? 'ASSIGNED' : null)) }}
           </span>
           <span
             v-else
@@ -719,7 +720,7 @@ const getStatusBadge = (status: string) => {
               'shrink-0 rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-wider',
             ]"
           >
-            {{ item.appointment.status.replace('_', ' ') }}
+            {{ t(statusText(item.appointment.status)) }}
           </span>
         </div>
 
@@ -735,7 +736,7 @@ const getStatusBadge = (status: string) => {
             class="mt-0.5 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-rose-700"
           >
             <Phone :size="15" />
-            {{ item.customer.phone }}
+            <bdi dir="ltr">{{ item.customer.phone }}</bdi>
           </a>
         </div>
 
@@ -761,7 +762,7 @@ const getStatusBadge = (status: string) => {
             class="tap inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-700"
           >
             <AlertCircle :size="15" />
-            <span>Assign staff</span>
+            <span>{{ t("Assign staff") }}</span>
           </button>
           <span class="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] font-semibold text-stone-500">
             {{ item.appointment.source }}
@@ -783,7 +784,7 @@ const getStatusBadge = (status: string) => {
                 class="tap basis-[calc(50%-0.25rem)] grow inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-700"
               >
                 <Truck :size="16" class="shrink-0" />
-                <span>On the way</span>
+                <span>{{ t("On the way") }}</span>
               </button>
               <button
                 type="button"
@@ -791,7 +792,7 @@ const getStatusBadge = (status: string) => {
                 class="tap basis-[calc(50%-0.25rem)] grow inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-sm font-bold text-emerald-700"
               >
                 <MapPinned :size="16" class="shrink-0" />
-                <span>On location</span>
+                <span>{{ t("On location") }}</span>
               </button>
             </template>
             <template v-else>
@@ -802,7 +803,7 @@ const getStatusBadge = (status: string) => {
                 class="tap basis-[calc(50%-0.25rem)] grow inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-blue-200 bg-blue-50 px-3 text-sm font-bold text-blue-700"
               >
                 <UserCheck :size="16" class="shrink-0" />
-                <span>Check-in</span>
+                <span>{{ t("Check-in") }}</span>
               </button>
               <button
                 type="button"
@@ -810,7 +811,7 @@ const getStatusBadge = (status: string) => {
                 class="tap basis-[calc(50%-0.25rem)] grow inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-stone-200 bg-stone-100 px-3 text-sm font-bold text-stone-800"
               >
                 <CheckCircle2 :size="16" class="shrink-0" />
-                <span>Done</span>
+                <span>{{ t("Done") }}</span>
               </button>
             </template>
           </div>
@@ -825,24 +826,24 @@ const getStatusBadge = (status: string) => {
               class="tap basis-[calc(50%-0.25rem)] grow inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-stone-200 bg-stone-100 px-3 text-sm font-bold text-stone-800"
             >
               <MapPin :size="16" class="shrink-0" />
-              <span>Open map</span>
+              <span>{{ t("Open map") }}</span>
             </a>
             <a
               v-if="item.staff && whatsappUrl(item)"
               :href="whatsappUrl(item)"
               :target="waTarget"
               rel="noopener"
-              title="Send the job details to the staff member on WhatsApp"
+              :title="t('Send the job details to the staff member on WhatsApp')"
               class="tap basis-[calc(50%-0.25rem)] grow inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-emerald-600 px-3 text-sm font-bold text-white"
             >
               <MessageCircle :size="16" class="shrink-0" />
-              <span>WhatsApp</span>
+              <span>{{ t("WhatsApp") }}</span>
             </a>
             <span
               v-else-if="item.staff"
               class="basis-[calc(50%-0.25rem)] grow inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl border border-amber-200 bg-amber-50 px-3 text-xs font-bold text-amber-700"
             >
-              No staff phone
+              {{ t("No staff phone") }}
             </span>
           </div>
 
@@ -854,14 +855,14 @@ const getStatusBadge = (status: string) => {
               class="tap inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-stone-200 bg-white px-3 text-sm font-bold text-stone-800"
             >
               <Edit2 :size="15" class="shrink-0" />
-              <span>Edit / Reschedule</span>
+              <span>{{ t("Edit / Reschedule") }}</span>
             </button>
             <button
               type="button"
               @click="openCommunication(item.customer, item.appointment.id)"
               class="tap inline-flex shrink-0 items-center justify-center rounded-xl border border-stone-200 bg-white px-3 text-stone-700"
-              aria-label="Message client"
-              title="Message client"
+              :aria-label="t('Message client')"
+              :title="t('Message client')"
             >
               <MessageSquare :size="17" />
             </button>
@@ -870,8 +871,8 @@ const getStatusBadge = (status: string) => {
               type="button"
               @click="updateStatus(item.appointment.id, 'CANCELLED')"
               class="tap inline-flex shrink-0 items-center justify-center rounded-xl border border-stone-200 bg-white px-3 text-stone-400 hover:text-rose-600"
-              aria-label="Cancel appointment"
-              title="Cancel appointment"
+              :aria-label="t('Cancel appointment')"
+              :title="t('Cancel appointment')"
             >
               <XCircle :size="18" />
             </button>
@@ -881,18 +882,17 @@ const getStatusBadge = (status: string) => {
     </div>
 
     <!-- Tablet / desktop: table -->
-    <div class="hidden rounded-3xl border border-stone-200 bg-white shadow-sm overflow-hidden md:block">
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs text-stone-600">
+    <div class="hidden rounded-3xl border border-stone-200 bg-white shadow-sm overflow-hidden xl:block">
+      <div>
+        <table class="w-full table-auto text-start text-xs text-stone-600">
           <thead class="bg-stone-50/80 border-b border-stone-200 text-[10px] font-bold uppercase tracking-wider text-stone-500">
             <tr>
-              <th class="py-3.5 pl-6 pr-3">Date & Time</th>
-              <th class="px-3 py-3.5">Customer</th>
-              <th class="px-3 py-3.5">Service</th>
-              <th class="px-3 py-3.5">Staff Assigned</th>
-              <th class="px-3 py-3.5">Status</th>
-              <th class="px-3 py-3.5">Source</th>
-              <th class="py-3.5 pl-3 pr-6 text-right">Actions</th>
+              <th class="py-3.5 ps-6 pe-3">{{ t("Date & Time") }}</th>
+              <th class="px-3 py-3.5">{{ t("Customer") }}</th>
+              <th class="px-3 py-3.5">{{ t("Service") }}</th>
+              <th class="px-3 py-3.5">{{ t("Staff Assigned") }}</th>
+              <th class="px-3 py-3.5">{{ t("Status") }}</th>
+              <th class="py-3.5 ps-3 pe-6 text-end">{{ t("Actions") }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-stone-100 font-medium">
@@ -902,25 +902,25 @@ const getStatusBadge = (status: string) => {
               class="hover:bg-stone-50/60 transition"
             >
               <!-- Date & Time -->
-              <td class="py-4 pl-6 pr-3 whitespace-nowrap">
+              <td class="py-4 ps-6 pe-3 whitespace-nowrap">
                 <div class="font-bold text-stone-900">{{ formatDate(item.appointment.startAt) }}</div>
                 <div class="text-[11px] text-stone-500 font-display font-semibold">{{ formatTime(item.appointment.startAt) }} ({{ item.service.durationMinutes }}m)</div>
               </td>
 
               <!-- Customer -->
-              <td class="px-3 py-4 whitespace-nowrap">
-                <div class="font-bold text-stone-900">{{ item.customer.firstName }} {{ item.customer.lastName }}</div>
+              <td class="px-3 py-4">
+                <div class="max-w-[12rem] truncate font-bold text-stone-900" :title="`${item.customer.firstName} ${item.customer.lastName}`">{{ item.customer.firstName }} {{ item.customer.lastName }}</div>
                 <div class="text-[11px] text-stone-500 flex items-center gap-1">
                   <Phone :size="11" />
-                  {{ item.customer.phone }}
+                  <bdi dir="ltr">{{ item.customer.phone }}</bdi>
                 </div>
               </td>
 
               <!-- Service -->
-              <td class="px-3 py-4 whitespace-nowrap">
-                <div class="flex items-center gap-1.5">
-                  <span class="size-2 rounded-full" :style="{ backgroundColor: item.service.accent || '#ca7481' }"></span>
-                  <span class="font-semibold text-stone-800">{{ item.service.name }}</span>
+              <td class="px-3 py-4">
+                <div class="flex max-w-[11rem] items-center gap-1.5">
+                  <span class="size-2 shrink-0 rounded-full" :style="{ backgroundColor: item.service.accent || '#ca7481' }"></span>
+                  <span class="truncate font-semibold text-stone-800" :title="item.service.name">{{ item.service.name }}</span>
                 </div>
                 <div class="text-[11px] text-stone-500 font-bold">{{ formatMoney(item.service.priceCents, item.service.currency) }}</div>
               </td>
@@ -938,20 +938,20 @@ const getStatusBadge = (status: string) => {
                   class="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2 py-1 text-[11px] font-bold text-amber-700 hover:bg-amber-100"
                 >
                   <AlertCircle :size="12" />
-                  <span>Assign Staff</span>
+                  <span>{{ t("Assign Staff") }}</span>
                 </button>
               </td>
 
-              <!-- Status -->
+              <!-- Status (+ where the booking came from) -->
               <td class="px-3 py-4 whitespace-nowrap">
                 <span
                   v-if="onLocation"
                   :class="[
-                    getFieldBadge(item.appointment.fieldStatus),
+                    getFieldBadge(item.appointment.fieldStatus ?? (item.staff ? 'ASSIGNED' : null)),
                     'rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
                   ]"
                 >
-                  {{ fieldLabel(item.appointment.fieldStatus) }}
+                  {{ fieldLabel(item.appointment.fieldStatus ?? (item.staff ? "ASSIGNED" : null)) }}
                 </span>
                 <span
                   v-else
@@ -960,111 +960,98 @@ const getStatusBadge = (status: string) => {
                     'rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
                   ]"
                 >
-                  {{ item.appointment.status.replace('_', ' ') }}
+                  {{ t(statusText(item.appointment.status)) }}
                 </span>
+                <div class="mt-1.5 text-[10px] font-semibold uppercase tracking-wider text-stone-400">
+                  {{ item.appointment.source === "ONLINE" ? t("Online") : item.appointment.source === "MANUAL" ? t("Manual") : item.appointment.source }}
+                </div>
               </td>
 
-              <!-- Source -->
-              <td class="px-3 py-4 whitespace-nowrap">
-                <span class="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] font-semibold text-stone-600">
-                  {{ item.appointment.source }}
-                </span>
-              </td>
-
-              <!-- Actions -->
-              <td class="py-4 pl-3 pr-6 text-right whitespace-nowrap">
+              <!-- Actions: compact icons + one "next step" button -->
+              <td class="py-4 ps-3 pe-6">
                 <div class="flex items-center justify-end gap-1.5">
-                  <button
-                    type="button"
-                    @click="openCommunication(item.customer, item.appointment.id)"
-                    class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
-                    title="Message Client"
-                  >
-                    <MessageSquare :size="15" />
-                  </button>
-
-                  <button
-                    type="button"
-                    @click="openEditModal(item)"
-                    class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
-                    title="Edit / Reschedule"
-                  >
-                    <Edit2 :size="15" />
-                  </button>
-
-                  <!-- On-location actions -->
                   <template v-if="onLocation">
-                    <a
-                      v-if="mapsUrl(item)"
-                      :href="mapsUrl(item)"
-                      target="_blank"
-                      rel="noopener"
-                      class="rounded-lg bg-stone-100 border border-stone-200 px-2 py-1 text-[11px] font-bold text-stone-800 hover:bg-stone-200"
-                    >
-                      Open map
-                    </a>
-                    <a
-                      v-if="item.staff && whatsappUrl(item)"
-                      :href="whatsappUrl(item)"
-                      :target="waTarget"
-                      rel="noopener"
-                      class="rounded-lg bg-emerald-600 px-2 py-1 text-[11px] font-bold text-white hover:bg-emerald-700"
-                      title="Send job details to staff on WhatsApp"
-                    >
-                      WhatsApp staff
-                    </a>
-                    <span
-                      v-else-if="item.staff"
-                      class="rounded-lg bg-amber-50 border border-amber-200 px-2 py-1 text-[11px] font-bold text-amber-700"
-                      title="Add this staff member's WhatsApp number on the Staff page"
-                    >
-                      No staff phone
-                    </span>
                     <button
-                      v-if="item.staff && item.appointment.fieldStatus !== 'ON_THE_WAY' && item.appointment.fieldStatus !== 'ON_LOCATION'"
+                      v-if="item.staff && (!item.appointment.fieldStatus || item.appointment.fieldStatus === 'ASSIGNED')"
                       type="button"
                       @click="updateFieldStatus(item.appointment.id, 'ON_THE_WAY')"
-                      class="rounded-lg bg-amber-50 border border-amber-200 px-2 py-1 text-[11px] font-bold text-amber-700 hover:bg-amber-100"
+                      class="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-amber-200 bg-amber-50 px-2.5 text-[11px] font-bold text-amber-700 hover:bg-amber-100"
                     >
-                      On the way
+                      <Truck :size="14" /> {{ t("On the way") }}
                     </button>
                     <button
-                      v-if="item.staff && item.appointment.fieldStatus !== 'ON_LOCATION'"
+                      v-else-if="item.staff && item.appointment.fieldStatus === 'ON_THE_WAY'"
                       type="button"
                       @click="updateFieldStatus(item.appointment.id, 'ON_LOCATION')"
-                      class="rounded-lg bg-emerald-50 border border-emerald-200 px-2 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100"
+                      class="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100"
                     >
-                      On location
+                      <MapPinned :size="14" /> {{ t("On location") }}
+                    </button>
+                  </template>
+                  <template v-else>
+                    <button
+                      v-if="item.appointment.status === 'CONFIRMED'"
+                      type="button"
+                      @click="updateStatus(item.appointment.id, 'CHECKED_IN')"
+                      class="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-blue-200 bg-blue-50 px-2.5 text-[11px] font-bold text-blue-700 hover:bg-blue-100"
+                    >
+                      <UserCheck :size="14" /> {{ t("Check-in") }}
+                    </button>
+                    <button
+                      v-else-if="item.appointment.status === 'CHECKED_IN'"
+                      type="button"
+                      @click="updateStatus(item.appointment.id, 'COMPLETED')"
+                      class="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-stone-200 bg-stone-100 px-2.5 text-[11px] font-bold text-stone-800 hover:bg-stone-200"
+                    >
+                      <CheckCircle2 :size="14" /> {{ t("Done") }}
                     </button>
                   </template>
 
-                  <!-- Status quick changes -->
-                  <button
-                    v-if="!onLocation && item.appointment.status === 'CONFIRMED'"
-                    type="button"
-                    @click="updateStatus(item.appointment.id, 'CHECKED_IN')"
-                    class="rounded-lg bg-blue-50 border border-blue-200 px-2 py-1 text-[11px] font-bold text-blue-700 hover:bg-blue-100"
+                  <a
+                    v-if="onLocation && item.staff && whatsappUrl(item)"
+                    :href="whatsappUrl(item)"
+                    :target="waTarget"
+                    rel="noopener"
+                    class="inline-grid size-8 shrink-0 place-items-center rounded-lg bg-emerald-600 text-white transition hover:bg-emerald-700"
+                    :title="t('Send job details to staff on WhatsApp')"
+                    :aria-label="t('WhatsApp staff')"
                   >
-                    Check-in
-                  </button>
-
-                  <button
-                    v-if="!onLocation && (item.appointment.status === 'CHECKED_IN' || item.appointment.status === 'CONFIRMED')"
-                    type="button"
-                    @click="updateStatus(item.appointment.id, 'COMPLETED')"
-                    class="rounded-lg bg-stone-100 border border-stone-200 px-2 py-1 text-[11px] font-bold text-stone-800 hover:bg-stone-200"
+                    <MessageCircle :size="15" />
+                  </a>
+                  <span
+                    v-else-if="onLocation && item.staff"
+                    class="inline-grid size-8 shrink-0 place-items-center rounded-lg border border-amber-200 bg-amber-50 text-amber-600"
+                    :title="t(&quot;Add this staff member's WhatsApp number on the Staff page&quot;)"
                   >
-                    Done
-                  </button>
+                    <MessageCircle :size="15" />
+                  </span>
+                  <a
+                    v-if="onLocation && mapsUrl(item)"
+                    :href="mapsUrl(item)"
+                    target="_blank"
+                    rel="noopener"
+                    class="inline-grid size-8 shrink-0 place-items-center rounded-lg border border-stone-200 bg-white text-stone-500 transition hover:border-stone-300 hover:bg-stone-50 hover:text-stone-900"
+                    :title="t('Open map')"
+                    :aria-label="t('Open map')"
+                  >
+                    <MapPin :size="15" />
+                  </a>
 
+                  <button type="button" @click="openCommunication(item.customer, item.appointment.id)" class="inline-grid size-8 shrink-0 place-items-center rounded-lg border border-stone-200 bg-white text-stone-500 transition hover:border-stone-300 hover:bg-stone-50 hover:text-stone-900" :title="t('Message Client')" :aria-label="t('Message Client')">
+                    <MessageSquare :size="15" />
+                  </button>
+                  <button type="button" @click="openEditModal(item)" class="inline-grid size-8 shrink-0 place-items-center rounded-lg border border-stone-200 bg-white text-stone-500 transition hover:border-stone-300 hover:bg-stone-50 hover:text-stone-900" :title="t('Edit / Reschedule')" :aria-label="t('Edit / Reschedule')">
+                    <Edit2 :size="15" />
+                  </button>
                   <button
                     v-if="item.appointment.status !== 'CANCELLED' && item.appointment.status !== 'COMPLETED'"
                     type="button"
                     @click="updateStatus(item.appointment.id, 'CANCELLED')"
-                    class="rounded-lg p-1.5 text-stone-400 hover:bg-rose-50 hover:text-rose-600"
-                    title="Cancel Appointment"
+                    class="inline-grid size-8 shrink-0 place-items-center rounded-lg border border-stone-200 bg-white text-stone-400 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                    :title="t('Cancel Appointment')"
+                    :aria-label="t('Cancel Appointment')"
                   >
-                    <XCircle :size="16" />
+                    <XCircle :size="15" />
                   </button>
                 </div>
               </td>
@@ -1083,8 +1070,8 @@ const getStatusBadge = (status: string) => {
       <div class="m-sheet-panel w-full max-w-lg rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5 my-8">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
           <div>
-            <h3 class="font-display text-xl font-bold text-stone-900">New Appointment</h3>
-            <p class="text-xs text-stone-500">Book an appointment manually into your schedule.</p>
+            <h3 class="font-display text-xl font-bold text-stone-900">{{ t("New Appointment") }}</h3>
+            <p class="text-xs text-stone-500">{{ t("Book an appointment manually into your schedule.") }}</p>
           </div>
           <button type="button" @click="showCreateModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
@@ -1095,27 +1082,27 @@ const getStatusBadge = (status: string) => {
           <!-- Customer Selection Mode -->
           <div class="space-y-2">
             <div class="flex items-center justify-between">
-              <label class="text-xs font-bold uppercase tracking-wider text-stone-600">Client Information</label>
+              <label class="text-xs font-bold uppercase tracking-wider text-stone-600">{{ t("Client Information") }}</label>
               <button
                 type="button"
                 @click="createForm.isNewCustomer = !createForm.isNewCustomer"
                 class="text-xs font-semibold text-rose-600 hover:underline"
               >
-                {{ createForm.isNewCustomer ? "Select existing client" : "+ Add new client" }}
+                {{ createForm.isNewCustomer ? t("Select existing client") : t("+ Add new client") }}
               </button>
             </div>
 
             <!-- Existing Customer Select -->
-            <select
+            <AppSelect
               v-if="!createForm.isNewCustomer"
               v-model="createForm.customerId"
               required
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-sm outline-none focus:border-stone-900 focus:bg-white"
             >
               <option v-for="c in customers" :key="c.id" :value="c.id">
-                {{ c.firstName }} {{ c.lastName }} ({{ c.phone }})
+                {{ c.firstName }} {{ c.lastName }} (<bdi dir="ltr">{{ c.phone }}</bdi>)
               </option>
-            </select>
+            </AppSelect>
 
             <!-- New Customer Fields -->
             <div v-else class="grid gap-2.5 rounded-2xl border border-stone-200 bg-stone-50/60 p-3.5">
@@ -1123,14 +1110,14 @@ const getStatusBadge = (status: string) => {
                 <input
                   v-model="createForm.newCustomerFirstName"
                   type="text"
-                  placeholder="First name"
+                  :placeholder="t('First name')"
                   required
                   class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs outline-none focus:border-stone-900"
                 />
                 <input
                   v-model="createForm.newCustomerLastName"
                   type="text"
-                  placeholder="Last name"
+                  :placeholder="t('Last name')"
                   class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs outline-none focus:border-stone-900"
                 />
               </div>
@@ -1138,14 +1125,14 @@ const getStatusBadge = (status: string) => {
                 <input
                   v-model="createForm.newCustomerPhone"
                   type="tel"
-                  placeholder="Phone number"
+                  :placeholder="t('Phone number')"
                   required
                   class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs outline-none focus:border-stone-900"
                 />
                 <input
                   v-model="createForm.newCustomerEmail"
                   type="email"
-                  placeholder="Email (optional)"
+                  :placeholder="t('Email (optional)')"
                   class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs outline-none focus:border-stone-900"
                 />
               </div>
@@ -1154,8 +1141,8 @@ const getStatusBadge = (status: string) => {
 
           <!-- Service Selection -->
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Service</label>
-            <select
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Service") }}</label>
+            <AppSelect
               v-model="createForm.serviceId"
               required
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-sm outline-none focus:border-stone-900 focus:bg-white"
@@ -1163,29 +1150,29 @@ const getStatusBadge = (status: string) => {
               <option v-for="s in services" :key="s.id" :value="s.id">
                 {{ s.name }} ({{ s.durationMinutes }}m) — {{ formatMoney(s.priceCents, s.currency) }}
               </option>
-            </select>
+            </AppSelect>
           </div>
 
           <!-- Staff Assignment -->
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
-              Assign Staff Member (Optional)
+              {{ t("Assign Staff Member (Optional)") }}
             </label>
-            <select
+            <AppSelect
               v-model="createForm.staffId"
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-sm outline-none focus:border-stone-900 focus:bg-white"
             >
-              <option value="">Leave Unassigned (Assign later)</option>
+              <option value="">{{ t("Leave Unassigned (Assign later)") }}</option>
               <option v-for="member in staffList" :key="member.id" :value="member.id">
                 {{ member.name }} ({{ member.role }})
               </option>
-            </select>
+            </AppSelect>
           </div>
 
           <!-- Date & Time -->
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Date</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Date") }}</label>
               <input
                 v-model="createForm.date"
                 type="date"
@@ -1194,7 +1181,7 @@ const getStatusBadge = (status: string) => {
               />
             </div>
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Time</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Time") }}</label>
               <input
                 v-model="createForm.time"
                 type="time"
@@ -1209,11 +1196,11 @@ const getStatusBadge = (status: string) => {
 
           <!-- Notes -->
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Notes (Optional)</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Notes (Optional)") }}</label>
             <textarea
               v-model="createForm.notes"
               rows="2"
-              placeholder="Special instructions or requests..."
+              :placeholder="t('Special instructions or requests...')"
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
             ></textarea>
           </div>
@@ -1229,14 +1216,14 @@ const getStatusBadge = (status: string) => {
               @click="showCreateModal = false"
               class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
             >
-              Cancel
+              {{ t("Cancel") }}
             </button>
             <button
               type="submit"
               :disabled="isSubmitting"
               class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
             >
-              {{ isSubmitting ? "Creating..." : "Save Appointment" }}
+              {{ isSubmitting ? t("Creating...") : t("Save Appointment") }}
             </button>
           </div>
         </form>
@@ -1251,9 +1238,9 @@ const getStatusBadge = (status: string) => {
       <div class="m-sheet-panel w-full max-w-lg rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5 my-8">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
           <div>
-            <h3 class="font-display text-xl font-bold text-stone-900">Edit / Reschedule</h3>
+            <h3 class="font-display text-xl font-bold text-stone-900">{{ t("Edit / Reschedule") }}</h3>
             <p class="text-xs text-stone-500">
-              Editing booking for {{ activeAppointment.customer.firstName }} {{ activeAppointment.customer.lastName }}.
+              {{ t("Editing booking for {name}.", { name: `${activeAppointment.customer.firstName} ${activeAppointment.customer.lastName}` }) }}
             </p>
           </div>
           <button type="button" @click="showEditModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
@@ -1264,8 +1251,8 @@ const getStatusBadge = (status: string) => {
         <form @submit.prevent="handleEditAppointment" class="space-y-4">
           <!-- Service Selection -->
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Service</label>
-            <select
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Service") }}</label>
+            <AppSelect
               v-model="editForm.serviceId"
               required
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-sm outline-none focus:border-stone-900 focus:bg-white"
@@ -1273,27 +1260,27 @@ const getStatusBadge = (status: string) => {
               <option v-for="s in services" :key="s.id" :value="s.id">
                 {{ s.name }} ({{ s.durationMinutes }}m) — {{ formatMoney(s.priceCents, s.currency) }}
               </option>
-            </select>
+            </AppSelect>
           </div>
 
           <!-- Staff Selection -->
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Assigned Staff</label>
-            <select
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Assigned Staff") }}</label>
+            <AppSelect
               v-model="editForm.staffId"
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-sm outline-none focus:border-stone-900 focus:bg-white"
             >
-              <option value="">Unassigned</option>
+              <option value="">{{ t("Unassigned") }}</option>
               <option v-for="member in staffList" :key="member.id" :value="member.id">
                 {{ member.name }} ({{ member.role }})
               </option>
-            </select>
+            </AppSelect>
           </div>
 
           <!-- Date & Time (Reschedule) -->
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Date</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Date") }}</label>
               <input
                 v-model="editForm.date"
                 type="date"
@@ -1302,7 +1289,7 @@ const getStatusBadge = (status: string) => {
               />
             </div>
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Time</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Time") }}</label>
               <input
                 v-model="editForm.time"
                 type="time"
@@ -1314,15 +1301,15 @@ const getStatusBadge = (status: string) => {
 
           <!-- Status (on-location mode: only Assigned / On the way / On location) -->
           <div v-if="onLocation">
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Status</label>
-            <select
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Status") }}</label>
+            <AppSelect
               v-model="editForm.fieldStatus"
               :disabled="!editForm.staffId"
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-sm outline-none focus:border-stone-900 focus:bg-white disabled:opacity-60"
             >
-              <option v-for="f in FIELD_STATUSES" :key="f.value" :value="f.value">{{ f.label }}</option>
-            </select>
-            <p v-if="!editForm.staffId" class="mt-1 text-[11px] text-amber-700">Assign a staff member first.</p>
+              <option v-for="f in FIELD_STATUSES" :key="f.value" :value="f.value">{{ t(f.label) }}</option>
+            </AppSelect>
+            <p v-if="!editForm.staffId" class="mt-1 text-[11px] text-amber-700">{{ t("Assign a staff member first.") }}</p>
             <a
               v-if="activeAppointment?.appointment.location"
               :href="mapsUrl(activeAppointment)"
@@ -1330,24 +1317,24 @@ const getStatusBadge = (status: string) => {
               rel="noopener"
               class="mt-2 inline-block text-xs font-bold text-rose-600 underline"
             >
-              Open customer location in Google Maps
+              {{ t("Open customer location in Google Maps") }}
             </a>
           </div>
           <div v-else>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Status</label>
-            <select
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Status") }}</label>
+            <AppSelect
               v-model="editForm.status"
               required
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-sm outline-none focus:border-stone-900 focus:bg-white"
             >
-              <option value="PENDING">Pending</option>
-              <option value="CONFIRMED">Confirmed</option>
-              <option value="CHECKED_IN">Checked-in</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="CANCELLED">Cancelled</option>
-              <option value="NO_SHOW">No-Show</option>
-              <option value="RESCHEDULED">Rescheduled</option>
-            </select>
+              <option value="PENDING">{{ t("Pending") }}</option>
+              <option value="CONFIRMED">{{ t("Confirmed") }}</option>
+              <option value="CHECKED_IN">{{ t("Checked-in") }}</option>
+              <option value="COMPLETED">{{ t("Completed") }}</option>
+              <option value="CANCELLED">{{ t("Cancelled") }}</option>
+              <option value="NO_SHOW">{{ t("No-Show") }}</option>
+              <option value="RESCHEDULED">{{ t("Rescheduled") }}</option>
+            </AppSelect>
           </div>
 
           <!-- On-location: change / set the customer location -->
@@ -1355,7 +1342,7 @@ const getStatusBadge = (status: string) => {
 
           <!-- Notes -->
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Notes</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Notes") }}</label>
             <textarea
               v-model="editForm.notes"
               rows="2"
@@ -1374,14 +1361,14 @@ const getStatusBadge = (status: string) => {
               @click="showEditModal = false"
               class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
             >
-              Cancel
+              {{ t("Cancel") }}
             </button>
             <button
               type="submit"
               :disabled="isSubmitting"
               class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
             >
-              {{ isSubmitting ? "Saving..." : "Update Appointment" }}
+              {{ isSubmitting ? t("Saving...") : t("Update Appointment") }}
             </button>
           </div>
         </form>
@@ -1394,21 +1381,21 @@ const getStatusBadge = (status: string) => {
       class="m-sheet fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs"
     >
       <div class="m-sheet-panel w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
-        <h3 class="font-display text-xl font-bold text-stone-900">Assign Staff Member</h3>
+        <h3 class="font-display text-xl font-bold text-stone-900">{{ t("Assign Staff Member") }}</h3>
         <p class="text-xs text-stone-500">
-          Assigning a team member to {{ activeAppointment.customer.firstName }} {{ activeAppointment.customer.lastName }} for {{ activeAppointment.service.name }}.
+          {{ t("Assigning a team member to {name} for {service}.", { name: `${activeAppointment.customer.firstName} ${activeAppointment.customer.lastName}`, service: activeAppointment.service.name }) }}
         </p>
 
         <div class="space-y-3">
-          <label class="block text-xs font-bold uppercase tracking-wider text-stone-600">Active Staff Members</label>
-          <select
+          <label class="block text-xs font-bold uppercase tracking-wider text-stone-600">{{ t("Active Staff Members") }}</label>
+          <AppSelect
             v-model="assignStaffId"
             class="w-full rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm font-medium text-stone-900 outline-none focus:border-stone-900 focus:bg-white"
           >
             <option v-for="member in staffList" :key="member.id" :value="member.id">
               {{ member.name }} ({{ member.role }})
             </option>
-          </select>
+          </AppSelect>
         </div>
 
         <div class="m-sheet-actions flex items-center justify-end gap-2 pt-3 border-t border-stone-100">
@@ -1417,7 +1404,7 @@ const getStatusBadge = (status: string) => {
             @click="showAssignModal = false"
             class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
           >
-            Cancel
+            {{ t("Cancel") }}
           </button>
           <button
             type="button"
@@ -1425,7 +1412,7 @@ const getStatusBadge = (status: string) => {
             @click="handleAssignStaff"
             class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
           >
-            {{ isSubmitting ? "Saving..." : "Confirm" }}
+            {{ isSubmitting ? t("Saving...") : t("Confirm") }}
           </button>
         </div>
       </div>

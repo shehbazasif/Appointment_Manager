@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+const { t, intl } = useT();
 
 /**
  * Country -> city, time zone + currency picker (all searchable dropdowns).
@@ -53,7 +54,7 @@ const cityOptions = computed(() => {
 const offsetOf = (tz: string) => {
   try {
     return (
-      new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" })
+      new Intl.DateTimeFormat(intl.value, { timeZone: tz, timeZoneName: "shortOffset" })
         .formatToParts(new Date())
         .find((p) => p.type === "timeZoneName")?.value ?? ""
     );
@@ -73,8 +74,8 @@ const zoneOptions = computed(() => {
     group: g,
   });
   return [
-    ...own.map((z) => make(z, group || "Your country")),
-    ...[...extra, ...rest].map((z) => make(z, "All time zones")),
+    ...own.map((z) => make(z, group || t("Your country"))),
+    ...[...extra, ...rest].map((z) => make(z, t("All time zones"))),
   ];
 });
 
@@ -96,7 +97,7 @@ const currencyOptions = computed(() => {
 const nowInZone = computed(() => {
   if (!timezone.value) return "";
   try {
-    return new Intl.DateTimeFormat("en-GB", {
+    return new Intl.DateTimeFormat(intl.value, {
       timeZone: timezone.value,
       weekday: "short",
       hour: "2-digit",
@@ -118,51 +119,51 @@ const cols = computed(() => {
 <template>
   <div :class="['grid gap-4', cols]">
     <div>
-      <label :class="labelClass" for="region-country">Country</label>
+      <label :class="labelClass" for="region-country">{{ t("Country") }}</label>
       <SearchSelect
         id="region-country"
         v-model="countryIso"
         :options="countryOptions"
-        placeholder="Select your country"
-        search-placeholder="Search country…"
+        :placeholder="t('Select your country')"
+        :search-placeholder="t('Search country…')"
       />
       <p v-if="country && !selected" class="mt-1 text-[11px] text-amber-700">
-        Saved as "{{ country }}". Pick it from the list to set time zone and currency.
+        {{ t('Saved as "{country}". Pick it from the list to set time zone and currency.', { country }) }}
       </p>
     </div>
 
     <div v-if="props.showCity">
-      <label :class="labelClass" for="region-city">City</label>
+      <label :class="labelClass" for="region-city">{{ t("City") }}</label>
       <SearchSelect
         id="region-city"
         v-model="city"
         :options="cityOptions"
         allow-custom
         :placeholder="selected ? 'Select or type your city' : 'Type your city'"
-        search-placeholder="Search or type a city…"
+        :search-placeholder="t('Search or type a city…')"
       />
     </div>
 
     <div>
-      <label :class="labelClass" for="region-tz">Time zone</label>
+      <label :class="labelClass" for="region-tz">{{ t("Time zone") }}</label>
       <SearchSelect
         id="region-tz"
         v-model="timezone"
         :options="zoneOptions"
-        placeholder="Select time zone"
-        search-placeholder="Search city or zone, e.g. Doha"
+        :placeholder="t('Select time zone')"
+        :search-placeholder="t('Search city or zone, e.g. Doha')"
       />
       <p v-if="nowInZone" class="mt-1 text-[11px] text-stone-500">Local time there now: {{ nowInZone }}</p>
     </div>
 
     <div v-if="props.showCurrency">
-      <label :class="labelClass" for="region-currency">Currency</label>
+      <label :class="labelClass" for="region-currency">{{ t("Currency") }}</label>
       <SearchSelect
         id="region-currency"
         v-model="currency"
         :options="currencyOptions"
-        placeholder="Select currency"
-        search-placeholder="Search, e.g. riyal, PKR"
+        :placeholder="t('Select currency')"
+        :search-placeholder="t('Search, e.g. riyal, PKR')"
       />
     </div>
   </div>

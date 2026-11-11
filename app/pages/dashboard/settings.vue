@@ -15,6 +15,7 @@ import {
   Smartphone,
   CalendarClock,
 } from "lucide-vue-next";
+const { t, intl } = useT();
 
 definePageMeta({
   layout: "dashboard",
@@ -36,6 +37,7 @@ interface OrgSettings {
   bookingActive: boolean;
   onLocationEnabled?: boolean;
   hidePricesInList?: boolean;
+  language?: string;
   nameChangeCount?: number;
   nameCooldownUntil?: string | null;
 }
@@ -68,6 +70,7 @@ const form = reactive({
   bookingActive: true,
   onLocationEnabled: false,
   hidePricesInList: false,
+  language: "en",
 });
 
 const loadSettings = async () => {
@@ -89,8 +92,9 @@ const loadSettings = async () => {
     form.bookingActive = data.bookingActive;
     form.onLocationEnabled = data.onLocationEnabled ?? false;
     form.hidePricesInList = data.hidePricesInList ?? false;
+    form.language = data.language ?? "en";
   } catch (err: any) {
-    errorMessage.value = err?.data?.statusMessage ?? "Failed to load settings.";
+    errorMessage.value = err?.data?.statusMessage ?? t("Failed to load settings.");
   } finally {
     isLoading.value = false;
   }
@@ -123,7 +127,7 @@ const copyLink = async () => {
 
 const saveSettings = async () => {
   if (!form.name.trim() || !form.email.trim() || !form.slug.trim()) {
-    errorMessage.value = "Business name, slug, and email are required.";
+    errorMessage.value = t("Business name, slug, and email are required.");
     return;
   }
 
@@ -150,17 +154,21 @@ const saveSettings = async () => {
         bookingActive: form.bookingActive,
         onLocationEnabled: form.onLocationEnabled,
         hidePricesInList: form.hidePricesInList,
+        language: form.language,
       },
     });
 
     org.value = updated;
+    // switch the dashboard to the new business language right away
+    await applyLocale(form.language);
+    await refreshBusinessProfile?.();
     form.logoUrl = updated.logoUrl ?? "";
-    successMessage.value = "Business settings saved successfully!";
+    successMessage.value = t("Business settings saved successfully!");
     setTimeout(() => {
       successMessage.value = "";
     }, 3000);
   } catch (err: any) {
-    errorMessage.value = err?.data?.statusMessage ?? "Failed to update business settings.";
+    errorMessage.value = err?.data?.statusMessage ?? t("Failed to update business settings.");
   } finally {
     isSaving.value = false;
   }
@@ -178,12 +186,14 @@ const nameLimit = computed(() => {
 
 const nameHint = computed(() => {
   if (nameLimit.value.cooling && nameLimit.value.nextDate) {
-    return `For security, the business name can only be changed every 14 days. Next change available on ${nameLimit.value.nextDate.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}.`;
+    return t("For security, the business name can only be changed every 14 days. Next change available on {date}.", { date: nameLimit.value.nextDate.toLocaleDateString(intl.value, { day: "numeric", month: "long", year: "numeric" }) });
   }
   if (nameLimit.value.freeLeft > 0) {
-    return `${nameLimit.value.freeLeft} free name change${nameLimit.value.freeLeft === 1 ? "" : "s"} left. After that, a change is allowed once every 14 days.`;
+    return nameLimit.value.freeLeft === 1
+      ? t("1 free name change left. After that, a change is allowed once every 14 days.")
+      : t("{n} free name changes left. After that, a change is allowed once every 14 days.", { n: nameLimit.value.freeLeft });
   }
-  return "Free name changes used — a change is allowed once every 14 days.";
+  return t("Free name changes used — a change is allowed once every 14 days.");
 });
 
 // --- Logo upload: client-side center-crop to square + resize, then upload --
@@ -212,14 +222,14 @@ const processImageFile = (file: File): Promise<{ dataUrl: string; blob: Blob }> 
           canvas.height = out;
           const ctx = canvas.getContext("2d");
           if (!ctx) {
-            reject(new Error("Your browser does not support image processing."));
+            reject(new Error(t("Your browser does not support image processing.")));
             return;
           }
           ctx.drawImage(img, sx, sy, side, side, 0, 0, out, out);
           canvas.toBlob(
             (blob) => {
               if (!blob) {
-                reject(new Error("Could not process the image. Try another file."));
+                reject(new Error(t("Could not process the image. Try another file.")));
                 return;
               }
               resolve({ dataUrl: canvas.toDataURL("image/png"), blob });
@@ -228,14 +238,14 @@ const processImageFile = (file: File): Promise<{ dataUrl: string; blob: Blob }> 
             0.92,
           );
         } catch (e) {
-          reject(new Error("Could not process the image. Try another file."));
+          reject(new Error(t("Could not process the image. Try another file.")));
         }
       };
       img.onerror = () =>
-        reject(new Error("That file could not be read as an image."));
+        reject(new Error(t("That file could not be read as an image.")));
       img.src = String(reader.result);
     };
-    reader.onerror = () => reject(new Error("Could not read the file."));
+    reader.onerror = () => reject(new Error(t("Could not read the file.")));
     reader.readAsDataURL(file);
   });
 };
@@ -248,11 +258,11 @@ const onLogoFileChange = async (e: Event) => {
 
   logoError.value = "";
   if (!["image/png", "image/jpeg", "image/jpg"].includes(file.type)) {
-    logoError.value = "Please choose a PNG or JPG image.";
+    logoError.value = t(t("Please choose a PNG or JPG image."));
     return;
   }
   if (file.size > 10 * 1024 * 1024) {
-    logoError.value = "Image is too large (max 10 MB before cropping).";
+    logoError.value = t("Image is too large (max 10 MB before cropping).");
     return;
   }
 
@@ -262,7 +272,7 @@ const onLogoFileChange = async (e: Event) => {
     logoPreview.value = dataUrl;
     logoPending.value = blob;
   } catch (err: any) {
-    logoError.value = err?.message ?? "Could not process that image.";
+    logoError.value = err?.message ?? t("Could not process that image.");
   } finally {
     isUploadingLogo.value = false;
   }
@@ -288,13 +298,13 @@ const applyLogo = async () => {
     org.value = updated;
     form.logoUrl = updated.logoUrl ?? "";
     cancelLogoPreview();
-    successMessage.value = "Logo updated!";
+    successMessage.value = t("Logo updated!");
     setTimeout(() => {
       successMessage.value = "";
     }, 3000);
     await refreshBusinessProfile?.();
   } catch (err: any) {
-    logoError.value = err?.data?.statusMessage ?? "Logo upload failed. Please try again.";
+    logoError.value = err?.data?.statusMessage ?? t("Logo upload failed. Please try again.");
   } finally {
     isUploadingLogo.value = false;
   }
@@ -313,7 +323,7 @@ const removeLogo = async () => {
     cancelLogoPreview();
     await refreshBusinessProfile?.();
   } catch (err: any) {
-    logoError.value = err?.data?.statusMessage ?? "Could not remove the logo.";
+    logoError.value = err?.data?.statusMessage ?? t("Could not remove the logo.");
   } finally {
     isUploadingLogo.value = false;
   }
@@ -337,7 +347,7 @@ const requestEmailChange = async () => {
   emailError.value = "";
   emailNotice.value = "";
   if (!newEmail.value.trim()) {
-    emailError.value = "Enter the new email address first.";
+    emailError.value = t("Enter the new email address first.");
     return;
   }
   emailBusy.value = true;
@@ -347,9 +357,9 @@ const requestEmailChange = async () => {
       body: { newEmail: newEmail.value.trim() },
     });
     emailStep.value = "sent";
-    emailNotice.value = `We sent a 6-digit code to ${currentEmail.value}. It expires in 15 minutes.`;
+    emailNotice.value = t("We sent a 6-digit code to {email}. It expires in 15 minutes.", { email: currentEmail.value });
   } catch (err: any) {
-    emailError.value = err?.data?.statusMessage ?? "Could not send the verification code.";
+    emailError.value = err?.data?.statusMessage ?? t("Could not send the verification code.");
   } finally {
     emailBusy.value = false;
   }
@@ -372,12 +382,12 @@ const confirmEmailChange = async () => {
     emailCode.value = "";
     if (res.applied) {
       await refreshUser();
-      emailNotice.value = "Your login email has been updated.";
+      emailNotice.value = t("Your login email has been updated.");
     } else {
-      emailNotice.value = `Almost done — open the confirmation link we sent to ${res.email} to finalize the change.`;
+      emailNotice.value = t("Almost done — open the confirmation link we sent to {email} to finalize the change.", { email: res.email });
     }
   } catch (err: any) {
-    emailError.value = err?.data?.statusMessage ?? "Invalid or expired code.";
+    emailError.value = err?.data?.statusMessage ?? t("Invalid or expired code.");
   } finally {
     emailBusy.value = false;
   }
@@ -394,7 +404,7 @@ const requestPhoneChange = async () => {
   phoneError.value = "";
   phoneNotice.value = "";
   if (!newPhone.value.trim()) {
-    phoneError.value = "Enter the new mobile number first.";
+    phoneError.value = t("Enter the new mobile number first.");
     return;
   }
   phoneBusy.value = true;
@@ -404,9 +414,9 @@ const requestPhoneChange = async () => {
       body: { newPhone: newPhone.value.trim() },
     });
     phoneStep.value = "sent";
-    phoneNotice.value = `We sent a 6-digit code to ${currentEmail.value}. It expires in 15 minutes.`;
+    phoneNotice.value = t("We sent a 6-digit code to {email}. It expires in 15 minutes.", { email: currentEmail.value });
   } catch (err: any) {
-    phoneError.value = err?.data?.statusMessage ?? "Could not send the verification code.";
+    phoneError.value = err?.data?.statusMessage ?? t("Could not send the verification code.");
   } finally {
     phoneBusy.value = false;
   }
@@ -428,9 +438,9 @@ const confirmPhoneChange = async () => {
     newPhone.value = "";
     phoneCode.value = "";
     await refreshUser();
-    phoneNotice.value = `Mobile number updated to ${res.phone}.`;
+    phoneNotice.value = t("Mobile number updated to {phone}.", { phone: res.phone });
   } catch (err: any) {
-    phoneError.value = err?.data?.statusMessage ?? "Invalid or expired code.";
+    phoneError.value = err?.data?.statusMessage ?? t("Invalid or expired code.");
   } finally {
     phoneBusy.value = false;
   }
@@ -442,8 +452,8 @@ const confirmPhoneChange = async () => {
     <!-- Header -->
     <div class="page-head flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div class="min-w-0">
-        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Preferences & Profile</p>
-        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">Business Settings</h1>
+        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">{{ t("Preferences & Profile") }}</p>
+        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">{{ t("Business Settings") }}</h1>
       </div>
       <button
         type="button"
@@ -452,7 +462,7 @@ const confirmPhoneChange = async () => {
         class="max-md:w-full max-md:justify-center max-md:min-h-11 inline-flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50 transition shadow-sm self-start sm:self-auto"
       >
         <Save :size="15" />
-        <span>{{ isSaving ? "Saving..." : "Save Changes" }}</span>
+        <span>{{ isSaving ? t("Saving...") : t("Save Changes") }}</span>
       </button>
     </div>
 
@@ -460,16 +470,16 @@ const confirmPhoneChange = async () => {
     <div class="rounded-3xl border border-rose-200/80 bg-gradient-to-tr from-rose-50/70 to-white p-6 shadow-sm space-y-4">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <span class="text-[10px] font-bold uppercase tracking-wider text-rose-600">Customer Booking Hub</span>
-          <h2 class="font-display text-xl font-bold text-stone-900 mt-0.5">Your Public Booking Page</h2>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-rose-600">{{ t("Customer Booking Hub") }}</span>
+          <h2 class="font-display text-xl font-bold text-stone-900 mt-0.5">{{ t("Your Public Booking Page") }}</h2>
           <p class="text-xs text-stone-600 mt-1">
-            Share this URL on Instagram, Google Business, or WhatsApp to let clients book appointments 24/7.
+            {{ t("Share this URL on Instagram, Google Business, or WhatsApp to let clients book appointments 24/7.") }}
           </p>
         </div>
 
         <!-- Online Booking Switch -->
         <div class="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-2.5 shadow-2xs">
-          <span class="text-xs font-bold text-stone-800">Online Booking</span>
+          <span class="text-xs font-bold text-stone-800">{{ t("Online Booking") }}</span>
           <input
             type="checkbox"
             id="bookingToggle"
@@ -481,8 +491,8 @@ const confirmPhoneChange = async () => {
         <!-- On-location service switch -->
         <div class="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-2.5 shadow-2xs">
           <div>
-            <span class="block text-xs font-bold text-stone-800">On-location service</span>
-            <span class="block text-[10px] text-stone-500">Customer shares location; staff are sent to them</span>
+            <span class="block text-xs font-bold text-stone-800">{{ t("On-location service") }}</span>
+            <span class="block text-[10px] text-stone-500">{{ t("Customer shares location; staff are sent to them") }}</span>
           </div>
           <input
             type="checkbox"
@@ -498,8 +508,8 @@ const confirmPhoneChange = async () => {
           class="flex cursor-pointer items-center gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-2.5 shadow-2xs"
         >
           <div>
-            <span class="block text-xs font-bold text-stone-800">Hide prices on service list</span>
-            <span class="block text-[10px] text-stone-500">Price shows only after the customer picks a service</span>
+            <span class="block text-xs font-bold text-stone-800">{{ t("Hide prices on service list") }}</span>
+            <span class="block text-[10px] text-stone-500">{{ t("Price shows only after the customer picks a service") }}</span>
           </div>
           <input
             type="checkbox"
@@ -523,7 +533,7 @@ const confirmPhoneChange = async () => {
           >
             <Check v-if="copied" :size="14" class="text-emerald-600" />
             <Copy v-else :size="14" class="text-stone-400" />
-            <span>{{ copied ? "Copied!" : "Copy Link" }}</span>
+            <span>{{ copied ? t("Copied!") : t("Copy Link") }}</span>
           </button>
           <NuxtLink
             :to="`/book/${form.slug}`"
@@ -531,7 +541,7 @@ const confirmPhoneChange = async () => {
             class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white hover:bg-stone-800 transition"
           >
             <ExternalLink :size="14" />
-            <span>Open Page</span>
+            <span>{{ t("Open Page") }}</span>
           </NuxtLink>
         </div>
       </div>
@@ -546,13 +556,13 @@ const confirmPhoneChange = async () => {
       <!-- Settings Form -->
       <form @submit.prevent="saveSettings" class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm space-y-6">
         <div class="border-b border-stone-100 pb-4">
-          <h2 class="font-display text-lg font-bold text-stone-900">General Profile</h2>
-          <p class="text-xs text-stone-500">Business identification and contact information.</p>
+          <h2 class="font-display text-lg font-bold text-stone-900">{{ t("General Profile") }}</h2>
+          <p class="text-xs text-stone-500">{{ t("Business identification and contact information.") }}</p>
         </div>
 
         <div class="grid gap-4 sm:grid-cols-2">
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Business Name</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Business Name") }}</label>
             <input
               v-model="form.name"
               type="text"
@@ -569,18 +579,18 @@ const confirmPhoneChange = async () => {
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">URL Slug</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("URL Slug") }}</label>
             <input
               v-model="form.slug"
               type="text"
               required
-              placeholder="maria-beauty-studio"
+              :placeholder="t('maria-beauty-studio')"
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
             />
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Business Email</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Business Email") }}</label>
             <input
               v-model="form.email"
               type="email"
@@ -588,12 +598,12 @@ const confirmPhoneChange = async () => {
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
             />
             <p class="mt-1.5 text-[11px] text-stone-500">
-              Contact email shown to customers — change your login email under Account Security below.
+              {{ t("Contact email shown to customers — change your login email under Account Security below.") }}
             </p>
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Business Phone</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Business Phone") }}</label>
             <input
               v-model="form.phone"
               type="tel"
@@ -601,16 +611,16 @@ const confirmPhoneChange = async () => {
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
             />
             <p class="mt-1.5 text-[11px] text-stone-500">
-              Your account's mobile number can be changed under Account Security below.
+              {{ t("Your account's mobile number can be changed under Account Security below.") }}
             </p>
           </div>
 
           <div class="sm:col-span-2">
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Description</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Description") }}</label>
             <textarea
               v-model="form.description"
               rows="3"
-              placeholder="Tell customers what sets your studio apart..."
+              :placeholder="t('Tell customers what sets your studio apart...')"
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
             ></textarea>
           </div>
@@ -622,7 +632,7 @@ const confirmPhoneChange = async () => {
                 <img
                   v-if="displayLogo"
                   :src="displayLogo"
-                  alt="Logo preview"
+                  :alt="t('Logo preview')"
                   class="size-20 rounded-2xl object-cover border border-stone-200 bg-white shadow-sm"
                 />
                 <div
@@ -633,14 +643,13 @@ const confirmPhoneChange = async () => {
                 </div>
                 <span
                   v-if="logoPending"
-                  class="absolute -top-1.5 -right-1.5 rounded-full bg-rose-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-sm"
-                >New</span>
+                  class="absolute -top-1.5 -end-1.5 rounded-full bg-rose-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-sm"
+                >{{ t("New") }}</span>
               </div>
               <div class="flex-1 space-y-2 min-w-0">
-                <label class="block text-xs font-bold uppercase tracking-wider text-stone-600">Business Logo</label>
+                <label class="block text-xs font-bold uppercase tracking-wider text-stone-600">{{ t("Business Logo") }}</label>
                 <p class="text-[11px] text-stone-500 leading-relaxed">
-                  PNG or JPG. We automatically crop it to a square and resize it — check the preview, then press
-                  “Set image”. Shown in the dashboard header and booking page.
+                  {{ t("PNG or JPG. We automatically crop it to a square and resize it — check the preview, then press “Set image”. Shown in the dashboard header and booking page.") }}
                 </p>
                 <div class="flex flex-wrap items-center gap-2 pt-0.5">
                   <input
@@ -658,7 +667,7 @@ const confirmPhoneChange = async () => {
                   >
                     <Loader2 v-if="isUploadingLogo" :size="14" class="animate-spin" />
                     <ImagePlus v-else :size="14" />
-                    <span>{{ form.logoUrl ? "Change logo" : "Upload logo" }}</span>
+                    <span>{{ form.logoUrl ? t("Change logo") : t("Upload logo") }}</span>
                   </button>
                   <template v-if="logoPending">
                     <button
@@ -668,7 +677,7 @@ const confirmPhoneChange = async () => {
                       class="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-rose-700 transition disabled:opacity-50"
                     >
                       <Check :size="14" />
-                      <span>Set image</span>
+                      <span>{{ t("Set image") }}</span>
                     </button>
                     <button
                       type="button"
@@ -676,7 +685,7 @@ const confirmPhoneChange = async () => {
                       @click="cancelLogoPreview"
                       class="text-xs font-bold text-stone-500 hover:text-stone-900 transition"
                     >
-                      Cancel
+                      {{ t("Cancel") }}
                     </button>
                   </template>
                   <button
@@ -687,7 +696,7 @@ const confirmPhoneChange = async () => {
                     class="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 transition disabled:opacity-50"
                   >
                     <Trash2 :size="14" />
-                    <span>Remove</span>
+                    <span>{{ t("Remove") }}</span>
                   </button>
                 </div>
                 <p v-if="logoError" class="text-[11px] font-semibold text-rose-600 flex items-center gap-1">
@@ -701,17 +710,17 @@ const confirmPhoneChange = async () => {
 
         <!-- Location & Region -->
         <div class="border-t border-stone-100 pt-6">
-          <h2 class="font-display text-lg font-bold text-stone-900">Location & Localization</h2>
-          <p class="text-xs text-stone-500">Address, country, time zone and currency. Booking times follow this time zone; new services use this currency.</p>
+          <h2 class="font-display text-lg font-bold text-stone-900">{{ t("Location & Localization") }}</h2>
+          <p class="text-xs text-stone-500">{{ t("Address, country, time zone and currency. Booking times follow this time zone; new services use this currency.") }}</p>
         </div>
 
         <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Street Address</label>
+          <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Street Address") }}</label>
           <input
             v-model="form.address"
             type="text"
             autocomplete="street-address"
-            placeholder="Street, building, area"
+            :placeholder="t('Street, building, area')"
             class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
           />
         </div>
@@ -724,6 +733,21 @@ const confirmPhoneChange = async () => {
           v-model:currency="form.currency"
           show-city
         />
+
+        <!-- Language for the dashboard and the public booking page -->
+        <div>
+          <label for="business-language" class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Language") }}</label>
+          <AppSelect
+            id="business-language"
+            v-model="form.language"
+            class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white sm:max-w-xs"
+          >
+            <option v-for="l in LOCALES" :key="l.code" :value="l.code">{{ l.name }}</option>
+          </AppSelect>
+          <p class="mt-1 text-[11px] text-stone-500">
+            {{ t("Your team sees the dashboard in this language, and customers see your booking page in it. Each person can still pick their own language from the top bar.") }}
+          </p>
+        </div>
 
         <!-- Feedback Alerts -->
         <p
@@ -748,7 +772,7 @@ const confirmPhoneChange = async () => {
             :disabled="isSaving"
             class="rounded-xl bg-stone-900 px-6 py-2.5 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50 transition"
           >
-            {{ isSaving ? "Saving..." : "Save Settings" }}
+            {{ isSaving ? t("Saving...") : t("Save Settings") }}
           </button>
         </div>
       </form>
@@ -758,11 +782,10 @@ const confirmPhoneChange = async () => {
         <div class="border-b border-stone-100 pb-4">
           <h2 class="font-display text-lg font-bold text-stone-900 flex items-center gap-2">
             <ShieldCheck :size="18" class="text-rose-600" />
-            Account Security
+            {{ t("Account Security") }}
           </h2>
           <p class="text-xs text-stone-500 mt-1">
-            Your login email and mobile number. Every change must be confirmed with a 6-digit code
-            sent to your current email address.
+            {{ t("Your login email and mobile number. Every change must be confirmed with a 6-digit code sent to your current email address.") }}
           </p>
         </div>
 
@@ -771,10 +794,10 @@ const confirmPhoneChange = async () => {
           <div class="rounded-2xl border border-stone-200 bg-stone-50/50 p-4 space-y-3">
             <div class="flex items-center gap-2">
               <KeyRound :size="15" class="text-stone-400" />
-              <span class="text-xs font-bold uppercase tracking-wider text-stone-700">Login Email</span>
+              <span class="text-xs font-bold uppercase tracking-wider text-stone-700">{{ t("Login Email") }}</span>
             </div>
             <p class="text-xs text-stone-600 break-all">
-              Current: <span class="font-semibold text-stone-900">{{ currentEmail || "—" }}</span>
+              {{ t("Current:") }} <span class="font-semibold text-stone-900">{{ currentEmail || "—" }}</span>
             </p>
 
             <template v-if="emailStep === 'idle'">
@@ -782,7 +805,7 @@ const confirmPhoneChange = async () => {
                 <input
                   v-model="newEmail"
                   type="email"
-                  placeholder="New email address"
+                  :placeholder="t('New email address')"
                   class="flex-1 rounded-xl border border-stone-200 bg-white p-2.5 text-xs outline-none focus:border-stone-900"
                 />
                 <button
@@ -792,13 +815,13 @@ const confirmPhoneChange = async () => {
                   class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50 transition"
                 >
                   <Loader2 v-if="emailBusy" :size="13" class="animate-spin" />
-                  <span>Send code</span>
+                  <span>{{ t("Send code") }}</span>
                 </button>
               </div>
             </template>
             <template v-else>
               <p class="text-[11px] text-stone-500">
-                Code sent to <span class="font-semibold">{{ currentEmail }}</span>. Enter it below to approve the change to
+                {{ t("Code sent to") }} <span class="font-semibold">{{ currentEmail }}</span>{{ t(". Enter it below to approve the change to") }}
                 <span class="font-semibold">{{ newEmail }}</span>.
               </p>
               <input
@@ -816,7 +839,7 @@ const confirmPhoneChange = async () => {
                   class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50 transition"
                 >
                   <Loader2 v-if="emailBusy" :size="13" class="animate-spin" />
-                  <span>Confirm change</span>
+                  <span>{{ t("Confirm change") }}</span>
                 </button>
                 <button
                   type="button"
@@ -824,7 +847,7 @@ const confirmPhoneChange = async () => {
                   @click="emailStep = 'idle'; emailError = ''; emailNotice = ''"
                   class="rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-xs font-bold text-stone-600 hover:bg-stone-50 transition"
                 >
-                  Cancel
+                  {{ t("Cancel") }}
                 </button>
               </div>
             </template>
@@ -843,10 +866,10 @@ const confirmPhoneChange = async () => {
           <div class="rounded-2xl border border-stone-200 bg-stone-50/50 p-4 space-y-3">
             <div class="flex items-center gap-2">
               <Smartphone :size="15" class="text-stone-400" />
-              <span class="text-xs font-bold uppercase tracking-wider text-stone-700">Account Mobile Number</span>
+              <span class="text-xs font-bold uppercase tracking-wider text-stone-700">{{ t("Account Mobile Number") }}</span>
             </div>
             <p class="text-xs text-stone-600 break-all">
-              Current: <span class="font-semibold text-stone-900">{{ accountPhone || "Not set" }}</span>
+              {{ t("Current:") }} <span class="font-semibold text-stone-900">{{ accountPhone || "Not set" }}</span>
             </p>
 
             <template v-if="phoneStep === 'idle'">
@@ -864,13 +887,13 @@ const confirmPhoneChange = async () => {
                   class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50 transition"
                 >
                   <Loader2 v-if="phoneBusy" :size="13" class="animate-spin" />
-                  <span>Send code</span>
+                  <span>{{ t("Send code") }}</span>
                 </button>
               </div>
             </template>
             <template v-else>
               <p class="text-[11px] text-stone-500">
-                Code sent to <span class="font-semibold">{{ currentEmail }}</span>. Enter it below to approve the change to
+                {{ t("Code sent to") }} <span class="font-semibold">{{ currentEmail }}</span>{{ t(". Enter it below to approve the change to") }}
                 <span class="font-semibold">{{ newPhone }}</span>.
               </p>
               <input
@@ -888,7 +911,7 @@ const confirmPhoneChange = async () => {
                   class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50 transition"
                 >
                   <Loader2 v-if="phoneBusy" :size="13" class="animate-spin" />
-                  <span>Confirm change</span>
+                  <span>{{ t("Confirm change") }}</span>
                 </button>
                 <button
                   type="button"
@@ -896,7 +919,7 @@ const confirmPhoneChange = async () => {
                   @click="phoneStep = 'idle'; phoneError = ''; phoneNotice = ''"
                   class="rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-xs font-bold text-stone-600 hover:bg-stone-50 transition"
                 >
-                  Cancel
+                  {{ t("Cancel") }}
                 </button>
               </div>
             </template>

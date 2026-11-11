@@ -65,6 +65,8 @@ export const organizationSettingsSchema = z.object({
   onLocationEnabled: z.boolean().optional(),
   // booking page: hide prices on the service list (shown after picking a service)
   hidePricesInList: z.boolean().optional(),
+  // dashboard + booking page language
+  language: z.enum(["en", "el", "ar", "fr", "it"]).optional(),
 });
 
 export const dayHoursSchema = z.object({

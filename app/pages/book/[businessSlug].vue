@@ -14,6 +14,8 @@ import {
   Share2,
   CalendarPlus,
 } from "lucide-vue-next";
+const { t, intl } = useT();
+useLocaleHead();
 
 const route = useRoute();
 const slug = computed(() => route.params.businessSlug as string);
@@ -32,6 +34,7 @@ interface PublicBusinessData {
     bookingActive: boolean;
     onLocationEnabled?: boolean;
     hidePricesInList?: boolean;
+    language?: string;
   };
   services: Array<{
     id: string;
@@ -105,18 +108,18 @@ const isAppleDevice = () =>
     (navigator.platform === "MacIntel" && (navigator as any).maxTouchPoints > 1));
 const deniedHelp = () =>
   isAppleDevice()
-    ? "Location permission was denied.\nOn iPhone: open Settings > Privacy & Security > Location Services > Safari Websites and choose \"While Using the App\" (and make sure Location Services is On). Then come back here and tap the button again."
-    : "Location permission was denied. Allow location access for this site in your browser settings (tap the lock icon next to the address), then tap the button again.";
+    ? t("Location permission was denied.\nOn iPhone: open Settings > Privacy & Security > Location Services > Safari Websites and choose \"While Using the App\" (and make sure Location Services is On). Then come back here and tap the button again.")
+    : t("Location permission was denied. Allow location access for this site in your browser settings (tap the lock icon next to the address), then tap the button again.");
 const captureLocation = () => {
   loc.error = "";
   if (typeof navigator === "undefined" || !navigator.geolocation) {
-    loc.error = "Your browser can't share a location. Please try another browser or device.";
+    loc.error = t("Your browser can't share a location. Please try another browser or device.");
     return;
   }
   // Browsers (Safari included) only allow location on secure https:// pages
   if (typeof window !== "undefined" && !window.isSecureContext) {
     loc.error =
-      "Location only works on a secure page. Please open the booking link that starts with https:// and try again.";
+      t("Location only works on a secure page. Please open the booking link that starts with https:// and try again.");
     return;
   }
   loc.busy = true;
@@ -133,8 +136,8 @@ const captureLocation = () => {
         err.code === err.PERMISSION_DENIED
           ? deniedHelp()
           : err.code === err.TIMEOUT
-            ? "Getting your location took too long. Move to an open area and try again."
-            : "We couldn't get your location. Turn on GPS/location services and try again.";
+            ? t("Getting your location took too long. Move to an open area and try again.")
+            : t("We couldn't get your location. Turn on GPS/location services and try again.");
     },
     { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
   );
@@ -151,13 +154,15 @@ const loadBusiness = async () => {
   try {
     const data = await $fetch<PublicBusinessData>(`/api/public/${slug.value}`);
     businessData.value = data;
+    // show the page in the business language (or the visitor's own choice)
+    await applyLocale(data.business.language);
     countryIdx.value = countryIndexFor(data.business.country);
     if (data.services.length > 0) {
       selectedService.value = data.services[0] ?? null;
     }
   } catch (err: any) {
     pageError.value =
-      err?.data?.statusMessage ?? "This booking page is currently unavailable.";
+      err?.data?.statusMessage ?? t("This booking page is currently unavailable.");
   } finally {
     isLoading.value = false;
   }
@@ -226,19 +231,19 @@ const selectSlotAndContinue = (slot: AvailableSlot) => {
 const submitBooking = async () => {
   const national = nationalDigits(customerForm.phone);
   if (!customerForm.fullName.trim()) {
-    bookingError.value = "Please enter your full name.";
+    bookingError.value = t("Please enter your full name.");
     return;
   }
   if (onLocation.value && !hasLocation.value) {
-    bookingError.value = "Please tap \"Use my current location\" so we know where to come.";
+    bookingError.value = t("Please tap \"Use my current location\" so we know where to come.");
     return;
   }
   if (!isValidPhoneParts(dialCode.value, national)) {
-    bookingError.value = "Please enter a valid phone number: digits only, without the country code.";
+    bookingError.value = t("Please enter a valid phone number: digits only, without the country code.");
     return;
   }
   if (!selectedSlot.value || !selectedService.value) {
-    bookingError.value = "Missing service or time selection.";
+    bookingError.value = t("Missing service or time selection.");
     return;
   }
 
@@ -266,7 +271,7 @@ const submitBooking = async () => {
     step.value = 4;
   } catch (err: any) {
     bookingError.value =
-      err?.data?.statusMessage ?? "Failed to finalize booking. Please pick another slot.";
+      err?.data?.statusMessage ?? t("Failed to finalize booking. Please pick another slot.");
   } finally {
     isBooking.value = false;
   }
@@ -281,7 +286,7 @@ const isDaySelected = (d: Date) => {
 };
 
 const formatDateDisplay = (d: Date) => {
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString(intl.value, {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -290,13 +295,13 @@ const formatDateDisplay = (d: Date) => {
 
 const formatTimeDisplay = (isoString: string) => {
   const d = new Date(isoString);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  return d.toLocaleTimeString(intl.value, { hour: "2-digit", minute: "2-digit", hour12: false });
 };
 
 const shareViaWhatsApp = () => {
   if (!businessData.value) return;
   const text = encodeURIComponent(
-    `Book an appointment at ${businessData.value.business.name}: ${getSiteOrigin()}/book/${slug.value}`,
+    `${t("Book an appointment at {name}", { name: businessData.value.business.name })}: ${getSiteOrigin()}/book/${slug.value}`,
   );
   openExternalLink(`https://wa.me/?text=${text}`);
 };
@@ -314,14 +319,17 @@ const shareViaWhatsApp = () => {
           <span class="font-display font-bold text-stone-900 text-base tracking-tight">{{ BRAND.name }}</span>
         </NuxtLink>
 
+        <div class="flex items-center gap-2">
+        <LanguageSwitcher compact :business-language="businessData?.business.language ?? null" />
         <button
           type="button"
           @click="shareViaWhatsApp"
           class="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50 px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-100 transition"
         >
           <Share2 :size="13" />
-          <span>Share</span>
+          <span>{{ t("Share") }}</span>
         </button>
+        </div>
       </div>
     </header>
 
@@ -329,7 +337,7 @@ const shareViaWhatsApp = () => {
       <!-- Loading State -->
       <div v-if="isLoading" class="py-24 text-center space-y-4">
         <div class="size-10 rounded-full border-2 border-stone-900 border-t-transparent animate-spin mx-auto"></div>
-        <p class="text-xs font-semibold text-stone-500 uppercase tracking-wider">Loading booking studio...</p>
+        <p class="text-xs font-semibold text-stone-500 uppercase tracking-wider">{{ t("Loading booking studio...") }}</p>
       </div>
 
       <!-- Page Error / Studio Inactive -->
@@ -337,24 +345,24 @@ const shareViaWhatsApp = () => {
         <div class="grid size-14 place-items-center rounded-2xl bg-rose-50 text-rose-600 mx-auto">
           <AlertCircle :size="28" />
         </div>
-        <h1 class="font-display text-2xl font-bold text-stone-900">Studio Unavailable</h1>
+        <h1 class="font-display text-2xl font-bold text-stone-900">{{ t("Studio Unavailable") }}</h1>
         <p class="text-xs text-stone-500 leading-relaxed">
-          {{ pageError || "This business booking page is currently paused or does not exist." }}
+          {{ pageError || t("This business booking page is currently paused or does not exist.") }}
         </p>
         <NuxtLink
           to="/"
           class="inline-block rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white shadow-sm"
         >
-          Return Home
+          {{ t("Return Home") }}
         </NuxtLink>
       </div>
 
       <!-- Main Booking Wizard Flow -->
       <div v-else class="space-y-8">
         <!-- Business Header Banner -->
-        <section v-if="step !== 4" class="text-center sm:text-left sm:flex sm:items-end sm:justify-between border-b border-stone-200/80 pb-6">
+        <section v-if="step !== 4" class="text-center sm:text-start sm:flex sm:items-end sm:justify-between border-b border-stone-200/80 pb-6">
           <div class="space-y-1">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-rose-600">Online Appointments</span>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-rose-600">{{ t("Online Appointments") }}</span>
             <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl">
               {{ businessData.business.name }}
             </h1>
@@ -368,7 +376,7 @@ const shareViaWhatsApp = () => {
               </span>
               <span v-if="businessData.business.phone" class="flex items-center gap-1.5">
                 <Phone :size="13" class="text-stone-400" />
-                {{ businessData.business.phone }}
+                <bdi dir="ltr">{{ businessData.business.phone }}</bdi>
               </span>
             </div>
           </div>
@@ -393,8 +401,8 @@ const shareViaWhatsApp = () => {
         <section v-if="step === 1" class="space-y-4">
           <div class="flex items-center justify-between">
             <div>
-              <h2 class="font-display text-xl font-bold text-stone-900">1. Select a Service</h2>
-              <p class="text-xs text-stone-500">Choose the treatment or session you wish to book.</p>
+              <h2 class="font-display text-xl font-bold text-stone-900">{{ t("1. Select a Service") }}</h2>
+              <p class="text-xs text-stone-500">{{ t("Choose the treatment or session you wish to book.") }}</p>
             </div>
           </div>
 
@@ -404,7 +412,7 @@ const shareViaWhatsApp = () => {
               :key="service.id"
               type="button"
               @click="selectServiceAndContinue(service)"
-              class="flex flex-col justify-between rounded-3xl border border-stone-200 bg-white p-5 text-left transition hover:border-stone-400 hover:shadow-md space-y-3 group"
+              class="flex flex-col justify-between rounded-3xl border border-stone-200 bg-white p-5 text-start transition hover:border-stone-400 hover:shadow-md space-y-3 group"
             >
               <div class="space-y-1.5 w-full">
                 <div class="flex items-center justify-between">
@@ -427,10 +435,10 @@ const shareViaWhatsApp = () => {
               <div class="flex items-center justify-between pt-2 border-t border-stone-100 text-xs text-stone-500 w-full">
                 <span class="flex items-center gap-1 font-semibold text-stone-700">
                   <Clock3 :size="13" />
-                  {{ service.durationMinutes }} minutes
+                  {{ t("{n} minutes", { n: service.durationMinutes }) }}
                 </span>
                 <span class="font-bold text-rose-600 flex items-center gap-0.5 group-hover:translate-x-0.5 transition">
-                  Select Time →
+                  {{ t("Select Time →") }}
                 </span>
               </div>
             </button>
@@ -446,7 +454,7 @@ const shareViaWhatsApp = () => {
               class="inline-flex items-center gap-1 text-xs font-bold text-stone-600 hover:text-stone-900"
             >
               <ChevronLeft :size="16" />
-              <span>Back to Services</span>
+              <span>{{ t("Back to Services") }}</span>
             </button>
 
             <span v-if="selectedService" class="rounded-full bg-stone-200/70 px-3 py-1 text-xs font-semibold text-stone-800">
@@ -456,7 +464,7 @@ const shareViaWhatsApp = () => {
 
           <!-- Date Selector Ribbon -->
           <div class="space-y-2">
-            <h2 class="font-display text-xl font-bold text-stone-900">2. Choose Date</h2>
+            <h2 class="font-display text-xl font-bold text-stone-900">{{ t("2. Choose Date") }}</h2>
             <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
               <button
                 v-for="d in nextDays"
@@ -471,11 +479,11 @@ const shareViaWhatsApp = () => {
                 ]"
               >
                 <span class="text-[10px] font-bold uppercase tracking-wider opacity-80">
-                  {{ d.toLocaleDateString(undefined, { weekday: "short" }) }}
+                  {{ d.toLocaleDateString(intl, { weekday: "short" }) }}
                 </span>
                 <span class="text-base font-bold my-0.5">{{ d.getDate() }}</span>
                 <span class="text-[10px] opacity-80">
-                  {{ d.toLocaleDateString(undefined, { month: "short" }) }}
+                  {{ d.toLocaleDateString(intl, { month: "short" }) }}
                 </span>
               </button>
             </div>
@@ -484,12 +492,12 @@ const shareViaWhatsApp = () => {
           <!-- Available Time Slots -->
           <div class="space-y-3 pt-2">
             <h3 class="font-display text-lg font-bold text-stone-900">
-              Available Times on {{ formatDateDisplay(selectedDate) }}
+              {{ t("Available Times on {date}", { date: formatDateDisplay(selectedDate) }) }}
             </h3>
 
             <!-- Slot Loading State -->
             <div v-if="isSlotsLoading" class="py-12 text-center text-xs text-stone-400 animate-pulse">
-              Checking available openings...
+              {{ t("Checking available openings...") }}
             </div>
 
             <!-- No slots open -->
@@ -498,8 +506,8 @@ const shareViaWhatsApp = () => {
               class="py-12 text-center rounded-3xl border border-dashed border-stone-200 bg-white p-6"
             >
               <Clock3 :size="32" class="mx-auto text-stone-400" />
-              <p class="mt-2 text-xs font-semibold text-stone-600">No time slots available on this date</p>
-              <p class="mt-1 text-[11px] text-stone-400">Please choose another day from the calendar above.</p>
+              <p class="mt-2 text-xs font-semibold text-stone-600">{{ t("No time slots available on this date") }}</p>
+              <p class="mt-1 text-[11px] text-stone-400">{{ t("Please choose another day from the calendar above.") }}</p>
             </div>
 
             <!-- Slots Grid -->
@@ -526,7 +534,7 @@ const shareViaWhatsApp = () => {
               class="inline-flex items-center gap-1 text-xs font-bold text-stone-600 hover:text-stone-900"
             >
               <ChevronLeft :size="16" />
-              <span>Back to Time Selection</span>
+              <span>{{ t("Back to Time Selection") }}</span>
             </button>
           </div>
 
@@ -537,37 +545,37 @@ const shareViaWhatsApp = () => {
               <span class="font-bold text-stone-900">{{ formatMoney(selectedService?.priceCents, selectedService?.currency) }}</span>
             </div>
             <div class="text-stone-500 flex items-center gap-2">
-              <span>{{ formatDateDisplay(selectedDate) }} at {{ selectedSlot?.time }}</span>
+              <span>{{ t("{date} at {time}", { date: formatDateDisplay(selectedDate), time: selectedSlot?.time ?? "" }) }}</span>
               <span>·</span>
-              <span>{{ selectedService?.durationMinutes }} minutes</span>
+              <span>{{ t("{n} minutes", { n: selectedService?.durationMinutes ?? 0 }) }}</span>
             </div>
           </div>
 
           <!-- Form Details -->
           <form @submit.prevent="submitBooking" class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm space-y-4">
             <div>
-              <h2 class="font-display text-xl font-bold text-stone-900">3. Your Contact Details</h2>
-              <p class="text-xs text-stone-500">Add your email if you would like a confirmation and reminders by email.</p>
+              <h2 class="font-display text-xl font-bold text-stone-900">{{ t("3. Your Contact Details") }}</h2>
+              <p class="text-xs text-stone-500">{{ t("Add your email if you would like a confirmation and reminders by email.") }}</p>
             </div>
 
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Full Name</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Full Name") }}</label>
               <input
                 v-model="customerForm.fullName"
                 type="text"
                 required
                 autocomplete="name"
-                placeholder="Eleni Georgiou"
+                :placeholder="t('Eleni Georgiou')"
                 class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
               />
             </div>
 
             <div>
-              <label for="phone" class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Phone Number</label>
+              <label for="phone" class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Phone Number") }}</label>
               <div class="flex gap-2">
                 <select
                   v-model.number="countryIdx"
-                  aria-label="Country code"
+                  :aria-label="t('Country code')"
                   class="w-36 shrink-0 rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none md:w-32 focus:border-stone-900 focus:bg-white"
                 >
                   <option v-for="(c, i) in COUNTRIES" :key="c[0] + i" :value="i">{{ flagOf(c[0]) }} +{{ c[2] }} {{ c[0] }}</option>
@@ -586,18 +594,18 @@ const shareViaWhatsApp = () => {
                   class="min-w-0 flex-1 rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
                 />
               </div>
-              <p class="mt-1 text-[11px] text-stone-400">Numbers only, no spaces or +.</p>
+              <p class="mt-1 text-[11px] text-stone-400">{{ t("Numbers only, no spaces or +.") }}</p>
             </div>
 
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Email Address (Optional)</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Email Address (Optional)") }}</label>
               <input
                 v-model="customerForm.email"
                 type="email"
                 inputmode="email"
                 autocomplete="email"
                 autocapitalize="off"
-                placeholder="eleni@example.com"
+                :placeholder="t('eleni@example.com')"
                 class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
               />
             </div>
@@ -605,8 +613,8 @@ const shareViaWhatsApp = () => {
             <!-- On-location: customer's current location (one time, no tracking) -->
             <div v-if="onLocation" class="rounded-2xl border border-stone-200 bg-stone-50/60 p-4 space-y-3">
               <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-stone-600">Your Location</label>
-                <p class="text-[11px] text-stone-500 mt-0.5">We only use your current location once, for this booking. We do not track you.</p>
+                <label class="block text-xs font-bold uppercase tracking-wider text-stone-600">{{ t("Your Location") }}</label>
+                <p class="text-[11px] text-stone-500 mt-0.5">{{ t("We only use your current location once, for this booking. We do not track you.") }}</p>
               </div>
               <button
                 type="button"
@@ -614,28 +622,28 @@ const shareViaWhatsApp = () => {
                 :disabled="loc.busy"
                 class="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-stone-900 bg-white py-3 text-sm font-bold text-stone-900 hover:bg-stone-100 disabled:opacity-50 transition"
               >
-                {{ loc.busy ? "Getting your location..." : hasLocation ? "Update my location" : "Use my current location" }}
+                {{ loc.busy ? t("Getting your location...") : hasLocation ? t("Update my location") : t("Use my current location") }}
               </button>
               <p v-if="hasLocation" class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 font-medium">
-                Location saved (accuracy about {{ loc.accuracy }} m).
-                <a :href="mapsLink" target="_blank" rel="noopener" class="underline font-bold">Check on map</a>
+                {{ t("Location saved (accuracy about {m} m).", { m: loc.accuracy }) }}
+                <a :href="mapsLink" target="_blank" rel="noopener" class="underline font-bold">{{ t("Check on map") }}</a>
               </p>
               <p v-if="loc.error" class="whitespace-pre-line rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-relaxed text-rose-700 font-medium" role="alert">{{ loc.error }}</p>
               <input
                 v-model="loc.note"
                 type="text"
                 maxlength="300"
-                placeholder="Landmark or extra directions (optional)"
+                :placeholder="t('Landmark or extra directions (optional)')"
                 class="w-full rounded-xl border border-stone-200 bg-white p-3 text-xs outline-none focus:border-stone-900"
               />
             </div>
 
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Notes (Optional)</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Notes (Optional)") }}</label>
               <textarea
                 v-model="customerForm.notes"
                 rows="2"
-                placeholder="Any special requests or allergies..."
+                :placeholder="t('Any special requests or allergies...')"
                 class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
               ></textarea>
             </div>
@@ -649,7 +657,7 @@ const shareViaWhatsApp = () => {
               :disabled="isBooking"
               class="w-full rounded-xl bg-stone-900 py-3.5 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50 transition shadow-sm"
             >
-              {{ isBooking ? "Confirming Booking..." : `Confirm ${selectedSlot?.time} Appointment` }}
+              {{ isBooking ? t("Confirming Booking...") : `Confirm ${selectedSlot?.time} Appointment` }}
             </button>
           </form>
         </section>
@@ -661,26 +669,26 @@ const shareViaWhatsApp = () => {
           </div>
 
           <div class="space-y-2">
-            <span class="text-xs font-bold uppercase tracking-wider text-emerald-600">Booking Confirmed</span>
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-600">{{ t("Booking Confirmed") }}</span>
             <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl">
-              See you soon!
+              {{ t("See you soon!") }}
             </h1>
             <p class="text-xs text-stone-500 leading-relaxed max-w-sm mx-auto">
-              Your appointment has been registered.
-              <template v-if="customerForm.email.trim()">We've sent a confirmation email to <strong>{{ customerForm.email }}</strong>.</template>
-              <template v-else>Please keep the date and time below.</template>
+              {{ t("Your appointment has been registered.") }}
+              <template v-if="customerForm.email.trim()">{{ t("We've sent a confirmation email to") }} <strong>{{ customerForm.email }}</strong>.</template>
+              <template v-else>{{ t("Please keep the date and time below.") }}</template>
             </p>
           </div>
 
           <!-- Confirmation Card -->
-          <div class="rounded-3xl border border-stone-200 bg-white p-6 text-left shadow-sm space-y-3">
+          <div class="rounded-3xl border border-stone-200 bg-white p-6 text-start shadow-sm space-y-3">
             <div class="flex items-center justify-between border-b border-stone-100 pb-3">
               <div>
-                <span class="text-[10px] text-stone-400 uppercase tracking-wider">Business</span>
+                <span class="text-[10px] text-stone-400 uppercase tracking-wider">{{ t("Business") }}</span>
                 <h3 class="font-bold text-stone-900 text-base">{{ businessData.business.name }}</h3>
               </div>
-              <div class="text-right">
-                <span class="text-[10px] text-stone-400 uppercase tracking-wider">Price</span>
+              <div class="text-end">
+                <span class="text-[10px] text-stone-400 uppercase tracking-wider">{{ t("Price") }}</span>
                 <span class="block font-bold text-stone-900 text-sm">
                   {{ formatMoney(selectedService?.priceCents, selectedService?.currency) }}
                 </span>
@@ -689,19 +697,19 @@ const shareViaWhatsApp = () => {
 
             <div class="space-y-2 text-xs">
               <div class="flex items-center justify-between">
-                <span class="text-stone-500">Service</span>
+                <span class="text-stone-500">{{ t("Service") }}</span>
                 <span class="font-bold text-stone-900">{{ selectedService?.name }}</span>
               </div>
               <div class="flex items-center justify-between">
-                <span class="text-stone-500">Date & Time</span>
-                <span class="font-bold text-stone-900">{{ formatDateDisplay(selectedDate) }} at {{ selectedSlot?.time }}</span>
+                <span class="text-stone-500">{{ t("Date & Time") }}</span>
+                <span class="font-bold text-stone-900">{{ t("{date} at {time}", { date: formatDateDisplay(selectedDate), time: selectedSlot?.time ?? "" }) }}</span>
               </div>
               <div class="flex items-center justify-between">
-                <span class="text-stone-500">Client</span>
+                <span class="text-stone-500">{{ t("Client") }}</span>
                 <span class="font-bold text-stone-900">{{ customerForm.fullName }}</span>
               </div>
               <div v-if="businessData.business.city" class="flex items-center justify-between">
-                <span class="text-stone-500">Location</span>
+                <span class="text-stone-500">{{ t("Location") }}</span>
                 <span class="font-bold text-stone-900">{{ businessData.business.city }}, {{ businessData.business.country }}</span>
               </div>
             </div>
@@ -714,13 +722,13 @@ const shareViaWhatsApp = () => {
               class="w-full rounded-xl border border-stone-200 bg-white py-3 text-xs font-bold text-stone-700 hover:bg-stone-50 transition shadow-2xs flex items-center justify-center gap-2"
             >
               <Share2 :size="14" />
-              <span>Share Appointment on WhatsApp</span>
+              <span>{{ t("Share Appointment on WhatsApp") }}</span>
             </button>
             <NuxtLink
               to="/"
               class="text-xs font-semibold text-stone-500 hover:text-stone-900 pt-2"
             >
-              Return to Studio Home
+              {{ t("Return to Studio Home") }}
             </NuxtLink>
           </div>
         </section>
@@ -730,7 +738,7 @@ const shareViaWhatsApp = () => {
     <!-- Footer -->
     <footer class="border-t border-stone-200/80 bg-white py-6 text-center text-xs text-stone-400" style="padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px))">
       <div class="max-w-4xl mx-auto px-4">
-        <span>Powered by <strong>{{ BRAND.name }}</strong> · Instant Appointment Management</span>
+        <span>{{ t("Powered by") }} <strong>{{ BRAND.name }}</strong> {{ t("· Instant Appointment Management") }}</span>
       </div>
     </footer>
   </div>

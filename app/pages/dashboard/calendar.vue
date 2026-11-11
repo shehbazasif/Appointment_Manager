@@ -12,6 +12,7 @@ import {
   X,
   CalendarDays,
 } from "lucide-vue-next";
+const { t, intl } = useT();
 
 definePageMeta({
   layout: "dashboard",
@@ -88,7 +89,7 @@ onMounted(() => {
 });
 
 const currentMonthLabel = computed(() => {
-  return currentDate.value.toLocaleDateString(undefined, {
+  return currentDate.value.toLocaleDateString(intl.value, {
     month: "long",
     year: "numeric",
   });
@@ -164,7 +165,7 @@ const getAppointmentsForDay = (d: Date) => {
 
 const formatTime = (isoString: string) => {
   const date = new Date(isoString);
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  return date.toLocaleTimeString(intl.value, { hour: "2-digit", minute: "2-digit", hour12: false });
 };
 
 const updateStatus = async (id: string, status: string) => {
@@ -178,7 +179,7 @@ const updateStatus = async (id: string, status: string) => {
     }
     await loadCalendarData();
   } catch (err: any) {
-    alert(err?.data?.statusMessage ?? "Failed to update status");
+    alert(err?.data?.statusMessage ?? t("Failed to update status"));
   }
 };
 </script>
@@ -188,22 +189,22 @@ const updateStatus = async (id: string, status: string) => {
     <!-- Header Controls -->
     <div class="page-head flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div class="min-w-0">
-        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Visual Schedule</p>
-        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">Calendar</h1>
+        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">{{ t("Visual Schedule") }}</p>
+        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">{{ t("Calendar") }}</h1>
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
         <!-- Staff Filter -->
-        <select
+        <AppSelect
           v-model="selectedStaffId"
           class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-800 shadow-2xs outline-none focus:border-stone-900"
         >
-          <option value="ALL">All Staff</option>
-          <option value="unassigned">⚠️ Unassigned Bookings</option>
+          <option value="ALL">{{ t("All Staff") }}</option>
+          <option value="unassigned">{{ t("⚠️ Unassigned Bookings") }}</option>
           <option v-for="s in staffList" :key="s.id" :value="s.id">
             {{ s.name }}
           </option>
-        </select>
+        </AppSelect>
 
         <!-- View Mode Switcher -->
         <div class="flex rounded-xl bg-stone-200/80 p-1 text-xs font-semibold text-stone-700">
@@ -215,7 +216,7 @@ const updateStatus = async (id: string, status: string) => {
               'rounded-lg px-3 py-1.5 transition',
             ]"
           >
-            Week
+            {{ t("Week") }}
           </button>
           <button
             type="button"
@@ -225,7 +226,7 @@ const updateStatus = async (id: string, status: string) => {
               'rounded-lg px-3 py-1.5 transition',
             ]"
           >
-            Day
+            {{ t("Day") }}
           </button>
         </div>
 
@@ -234,7 +235,7 @@ const updateStatus = async (id: string, status: string) => {
           class="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-3.5 py-2 text-xs font-bold text-white hover:bg-stone-800 transition"
         >
           <Plus :size="15" />
-          <span>New</span>
+          <span>{{ t("New") }}</span>
         </NuxtLink>
       </div>
     </div>
@@ -247,7 +248,7 @@ const updateStatus = async (id: string, status: string) => {
           @click="goToToday"
           class="rounded-xl border border-stone-200 bg-stone-50 px-3 py-1.5 text-xs font-bold text-stone-700 hover:bg-stone-100 transition"
         >
-          Today
+          {{ t("Today") }}
         </button>
         <div class="flex items-center gap-1">
           <button
@@ -285,7 +286,7 @@ const updateStatus = async (id: string, status: string) => {
         <!-- Day Header -->
         <div class="border-b border-stone-100 pb-2.5 text-center">
           <span class="block text-[11px] font-bold uppercase tracking-wider text-stone-500">
-            {{ day.toLocaleDateString(undefined, { weekday: "short" }) }}
+            {{ day.toLocaleDateString(intl, { weekday: "short" }) }}
           </span>
           <span
             :class="[
@@ -303,14 +304,14 @@ const updateStatus = async (id: string, status: string) => {
             v-if="getAppointmentsForDay(day).length === 0"
             class="py-6 text-center text-[11px] text-stone-400 italic"
           >
-            Free
+            {{ t("Free") }}
           </div>
 
           <div
             v-for="item in getAppointmentsForDay(day)"
             :key="item.appointment.id"
             @click="activeAppointment = item"
-            class="cursor-pointer rounded-xl border border-stone-200/80 bg-stone-50/80 p-2.5 space-y-1 hover:border-stone-400 hover:bg-white transition text-xs shadow-2xs text-left"
+            class="cursor-pointer rounded-xl border border-stone-200/80 bg-stone-50/80 p-2.5 space-y-1 hover:border-stone-400 hover:bg-white transition text-xs shadow-2xs text-start"
           >
             <div class="flex items-center justify-between">
               <span class="font-bold text-stone-900 text-[11px]">
@@ -331,7 +332,7 @@ const updateStatus = async (id: string, status: string) => {
               v-if="!item.staff"
               class="text-[9px] font-bold text-amber-700 bg-amber-100/70 px-1 py-0.5 rounded text-center mt-1"
             >
-              Unassigned
+              {{ t("Unassigned") }}
             </div>
           </div>
         </div>
@@ -342,7 +343,7 @@ const updateStatus = async (id: string, status: string) => {
     <div v-else-if="viewMode === 'DAY'" class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm space-y-4">
       <div class="border-b border-stone-100 pb-3">
         <h2 class="font-display text-xl font-bold text-stone-900">
-          {{ currentDate.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }) }}
+          {{ currentDate.toLocaleDateString(intl, { weekday: "long", month: "long", day: "numeric" }) }}
         </h2>
       </div>
 
@@ -350,7 +351,7 @@ const updateStatus = async (id: string, status: string) => {
         v-if="getAppointmentsForDay(currentDate).length === 0"
         class="py-12 text-center text-xs text-stone-500"
       >
-        No appointments scheduled for this date.
+        {{ t("No appointments scheduled for this date.") }}
       </div>
 
       <div v-else class="space-y-3">
@@ -370,15 +371,15 @@ const updateStatus = async (id: string, status: string) => {
                 <span class="size-2.5 rounded-full" :style="{ backgroundColor: item.service.accent || '#ca7481' }"></span>
                 <span class="font-bold text-stone-900 text-sm">{{ item.customer.firstName }} {{ item.customer.lastName }}</span>
                 <span class="rounded bg-stone-200/60 px-2 py-0.5 text-[10px] font-bold text-stone-700 uppercase">
-                  {{ item.appointment.status }}
+                  {{ t(statusText(item.appointment.status)) }}
                 </span>
               </div>
               <div class="text-xs text-stone-500 mt-1">
-                {{ item.service.name }} · Staff: {{ item.staff?.name ?? 'Unassigned' }}
+                {{ item.service.name }} · {{ t("Staff") }}: {{ item.staff?.name ?? t("Unassigned") }}
               </div>
             </div>
           </div>
-          <div class="text-right">
+          <div class="text-end">
             <span class="font-bold text-stone-900">{{ formatMoney(item.service.priceCents, item.service.currency) }}</span>
           </div>
         </div>
@@ -393,7 +394,7 @@ const updateStatus = async (id: string, status: string) => {
       <div class="m-sheet-panel w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
           <div>
-            <span class="text-[10px] font-bold uppercase tracking-wider text-rose-600">Booking Details</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-rose-600">{{ t("Booking Details") }}</span>
             <h3 class="font-display text-xl font-bold text-stone-900">
               {{ activeAppointment.customer.firstName }} {{ activeAppointment.customer.lastName }}
             </h3>
@@ -405,23 +406,23 @@ const updateStatus = async (id: string, status: string) => {
 
         <div class="space-y-3 text-xs">
           <div class="flex items-center justify-between rounded-xl bg-stone-50 p-3">
-            <span class="text-stone-500">Service</span>
+            <span class="text-stone-500">{{ t("Service") }}</span>
             <span class="font-bold text-stone-900">{{ activeAppointment.service.name }} ({{ activeAppointment.service.durationMinutes }}m)</span>
           </div>
           <div class="flex items-center justify-between rounded-xl bg-stone-50 p-3">
-            <span class="text-stone-500">Scheduled Time</span>
+            <span class="text-stone-500">{{ t("Scheduled Time") }}</span>
             <span class="font-bold text-stone-900">{{ formatTime(activeAppointment.appointment.startAt) }} ({{ new Date(activeAppointment.appointment.startAt).toLocaleDateString() }})</span>
           </div>
           <div class="flex items-center justify-between rounded-xl bg-stone-50 p-3">
-            <span class="text-stone-500">Assigned Staff</span>
-            <span class="font-bold text-stone-900">{{ activeAppointment.staff?.name ?? '⚠️ Unassigned' }}</span>
+            <span class="text-stone-500">{{ t("Assigned Staff") }}</span>
+            <span class="font-bold text-stone-900">{{ activeAppointment.staff?.name ?? t("⚠️ Unassigned") }}</span>
           </div>
           <div class="flex items-center justify-between rounded-xl bg-stone-50 p-3">
-            <span class="text-stone-500">Contact Phone</span>
-            <span class="font-bold text-stone-900">{{ activeAppointment.customer.phone }}</span>
+            <span class="text-stone-500">{{ t("Contact Phone") }}</span>
+            <span class="font-bold text-stone-900"><bdi dir="ltr">{{ activeAppointment.customer.phone }}</bdi></span>
           </div>
           <div v-if="activeAppointment.appointment.notes" class="rounded-xl bg-stone-50 p-3">
-            <span class="block text-stone-500 font-semibold mb-1">Notes:</span>
+            <span class="block text-stone-500 font-semibold mb-1">{{ t("Notes:") }}</span>
             <span class="text-stone-800">{{ activeAppointment.appointment.notes }}</span>
           </div>
         </div>
@@ -433,21 +434,21 @@ const updateStatus = async (id: string, status: string) => {
             @click="updateStatus(activeAppointment.appointment.id, 'CONFIRMED')"
             class="flex-1 rounded-xl bg-emerald-50 border border-emerald-200 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
           >
-            Confirm
+            {{ t("Confirm") }}
           </button>
           <button
             type="button"
             @click="updateStatus(activeAppointment.appointment.id, 'COMPLETED')"
             class="flex-1 rounded-xl bg-stone-100 border border-stone-200 py-2 text-xs font-bold text-stone-800 hover:bg-stone-200"
           >
-            Complete
+            {{ t("Complete") }}
           </button>
           <button
             type="button"
             @click="updateStatus(activeAppointment.appointment.id, 'CANCELLED')"
             class="flex-1 rounded-xl bg-rose-50 border border-rose-200 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100"
           >
-            Cancel
+            {{ t("Cancel") }}
           </button>
         </div>
 
@@ -456,7 +457,7 @@ const updateStatus = async (id: string, status: string) => {
             to="/dashboard/appointments"
             class="text-xs font-bold text-stone-900 hover:underline"
           >
-            Go to Full Management List →
+            {{ t("Go to Full Management List →") }}
           </NuxtLink>
         </div>
       </div>

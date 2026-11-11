@@ -239,3 +239,31 @@ html {
   .float-a, .float-b, .pulse-dot::after { animation: none !important; }
   .site-btn, .site-btn:hover, .site-btn:active { transform: none !important; }
 }
+
+/* Right-to-left (Arabic): mirror arrows/chevrons that point "forward" or "back". */
+[dir="rtl"] [class*="lucide-chevron-right"],
+[dir="rtl"] [class*="lucide-chevron-left"],
+[dir="rtl"] [class*="lucide-arrow-right"],
+[dir="rtl"] [class*="lucide-arrow-left"] {
+  transform: scaleX(-1);
+}
+/* Selects: put the custom chevron on the left in RTL */
+@media (max-width: 767px) {
+  [dir="rtl"] select:not([multiple]) {
+    background-position: left 0.75rem center;
+    padding-left: 2.25rem;
+    padding-right: 0.75rem;
+  }
+}
+/* Phone numbers, emails and times keep left-to-right order inside RTL text */
+[dir="rtl"] a[href^="tel:"],
+[dir="rtl"] a[href^="mailto:"],
+[dir="rtl"] input[type="tel"],
+[dir="rtl"] input[type="email"] {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+[dir="rtl"] input[type="tel"],
+[dir="rtl"] input[type="email"] {
+  text-align: right;
+}

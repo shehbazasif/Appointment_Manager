@@ -21,6 +21,7 @@ import {
   Mail,
   Calendar as CalendarIcon,
 } from "lucide-vue-next";
+const { t, intl } = useT();
 
 definePageMeta({
   layout: "dashboard",
@@ -98,7 +99,7 @@ const FIELD_STATUSES = [
   { value: "ON_LOCATION", label: "On location" },
 ];
 const fieldLabel = (v?: string | null) =>
-  FIELD_STATUSES.find((f) => f.value === v)?.label ?? "Not assigned";
+  t(FIELD_STATUSES.find((f) => f.value === v)?.label ?? "Not assigned");
 const getFieldBadge = (v?: string | null) =>
   v === "ASSIGNED"
     ? "bg-blue-50 text-blue-700 border-blue-200"
@@ -136,7 +137,7 @@ const loadDashboard = async () => {
     staffList.value = staffData.filter((s) => s.active);
   } catch (err: any) {
     errorMessage.value =
-      err?.data?.statusMessage ?? "Failed to load dashboard data.";
+      err?.data?.statusMessage ?? t(t("Failed to load dashboard data."));
   } finally {
     isLoading.value = false;
   }
@@ -154,7 +155,7 @@ const updateStatus = async (appointmentId: string, status: string) => {
     });
     await loadDashboard();
   } catch (err: any) {
-    alert(err?.data?.statusMessage ?? "Failed to update appointment status.");
+    alert(err?.data?.statusMessage ?? t("Failed to update appointment status."));
   }
 };
 
@@ -166,7 +167,7 @@ const updateFieldStatus = async (appointmentId: string, fieldStatus: string) => 
     });
     await loadDashboard();
   } catch (err: any) {
-    alert(err?.data?.statusMessage ?? "Failed to update status.");
+    alert(err?.data?.statusMessage ?? t(t("Failed to update status.")));
   }
 };
 
@@ -189,7 +190,7 @@ const saveStaffAssignment = async () => {
     assigningAppointment.value = null;
     await loadDashboard();
   } catch (err: any) {
-    alert(err?.data?.statusMessage ?? "Failed to assign staff.");
+    alert(err?.data?.statusMessage ?? t("Failed to assign staff."));
   } finally {
     isAssigning.value = false;
   }
@@ -197,7 +198,7 @@ const saveStaffAssignment = async () => {
 
 const formatTime = (isoString: string) => {
   const date = new Date(isoString);
-  return date.toLocaleTimeString([], {
+  return date.toLocaleTimeString(intl.value, {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -206,7 +207,7 @@ const formatTime = (isoString: string) => {
 
 const formatDate = (isoString: string) => {
   const date = new Date(isoString);
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(intl.value, {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -239,12 +240,12 @@ const getStatusBadge = (status: string) => {
     >
       <div class="min-w-0">
         <p class="text-xs font-bold uppercase tracking-wider text-rose-600">
-          Business Control Center
+          {{ t("Business Control Center") }}
         </p>
         <h1
           class="font-display text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl"
         >
-          Studio Overview
+          {{ t("Studio Overview") }}
         </h1>
       </div>
       <div class="page-head-actions flex items-center gap-2">
@@ -254,14 +255,14 @@ const getStatusBadge = (status: string) => {
           class="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
         >
           <RefreshCw :size="14" class="sm:hidden" />
-          <span>Refresh Data</span>
+          <span>{{ t("Refresh Data") }}</span>
         </button>
         <NuxtLink
           to="/dashboard/appointments?new=1"
           class="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm"
         >
           <CalendarCheck :size="15" />
-          <span>New Appointment</span>
+          <span>{{ t("New Appointment") }}</span>
         </NuxtLink>
       </div>
     </div>
@@ -289,11 +290,10 @@ const getStatusBadge = (status: string) => {
         <Sparkles :size="28" />
       </div>
       <h3 class="font-display text-xl font-bold text-stone-900">
-        Preparing your workspace…
+        {{ t("Preparing your workspace…") }}
       </h3>
       <p class="mt-2 text-sm text-stone-500 leading-relaxed">
-        Your business is being provisioned. This usually takes a moment — try
-        again in a few seconds.
+        {{ t("Your business is being provisioned. This usually takes a moment — try again in a few seconds.") }}
       </p>
       <div class="mt-6 flex items-center justify-center gap-3">
         <button
@@ -301,7 +301,7 @@ const getStatusBadge = (status: string) => {
           @click="loadDashboard"
           class="tap inline-flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm"
         >
-          <span>Retry</span>
+          <span>{{ t("Retry") }}</span>
           <ArrowRight :size="14" />
         </button>
       </div>
@@ -330,12 +330,10 @@ const getStatusBadge = (status: string) => {
           </div>
           <div>
             <h2 class="text-sm font-bold text-amber-950">
-              {{ summary.unassignedCount }} Unassigned Online Booking{{
-                summary.unassignedCount > 1 ? "s" : ""
-              }}
+              {{ summary.unassignedCount > 1 ? t("{n} unassigned online bookings", { n: summary.unassignedCount }) : t("1 unassigned online booking") }}
             </h2>
             <p class="text-xs text-amber-800/90 mt-0.5">
-              Online customer bookings require staff member assignment.
+              {{ t("Online customer bookings require staff member assignment.") }}
             </p>
           </div>
         </div>
@@ -343,7 +341,7 @@ const getStatusBadge = (status: string) => {
           to="/dashboard/appointments?staffId=unassigned"
           class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-amber-800 px-4 py-2 text-xs font-bold text-white hover:bg-amber-900 transition"
         >
-          <span>Assign Staff Now</span>
+          <span>{{ t("Assign Staff Now") }}</span>
           <ArrowRight :size="14" />
         </NuxtLink>
       </div>
@@ -357,20 +355,17 @@ const getStatusBadge = (status: string) => {
         >
           <div>
             <h2 class="font-display text-xl font-bold text-stone-900">
-              Today's Schedule
+              {{ t("Today's Schedule") }}
             </h2>
             <p class="text-xs text-stone-500 mt-0.5">
-              {{ sortedToday.length }} appointment{{
-                sortedToday.length === 1 ? "" : "s"
-              }}
-              today, sorted by time.
+              {{ sortedToday.length === 1 ? t("1 appointment today, sorted by time.") : t("{n} appointments today, sorted by time.", { n: sortedToday.length }) }}
             </p>
           </div>
           <NuxtLink
             to="/dashboard/appointments"
             class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-stone-800 transition"
           >
-            <span>See all appointments</span>
+            <span>{{ t("See all appointments") }}</span>
             <ArrowRight :size="16" />
           </NuxtLink>
         </div>
@@ -382,16 +377,16 @@ const getStatusBadge = (status: string) => {
         >
           <CalendarIcon :size="32" class="mx-auto text-stone-400" />
           <h3 class="mt-2 text-sm font-semibold text-stone-700">
-            No appointments today
+            {{ t("No appointments today") }}
           </h3>
           <p class="mt-1 text-xs text-stone-500">
-            Your schedule is free for today. New bookings will appear here.
+            {{ t("Your schedule is free for today. New bookings will appear here.") }}
           </p>
           <NuxtLink
             to="/dashboard/appointments?new=1"
             class="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-stone-900 px-4 py-2 text-xs font-semibold text-white"
           >
-            Create Appointment
+            {{ t("Create Appointment") }}
           </NuxtLink>
         </div>
 
@@ -429,11 +424,11 @@ const getStatusBadge = (status: string) => {
                   <span
                     v-if="onLocation"
                     :class="[
-                      getFieldBadge(item.appointment.fieldStatus),
+                      getFieldBadge(item.appointment.fieldStatus ?? (item.staff ? 'ASSIGNED' : null)),
                       'rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
                     ]"
                   >
-                    {{ fieldLabel(item.appointment.fieldStatus) }}
+                    {{ fieldLabel(item.appointment.fieldStatus ?? (item.staff ? 'ASSIGNED' : null)) }}
                   </span>
                   <span
                     v-else
@@ -442,7 +437,7 @@ const getStatusBadge = (status: string) => {
                       'rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
                     ]"
                   >
-                    {{ item.appointment.status.replace("_", " ") }}
+                    {{ t(statusText(item.appointment.status)) }}
                   </span>
                 </div>
                 <div
@@ -459,17 +454,17 @@ const getStatusBadge = (status: string) => {
                     class="inline-flex min-h-8 items-center gap-1 font-semibold text-stone-700 underline-offset-2 hover:underline"
                   >
                     <Phone :size="12" />
-                    {{ item.customer.phone }}
+                    <bdi dir="ltr">{{ item.customer.phone }}</bdi>
                   </a>
                   <span class="hidden text-stone-300 sm:inline">·</span>
                   <span v-if="item.staff" class="font-medium text-stone-700">
-                    Staff: {{ item.staff.name }}
+                    {{ t("Staff") }}: {{ item.staff.name }}
                   </span>
                   <span
                     v-else
                     class="inline-flex items-center gap-1 text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded text-[11px]"
                   >
-                    <AlertCircle :size="12" /> Unassigned
+                    <AlertCircle :size="12" /> {{ t("Unassigned") }}
                   </span>
                 </div>
               </div>
@@ -486,7 +481,7 @@ const getStatusBadge = (status: string) => {
                 class="tap inline-flex items-center justify-center gap-1 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 transition"
               >
                 <UserPlus :size="13" />
-                <span>Assign Staff</span>
+                <span>{{ t("Assign Staff") }}</span>
               </button>
 
               <!-- On-location mode: field status quick actions -->
@@ -501,7 +496,7 @@ const getStatusBadge = (status: string) => {
                   @click="updateFieldStatus(item.appointment.id, 'ON_THE_WAY')"
                   class="tap rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100"
                 >
-                  On the way
+                  {{ t("On the way") }}
                 </button>
                 <button
                   v-if="item.staff && item.appointment.fieldStatus !== 'ON_LOCATION'"
@@ -509,7 +504,7 @@ const getStatusBadge = (status: string) => {
                   @click="updateFieldStatus(item.appointment.id, 'ON_LOCATION')"
                   class="tap rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
                 >
-                  On location
+                  {{ t("On location") }}
                 </button>
               </template>
 
@@ -520,7 +515,7 @@ const getStatusBadge = (status: string) => {
                   @click="updateStatus(item.appointment.id, 'CONFIRMED')"
                   class="tap rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
                 >
-                  Confirm
+                  {{ t("Confirm") }}
                 </button>
 
                 <button
@@ -529,7 +524,7 @@ const getStatusBadge = (status: string) => {
                   @click="updateStatus(item.appointment.id, 'CHECKED_IN')"
                   class="tap rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100"
                 >
-                  Check-in
+                  {{ t("Check-in") }}
                 </button>
 
                 <button
@@ -541,7 +536,7 @@ const getStatusBadge = (status: string) => {
                   @click="updateStatus(item.appointment.id, 'COMPLETED')"
                   class="tap rounded-lg border border-stone-300 bg-stone-100 px-3 py-1.5 text-xs font-bold text-stone-800 hover:bg-stone-200"
                 >
-                  Complete
+                  {{ t("Complete") }}
                 </button>
               </template>
 
@@ -552,9 +547,9 @@ const getStatusBadge = (status: string) => {
                 "
                 type="button"
                 @click="updateStatus(item.appointment.id, 'CANCELLED')"
-                class="tap ml-auto inline-flex items-center justify-center rounded-lg p-1.5 text-stone-400 hover:bg-rose-50 hover:text-rose-600 sm:ml-0"
-                title="Cancel appointment"
-                aria-label="Cancel appointment"
+                class="tap ms-auto inline-flex items-center justify-center rounded-lg p-1.5 text-stone-400 hover:bg-rose-50 hover:text-rose-600 sm:ms-0"
+                :title="t('Cancel appointment')"
+                :aria-label="t('Cancel appointment')"
               >
                 <XCircle :size="18" />
               </button>
@@ -572,17 +567,17 @@ const getStatusBadge = (status: string) => {
         >
           <div>
             <h2 class="font-display text-lg font-bold text-stone-900">
-              Upcoming Appointments
+              {{ t("Upcoming Appointments") }}
             </h2>
             <p class="text-xs text-stone-500">
-              Your next bookings, soonest first.
+              {{ t("Your next bookings, soonest first.") }}
             </p>
           </div>
           <NuxtLink
             to="/dashboard/calendar"
             class="inline-flex min-h-11 items-center gap-1 text-xs font-bold text-stone-900 hover:text-rose-600 transition sm:min-h-0"
           >
-            <span>Open Interactive Calendar</span>
+            <span>{{ t("Open Interactive Calendar") }}</span>
             <ArrowRight :size="14" />
           </NuxtLink>
         </div>
@@ -591,7 +586,7 @@ const getStatusBadge = (status: string) => {
           v-if="summary.upcomingAppointments.length === 0"
           class="py-8 text-center text-xs text-stone-500"
         >
-          No upcoming appointments scheduled after today.
+          {{ t("No upcoming appointments scheduled after today.") }}
         </div>
 
         <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -608,11 +603,11 @@ const getStatusBadge = (status: string) => {
               <span
                 v-if="onLocation"
                 :class="[
-                  getFieldBadge(item.appointment.fieldStatus),
+                  getFieldBadge(item.appointment.fieldStatus ?? (item.staff ? 'ASSIGNED' : null)),
                   'shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase',
                 ]"
               >
-                {{ fieldLabel(item.appointment.fieldStatus) }}
+                {{ fieldLabel(item.appointment.fieldStatus ?? (item.staff ? 'ASSIGNED' : null)) }}
               </span>
               <span
                 v-else
@@ -621,7 +616,7 @@ const getStatusBadge = (status: string) => {
                   'shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase',
                 ]"
               >
-                {{ item.appointment.status }}
+                {{ t(statusText(item.appointment.status)) }}
               </span>
             </div>
             <div class="font-bold text-stone-900 text-sm">
@@ -633,7 +628,7 @@ const getStatusBadge = (status: string) => {
             <div
               class="text-[11px] text-stone-600 pt-2 border-t border-stone-200/60 flex items-center justify-between"
             >
-              <span>{{ item.staff ? item.staff.name : "Unassigned" }}</span>
+              <span>{{ item.staff ? item.staff.name : t("Unassigned") }}</span>
               <span class="font-semibold"
                 >{{ formatMoney(item.service.priceCents, item.service.currency) }}</span
               >
@@ -651,7 +646,7 @@ const getStatusBadge = (status: string) => {
           <div class="flex items-center justify-between gap-1">
             <span
               class="text-[10px] font-bold uppercase tracking-wider text-stone-500 sm:text-xs"
-              >Today's total</span
+              >{{ t("Today's total") }}</span
             >
             <ChevronRight
               :size="16"
@@ -664,7 +659,7 @@ const getStatusBadge = (status: string) => {
               >{{ summary.totalToday }}</span
             >
             <span class="hidden text-xs text-stone-500 font-medium sm:inline"
-              >appointments</span
+              >{{ t("appointments") }}</span
             >
           </div>
         </NuxtLink>
@@ -676,7 +671,7 @@ const getStatusBadge = (status: string) => {
           <div class="flex items-center justify-between gap-1">
             <span
               class="text-[10px] font-bold uppercase tracking-wider text-stone-500 sm:text-xs"
-              >Upcoming</span
+              >{{ t("Upcoming") }}</span
             >
             <ChevronRight
               :size="16"
@@ -689,7 +684,7 @@ const getStatusBadge = (status: string) => {
               >{{ upcomingCountLabel }}</span
             >
             <span class="hidden text-xs text-stone-500 font-medium sm:inline"
-              >scheduled</span
+              >{{ t("scheduled") }}</span
             >
           </div>
         </NuxtLink>
@@ -701,7 +696,7 @@ const getStatusBadge = (status: string) => {
           <div class="flex items-center justify-between gap-1">
             <span
               class="text-[10px] font-bold uppercase tracking-wider text-stone-500 sm:text-xs"
-              >Total clients</span
+              >{{ t("Total clients") }}</span
             >
             <ChevronRight
               :size="16"
@@ -714,7 +709,7 @@ const getStatusBadge = (status: string) => {
               >{{ summary.totalCustomers }}</span
             >
             <span class="hidden text-xs text-stone-500 font-medium sm:inline"
-              >customers</span
+              >{{ t("customers") }}</span
             >
           </div>
         </NuxtLink>
@@ -725,7 +720,7 @@ const getStatusBadge = (status: string) => {
         class="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm sm:p-6"
       >
         <h2 class="font-display text-lg font-bold text-stone-900">
-          Team &amp; Menu
+          {{ t("Team & Menu") }}
         </h2>
         <div class="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
           <NuxtLink
@@ -738,9 +733,9 @@ const getStatusBadge = (status: string) => {
             /></span>
             <span class="min-w-0">
               <span class="block text-sm font-bold text-stone-900"
-                >{{ summary.totalStaff }} Staff</span
+                >{{ t("{n} Staff", { n: summary.totalStaff }) }}</span
               >
-              <span class="block text-[11px] text-stone-500">Active team</span>
+              <span class="block text-[11px] text-stone-500">{{ t("Active team") }}</span>
             </span>
           </NuxtLink>
           <NuxtLink
@@ -753,9 +748,9 @@ const getStatusBadge = (status: string) => {
             /></span>
             <span class="min-w-0">
               <span class="block text-sm font-bold text-stone-900"
-                >{{ summary.totalServices }} Services</span
+                >{{ t("{n} Services", { n: summary.totalServices }) }}</span
               >
-              <span class="block text-[11px] text-stone-500">Bookable menu</span>
+              <span class="block text-[11px] text-stone-500">{{ t("Bookable menu") }}</span>
             </span>
           </NuxtLink>
           <NuxtLink
@@ -767,8 +762,8 @@ const getStatusBadge = (status: string) => {
               ><Clock :size="18"
             /></span>
             <span class="min-w-0">
-              <span class="block text-sm font-bold text-stone-900">Hours</span>
-              <span class="block text-[11px] text-stone-500">Opening times</span>
+              <span class="block text-sm font-bold text-stone-900">{{ t("Hours") }}</span>
+              <span class="block text-[11px] text-stone-500">{{ t("Opening times") }}</span>
             </span>
           </NuxtLink>
           <NuxtLink
@@ -781,9 +776,9 @@ const getStatusBadge = (status: string) => {
             /></span>
             <span class="min-w-0">
               <span class="block text-sm font-bold text-stone-900"
-                >Booking link</span
+                >{{ t("Booking link") }}</span
               >
-              <span class="block text-[11px] text-stone-500">Share it</span>
+              <span class="block text-[11px] text-stone-500">{{ t("Share it") }}</span>
             </span>
           </NuxtLink>
         </div>
@@ -800,21 +795,18 @@ const getStatusBadge = (status: string) => {
         class="m-sheet-panel w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5"
       >
         <h3 class="font-display text-xl font-bold text-stone-900">
-          Assign Staff Member
+          {{ t("Assign Staff Member") }}
         </h3>
         <p class="text-xs text-stone-500">
-          Assigning an active team member to
-          {{ assigningAppointment.customer.firstName }}
-          {{ assigningAppointment.customer.lastName }} for
-          {{ assigningAppointment.service.name }}.
+          {{ t("Assigning an active team member to {name} for {service}.", { name: `${assigningAppointment.customer.firstName} ${assigningAppointment.customer.lastName}`, service: assigningAppointment.service.name }) }}
         </p>
 
         <div class="space-y-3">
           <label
             class="block text-xs font-bold uppercase tracking-wider text-stone-600"
-            >Select Active Staff</label
+            >{{ t("Select Active Staff") }}</label
           >
-          <select
+          <AppSelect
             v-model="selectedStaffId"
             class="w-full rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm font-medium text-stone-900 outline-none focus:border-stone-900 focus:bg-white"
           >
@@ -825,7 +817,7 @@ const getStatusBadge = (status: string) => {
             >
               {{ member.name }} ({{ member.role }})
             </option>
-          </select>
+          </AppSelect>
         </div>
 
         <div
@@ -836,7 +828,7 @@ const getStatusBadge = (status: string) => {
             @click="assigningAppointment = null"
             class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
           >
-            Cancel
+            {{ t("Cancel") }}
           </button>
           <button
             type="button"
@@ -844,7 +836,7 @@ const getStatusBadge = (status: string) => {
             @click="saveStaffAssignment"
             class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
           >
-            {{ isAssigning ? "Saving..." : "Confirm Assignment" }}
+            {{ isAssigning ? t("Saving...") : t("Confirm Assignment") }}
           </button>
         </div>
       </div>

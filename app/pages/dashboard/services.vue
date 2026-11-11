@@ -11,6 +11,7 @@ import {
   X,
   AlertCircle,
 } from "lucide-vue-next";
+const { t } = useT();
 
 definePageMeta({
   layout: "dashboard",
@@ -94,7 +95,7 @@ const addCategory = async () => {
     categories.value = r.categories;
     newCategory.value = "";
   } catch (err: any) {
-    categoryError.value = err?.data?.statusMessage ?? "Could not add the category.";
+    categoryError.value = err?.data?.statusMessage ?? t("Could not add the category.");
   } finally {
     categoryBusy.value = false;
   }
@@ -103,8 +104,8 @@ const addCategory = async () => {
 const removeCategory = async (name: string) => {
   const count = services.value.filter((s) => (s.category || "General") === name).length;
   const msg = count
-    ? `Remove the category "${name}"? Its ${count} service(s) will move to "General".`
-    : `Remove the category "${name}"?`;
+    ? t('Remove the category "{name}"? Its {count} service(s) will move to "General".', { name, count })
+    : t('Remove the category "{name}"?', { name });
   if (!confirm(msg)) return;
   categoryBusy.value = true;
   categoryError.value = "";
@@ -116,7 +117,7 @@ const removeCategory = async (name: string) => {
     categories.value = r.categories;
     await loadServices();
   } catch (err: any) {
-    categoryError.value = err?.data?.statusMessage ?? "Could not remove the category.";
+    categoryError.value = err?.data?.statusMessage ?? t("Could not remove the category.");
   } finally {
     categoryBusy.value = false;
   }
@@ -182,12 +183,12 @@ const openCreate = () => {
 
 const handleCreate = async () => {
   if (!serviceForm.name.trim() || !resolvedCategory()) {
-    formError.value = "Name and category are required.";
+    formError.value = t("Name and category are required.");
     return;
   }
   const priceNum = parseFloat(serviceForm.priceEur);
   if (isNaN(priceNum) || priceNum < 0) {
-    formError.value = "Please enter a valid price.";
+    formError.value = t("Please enter a valid price.");
     return;
   }
 
@@ -210,7 +211,7 @@ const handleCreate = async () => {
     showCreateModal.value = false;
     await Promise.all([loadServices(), loadCategories()]);
   } catch (err: any) {
-    formError.value = err?.data?.statusMessage ?? "Failed to create service.";
+    formError.value = err?.data?.statusMessage ?? t(t("Failed to create service."));
   } finally {
     isSubmitting.value = false;
   }
@@ -237,7 +238,7 @@ const handleEdit = async () => {
   if (!selectedService.value) return;
   const priceNum = parseFloat(serviceForm.priceEur);
   if (isNaN(priceNum) || priceNum < 0) {
-    formError.value = "Please enter a valid price.";
+    formError.value = t("Please enter a valid price.");
     return;
   }
 
@@ -260,7 +261,7 @@ const handleEdit = async () => {
     showEditModal.value = false;
     await Promise.all([loadServices(), loadCategories()]);
   } catch (err: any) {
-    formError.value = err?.data?.statusMessage ?? "Failed to update service.";
+    formError.value = err?.data?.statusMessage ?? t(t("Failed to update service."));
   } finally {
     isSubmitting.value = false;
   }
@@ -274,19 +275,19 @@ const toggleActive = async (s: ServiceItem) => {
     });
     await loadServices();
   } catch (err: any) {
-    alert(err?.data?.statusMessage ?? "Failed to toggle status.");
+    alert(err?.data?.statusMessage ?? t(t("Failed to toggle status.")));
   }
 };
 
 const deleteService = async (s: ServiceItem) => {
-  if (!confirm(`Are you sure you want to deactivate / archive "${s.name}"?`)) return;
+  if (!confirm(t('Are you sure you want to deactivate / archive "{name}"?', { name: s.name }))) return;
   try {
     await $fetch(`/api/services/${s.id}`, {
       method: "DELETE",
     });
     await loadServices();
   } catch (err: any) {
-    alert(err?.data?.statusMessage ?? "Failed to delete service.");
+    alert(err?.data?.statusMessage ?? t(t("Failed to delete service.")));
   }
 };
 </script>
@@ -296,8 +297,8 @@ const deleteService = async (s: ServiceItem) => {
     <!-- Header -->
     <div class="page-head flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div class="min-w-0">
-        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Menu & Pricing</p>
-        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">Services Catalog</h1>
+        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">{{ t("Menu & Pricing") }}</p>
+        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">{{ t("Services Catalog") }}</h1>
       </div>
       <button
         type="button"
@@ -305,7 +306,7 @@ const deleteService = async (s: ServiceItem) => {
         class="max-md:w-full max-md:justify-center max-md:min-h-11 inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm self-start sm:self-auto"
       >
         <Plus :size="16" />
-        <span>Add Service</span>
+        <span>{{ t("Add Service") }}</span>
       </button>
     </div>
 
@@ -313,19 +314,19 @@ const deleteService = async (s: ServiceItem) => {
     <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm space-y-3">
       <div class="flex items-center gap-2">
         <Tag :size="16" class="text-rose-600" />
-        <h2 class="text-sm font-bold text-stone-900">Categories</h2>
+        <h2 class="text-sm font-bold text-stone-900">{{ t("Categories") }}</h2>
       </div>
       <p v-if="!categoriesEnabled" class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-        Categories need a small database update first (scripts/service-categories.sql). Until then all services stay in "General".
+        {{ t("Categories need a small database update first (scripts/service-categories.sql). Until then all services stay in \"General\".") }}
       </p>
       <template v-else>
         <div class="flex flex-wrap gap-2">
           <span
             v-for="c in categories"
             :key="c"
-            class="inline-flex min-h-9 items-center gap-1 rounded-full border border-stone-200 bg-stone-50 pl-3 pr-1 text-xs font-semibold text-stone-800"
+            class="inline-flex min-h-9 items-center gap-1 rounded-full border border-stone-200 bg-stone-50 ps-3 pe-1 text-xs font-semibold text-stone-800"
           >
-            {{ c }}
+            {{ c === "General" ? t("General") : c }}
             <button
               v-if="c !== 'General'"
               type="button"
@@ -337,7 +338,7 @@ const deleteService = async (s: ServiceItem) => {
             >
               <X :size="14" />
             </button>
-            <span v-else class="pr-2"></span>
+            <span v-else class="pe-2"></span>
           </span>
         </div>
         <form class="flex gap-2" @submit.prevent="addCategory">
@@ -345,7 +346,7 @@ const deleteService = async (s: ServiceItem) => {
             v-model="newCategory"
             type="text"
             maxlength="60"
-            placeholder="New category, e.g. Nails"
+            :placeholder="t('New category, e.g. Nails')"
             class="min-w-0 flex-1 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs outline-none focus:border-stone-900 focus:bg-white sm:max-w-xs"
           />
           <button
@@ -354,7 +355,7 @@ const deleteService = async (s: ServiceItem) => {
             class="tap inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
           >
             <Plus :size="14" />
-            <span>Add</span>
+            <span>{{ t("Add") }}</span>
           </button>
         </form>
         <p v-if="categoryError" class="text-xs font-medium text-rose-700">{{ categoryError }}</p>
@@ -372,9 +373,9 @@ const deleteService = async (s: ServiceItem) => {
       class="py-16 text-center rounded-3xl border border-dashed border-stone-200 bg-white"
     >
       <Sparkles :size="36" class="mx-auto text-stone-400" />
-      <h3 class="mt-3 font-display text-lg font-bold text-stone-900">No services created</h3>
+      <h3 class="mt-3 font-display text-lg font-bold text-stone-900">{{ t("No services created") }}</h3>
       <p class="mt-1 text-xs text-stone-500 max-w-sm mx-auto">
-        Configure the treatments, haircuts, and sessions you offer to customers.
+        {{ t("Configure the treatments, haircuts, and sessions you offer to customers.") }}
       </p>
       <button
         type="button"
@@ -382,7 +383,7 @@ const deleteService = async (s: ServiceItem) => {
         class="mt-4 inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white"
       >
         <Plus :size="14" />
-        <span>Create First Service</span>
+        <span>{{ t("Create First Service") }}</span>
       </button>
     </div>
 
@@ -396,7 +397,7 @@ const deleteService = async (s: ServiceItem) => {
         <!-- Category Title -->
         <div class="flex items-center gap-2">
           <Tag :size="16" class="text-rose-600" />
-          <h2 class="font-display text-lg font-bold text-stone-900">{{ category }}</h2>
+          <h2 class="font-display text-lg font-bold text-stone-900">{{ category === "General" ? t("General") : category }}</h2>
           <span class="rounded-full bg-stone-200 px-2 py-0.5 text-[10px] font-bold text-stone-700">
             {{ catServices.length }}
           </span>
@@ -406,7 +407,7 @@ const deleteService = async (s: ServiceItem) => {
           v-if="catServices.length === 0"
           class="rounded-2xl border border-dashed border-stone-200 bg-white p-4 text-xs text-stone-500"
         >
-          No services in this category yet. Add a service and choose "{{ category }}".
+          {{ t('No services in this category yet. Add a service and choose "{category}".', { category: t(category) }) }}
         </p>
 
         <!-- Category Grid -->
@@ -438,7 +439,7 @@ const deleteService = async (s: ServiceItem) => {
                     'rounded-lg border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
                   ]"
                 >
-                  {{ s.active ? "Active" : "Hidden" }}
+                  {{ s.active ? t("Active") : t("Hidden") }}
                 </button>
               </div>
 
@@ -449,7 +450,7 @@ const deleteService = async (s: ServiceItem) => {
               <div class="flex items-center gap-4 text-xs pt-1">
                 <span class="flex items-center gap-1 font-semibold text-stone-800">
                   <Clock :size="13" class="text-stone-400" />
-                  {{ s.durationMinutes }} mins
+                  {{ t("{n} mins", { n: s.durationMinutes }) }}
                 </span>
                 <span class="flex items-center gap-1 font-bold text-stone-900 text-sm">
                   {{ formatMoney(s.priceCents, s.currency) }}
@@ -463,7 +464,7 @@ const deleteService = async (s: ServiceItem) => {
                 type="button"
                 @click="openEdit(s)"
                 class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-900"
-                title="Edit Service"
+                :title="t('Edit Service')"
               >
                 <Edit2 :size="14" />
               </button>
@@ -471,7 +472,7 @@ const deleteService = async (s: ServiceItem) => {
                 type="button"
                 @click="deleteService(s)"
                 class="rounded-lg p-1.5 text-stone-400 hover:bg-rose-50 hover:text-rose-600"
-                title="Deactivate Service"
+                :title="t('Deactivate Service')"
               >
                 <Trash2 :size="14" />
               </button>
@@ -488,7 +489,7 @@ const deleteService = async (s: ServiceItem) => {
     >
       <div class="m-sheet-panel w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
-          <h3 class="font-display text-xl font-bold text-stone-900">New Service</h3>
+          <h3 class="font-display text-xl font-bold text-stone-900">{{ t("New Service") }}</h3>
           <button type="button" @click="showCreateModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
@@ -496,38 +497,38 @@ const deleteService = async (s: ServiceItem) => {
 
         <form @submit.prevent="handleCreate" class="space-y-4">
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Service Name</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Service Name") }}</label>
             <input
               v-model="serviceForm.name"
               type="text"
               required
-              placeholder="e.g. Haircut & Beard Trim"
+              :placeholder="t('e.g. Haircut & Beard Trim')"
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
             />
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Category</label>
-              <select
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Category") }}</label>
+              <AppSelect
                 v-model="serviceForm.category"
                 class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
               >
-                <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
-                <option v-if="categoriesEnabled" :value="NEW_CATEGORY">+ New category…</option>
-              </select>
+                <option v-for="c in categories" :key="c" :value="c">{{ c === "General" ? t("General") : c }}</option>
+                <option v-if="categoriesEnabled" :value="NEW_CATEGORY">{{ t("+ New category…") }}</option>
+              </AppSelect>
               <input
                 v-if="serviceForm.category === NEW_CATEGORY"
                 v-model="customCategory"
                 type="text"
                 maxlength="60"
                 required
-                placeholder="e.g. Hair, Nails, Spa"
+                :placeholder="t('e.g. Hair, Nails, Spa')"
                 class="mt-2 w-full rounded-xl border border-stone-200 bg-white p-3 text-xs outline-none focus:border-stone-900"
               />
             </div>
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Duration (Mins)</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Duration (Mins)") }}</label>
               <input
                 v-model="serviceForm.durationMinutes"
                 type="number"
@@ -540,7 +541,7 @@ const deleteService = async (s: ServiceItem) => {
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Price</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Price") }}</label>
             <div class="flex gap-2">
               <input
                 v-model="serviceForm.priceEur"
@@ -555,17 +556,17 @@ const deleteService = async (s: ServiceItem) => {
                 v-model="serviceForm.currency"
                 :options="currencyOptions"
                 class="w-32 shrink-0"
-                placeholder="Currency"
-                search-placeholder="Search, e.g. riyal"
+                :placeholder="t('Currency')"
+                :search-placeholder="t('Search, e.g. riyal')"
               />
             </div>
             <p class="mt-1 text-[11px] text-stone-500">
-              Customers see {{ formatMoney(Math.round((parseFloat(serviceForm.priceEur) || 0) * 100), serviceForm.currency) }}
+              {{ t("Customers see {price}", { price: formatMoney(Math.round((parseFloat(serviceForm.priceEur) || 0) * 100), serviceForm.currency) }) }}
             </p>
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Accent Color</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Accent Color") }}</label>
             <div class="flex items-center gap-2">
               <button
                 v-for="c in defaultAccents"
@@ -580,11 +581,11 @@ const deleteService = async (s: ServiceItem) => {
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Description (Optional)</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Description (Optional)") }}</label>
             <textarea
               v-model="serviceForm.description"
               rows="2"
-              placeholder="Treatment details shown on booking page..."
+              :placeholder="t('Treatment details shown on booking page...')"
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
             ></textarea>
           </div>
@@ -599,14 +600,14 @@ const deleteService = async (s: ServiceItem) => {
               @click="showCreateModal = false"
               class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
             >
-              Cancel
+              {{ t("Cancel") }}
             </button>
             <button
               type="submit"
               :disabled="isSubmitting"
               class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
             >
-              {{ isSubmitting ? "Creating..." : "Save Service" }}
+              {{ isSubmitting ? t("Creating...") : t("Save Service") }}
             </button>
           </div>
         </form>
@@ -620,7 +621,7 @@ const deleteService = async (s: ServiceItem) => {
     >
       <div class="m-sheet-panel w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
-          <h3 class="font-display text-xl font-bold text-stone-900">Edit Service</h3>
+          <h3 class="font-display text-xl font-bold text-stone-900">{{ t("Edit Service") }}</h3>
           <button type="button" @click="showEditModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
@@ -628,7 +629,7 @@ const deleteService = async (s: ServiceItem) => {
 
         <form @submit.prevent="handleEdit" class="space-y-4">
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Service Name</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Service Name") }}</label>
             <input
               v-model="serviceForm.name"
               type="text"
@@ -639,26 +640,26 @@ const deleteService = async (s: ServiceItem) => {
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Category</label>
-              <select
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Category") }}</label>
+              <AppSelect
                 v-model="serviceForm.category"
                 class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
               >
-                <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
-                <option v-if="categoriesEnabled" :value="NEW_CATEGORY">+ New category…</option>
-              </select>
+                <option v-for="c in categories" :key="c" :value="c">{{ c === "General" ? t("General") : c }}</option>
+                <option v-if="categoriesEnabled" :value="NEW_CATEGORY">{{ t("+ New category…") }}</option>
+              </AppSelect>
               <input
                 v-if="serviceForm.category === NEW_CATEGORY"
                 v-model="customCategory"
                 type="text"
                 maxlength="60"
                 required
-                placeholder="e.g. Hair, Nails, Spa"
+                :placeholder="t('e.g. Hair, Nails, Spa')"
                 class="mt-2 w-full rounded-xl border border-stone-200 bg-white p-3 text-xs outline-none focus:border-stone-900"
               />
             </div>
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Duration (Mins)</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Duration (Mins)") }}</label>
               <input
                 v-model="serviceForm.durationMinutes"
                 type="number"
@@ -671,7 +672,7 @@ const deleteService = async (s: ServiceItem) => {
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Price</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Price") }}</label>
             <div class="flex gap-2">
               <input
                 v-model="serviceForm.priceEur"
@@ -686,17 +687,17 @@ const deleteService = async (s: ServiceItem) => {
                 v-model="serviceForm.currency"
                 :options="currencyOptions"
                 class="w-32 shrink-0"
-                placeholder="Currency"
-                search-placeholder="Search, e.g. riyal"
+                :placeholder="t('Currency')"
+                :search-placeholder="t('Search, e.g. riyal')"
               />
             </div>
             <p class="mt-1 text-[11px] text-stone-500">
-              Customers see {{ formatMoney(Math.round((parseFloat(serviceForm.priceEur) || 0) * 100), serviceForm.currency) }}
+              {{ t("Customers see {price}", { price: formatMoney(Math.round((parseFloat(serviceForm.priceEur) || 0) * 100), serviceForm.currency) }) }}
             </p>
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Accent Color</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Accent Color") }}</label>
             <div class="flex items-center gap-2">
               <button
                 v-for="c in defaultAccents"
@@ -711,7 +712,7 @@ const deleteService = async (s: ServiceItem) => {
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Description</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Description") }}</label>
             <textarea
               v-model="serviceForm.description"
               rows="2"
@@ -729,14 +730,14 @@ const deleteService = async (s: ServiceItem) => {
               @click="showEditModal = false"
               class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
             >
-              Cancel
+              {{ t("Cancel") }}
             </button>
             <button
               type="submit"
               :disabled="isSubmitting"
               class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
             >
-              {{ isSubmitting ? "Saving..." : "Save Changes" }}
+              {{ isSubmitting ? t("Saving...") : t("Save Changes") }}
             </button>
           </div>
         </form>

@@ -11,10 +11,10 @@ export const BRAND = {
   description:
     "Reventos gives salons, clinics, pet care, towing and home-service businesses one simple place for online booking, reminders, staff, customers and on-location jobs.",
   /**
-   * Public contact address shown in the footer and on the Contact page.
-   * TODO: replace with your real support mailbox.
+   * Public contact address for queries, shown in the footer, Contact page,
+   * legal pages and contact-form error messages.
    */
-  email: "hello@reventos.com",
+  email: "info@reventos.feroferto.com",
   /** Where the company is based (footer line). */
   basedIn: "Athens, Greece",
 } as const;

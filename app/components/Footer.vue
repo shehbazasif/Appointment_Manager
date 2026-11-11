@@ -42,7 +42,7 @@ const year = new Date().getFullYear();
         <div class="lg:col-span-4">
           <BrandLogo dark />
           <p class="mt-4 max-w-sm text-sm leading-6">
-            Online booking, reminders, staff and on-location jobs for small businesses — in Greece, the Gulf and worldwide.
+            Online booking, reminders, staff and on-location jobs for small businesses in Greece, the Gulf and worldwide.
           </p>
           <a
             :href="`mailto:${BRAND.email}`"

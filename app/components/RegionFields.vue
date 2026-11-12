@@ -12,9 +12,10 @@ const city = defineModel<string>("city", { default: "" });
 const timezone = defineModel<string>("timezone", { default: "" });
 const currency = defineModel<string>("currency", { default: "" });
 
-const props = withDefaults(defineProps<{ showCurrency?: boolean; showCity?: boolean }>(), {
+const props = withDefaults(defineProps<{ showCurrency?: boolean; showCity?: boolean; stacked?: boolean }>(), {
   showCurrency: true,
   showCity: false,
+  stacked: false,
 });
 
 const selected = computed(() => findRegionCountry(country.value));
@@ -22,8 +23,8 @@ const selected = computed(() => findRegionCountry(country.value));
 // ---- Country ----
 const countryOptions = REGION_COUNTRIES.map((c) => ({
   value: c.iso,
-  label: `${flagOf(c.iso)}  ${c.name}`,
-  hint: c.iso,
+  // plain name: flag emojis show as letters ("QA") on Windows
+  label: c.name,
   keywords: c.name,
 }));
 const countryIso = computed({
@@ -111,6 +112,7 @@ const nowInZone = computed(() => {
 
 const labelClass = "block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5";
 const cols = computed(() => {
+  if (props.stacked) return "";
   const n = 2 + (props.showCity ? 1 : 0) + (props.showCurrency ? 1 : 0);
   return n >= 4 ? "sm:grid-cols-2 lg:grid-cols-4" : n === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2";
 });

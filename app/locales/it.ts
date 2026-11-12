@@ -612,6 +612,24 @@ const dict: Record<string, string> = {
   "Select all": "Seleziona tutto",
   "{n} selected": "{n} selezionati",
   "Choose services…": "Scegli i servizi…",
-  "No services yet": "Ancora nessun servizio"
+  "No services yet": "Ancora nessun servizio",
+  "Customers can only book inside these hours.": "I clienti possono prenotare solo in questi orari.",
+  "Weekly schedule": "Orario settimanale",
+  "Check the times": "Controlla gli orari",
+  "Copy these hours to all open days": "Copia questi orari su tutti i giorni aperti",
+  "Open this day": "Apri questo giorno",
+  "This week": "Questa settimana",
+  "Open days": "Giorni aperti",
+  "Open hours": "Ore di apertura",
+  "Open now": "Aperto ora",
+  "Closed now": "Chiuso ora",
+  "Quick presets": "Modelli rapidi",
+  "You have unsaved changes": "Hai modifiche non salvate",
+  "Discard": "Annulla",
+  "Save": "Salva",
+  "Closing time must be after opening time.": "L'orario di chiusura deve essere dopo quello di apertura.",
+  "Type a time, e.g. 9:10": "Scrivi un orario, es. 9:10",
+  "Use {time}": "Usa {time}",
+  "Not a valid time": "Orario non valido"
 };
 export default dict;

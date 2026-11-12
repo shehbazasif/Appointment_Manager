@@ -613,6 +613,24 @@ const dict: Record<string, string> = {
   "Select all": "تحديد الكل",
   "{n} selected": "تم تحديد {n}",
   "Choose services…": "اختر الخدمات…",
-  "No services yet": "لا توجد خدمات بعد"
+  "No services yet": "لا توجد خدمات بعد",
+  "Customers can only book inside these hours.": "يمكن للعملاء الحجز ضمن هذه الساعات فقط.",
+  "Weekly schedule": "الجدول الأسبوعي",
+  "Check the times": "تحقق من الأوقات",
+  "Copy these hours to all open days": "نسخ هذه الساعات إلى كل الأيام المفتوحة",
+  "Open this day": "فتح هذا اليوم",
+  "This week": "هذا الأسبوع",
+  "Open days": "أيام العمل",
+  "Open hours": "ساعات العمل",
+  "Open now": "مفتوح الآن",
+  "Closed now": "مغلق الآن",
+  "Quick presets": "قوالب سريعة",
+  "You have unsaved changes": "لديك تغييرات غير محفوظة",
+  "Discard": "تجاهل",
+  "Save": "حفظ",
+  "Closing time must be after opening time.": "يجب أن يكون وقت الإغلاق بعد وقت الفتح.",
+  "Type a time, e.g. 9:10": "اكتب وقتًا، مثل 9:10",
+  "Use {time}": "استخدام {time}",
+  "Not a valid time": "وقت غير صالح"
 };
 export default dict;

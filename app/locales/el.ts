@@ -612,6 +612,24 @@ const dict: Record<string, string> = {
   "Select all": "Επιλογή όλων",
   "{n} selected": "{n} επιλεγμένα",
   "Choose services…": "Επιλέξτε υπηρεσίες…",
-  "No services yet": "Δεν υπάρχουν ακόμη υπηρεσίες"
+  "No services yet": "Δεν υπάρχουν ακόμη υπηρεσίες",
+  "Customers can only book inside these hours.": "Οι πελάτες κλείνουν ραντεβού μόνο μέσα σε αυτές τις ώρες.",
+  "Weekly schedule": "Εβδομαδιαίο πρόγραμμα",
+  "Check the times": "Ελέγξτε τις ώρες",
+  "Copy these hours to all open days": "Αντιγραφή αυτών των ωρών σε όλες τις ανοιχτές ημέρες",
+  "Open this day": "Άνοιγμα αυτή την ημέρα",
+  "This week": "Αυτή την εβδομάδα",
+  "Open days": "Ανοιχτές ημέρες",
+  "Open hours": "Ώρες λειτουργίας",
+  "Open now": "Ανοιχτά τώρα",
+  "Closed now": "Κλειστά τώρα",
+  "Quick presets": "Γρήγορα πρότυπα",
+  "You have unsaved changes": "Έχετε μη αποθηκευμένες αλλαγές",
+  "Discard": "Απόρριψη",
+  "Save": "Αποθήκευση",
+  "Closing time must be after opening time.": "Η ώρα κλεισίματος πρέπει να είναι μετά την ώρα ανοίγματος.",
+  "Type a time, e.g. 9:10": "Γράψτε ώρα, π.χ. 9:10",
+  "Use {time}": "Χρήση {time}",
+  "Not a valid time": "Μη έγκυρη ώρα"
 };
 export default dict;

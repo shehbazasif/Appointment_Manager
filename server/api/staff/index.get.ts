@@ -32,7 +32,8 @@ export default defineEventHandler(async (event) => {
 
   const { data: allStaffServices } = await sb
     .from("staff_services")
-    .select("staff_id, service_id");
+    .select("staff_id, service_id")
+    .eq("business_id", businessId);
 
   const servicesByStaff = new Map<string, string[]>();
   for (const ss of allStaffServices ?? []) {

@@ -42,7 +42,9 @@ export default defineEventHandler(async (event) => {
       bookingActive: true,
       onLocationEnabled: (flags as any)?.onLocationEnabled === true,
       hidePricesInList: (flags as any)?.hidePricesInList === true,
+      showTokenToCustomer: (flags as any)?.showTokenToCustomer === true,
       language: (flags as any)?.language ?? "en",
+      themeColor: (flags as any)?.themeColor ?? null,
     },
     services: (activeServices ?? []).map((s: any) => ({
       id: s.id,

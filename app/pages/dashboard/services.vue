@@ -10,6 +10,9 @@ import {
   Check,
   X,
   AlertCircle,
+  Search,
+  Eye,
+  EyeOff,
 } from "lucide-vue-next";
 const { t } = useT();
 
@@ -290,33 +293,61 @@ const deleteService = async (s: ServiceItem) => {
     alert(err?.data?.statusMessage ?? t(t("Failed to delete service.")));
   }
 };
+// Design-system table: category tabs, search, optional columns
+const showCategories = ref(false);
+const svcTab = ref("ALL");
+const svcSearch = ref("");
+const categoryTabs = computed(() => [
+  { value: "ALL", label: t("All"), count: services.value.length },
+  ...Object.entries(groupedServices.value).map(([name, list]) => ({
+    value: name,
+    label: name === "General" ? t("General") : name,
+    count: list.length,
+  })),
+]);
+const filteredServices = computed(() => {
+  const q = svcSearch.value.trim().toLowerCase();
+  const list = svcTab.value === "ALL" ? services.value : (groupedServices.value[svcTab.value] ?? []);
+  return list.filter((s) => !q || s.name.toLowerCase().includes(q) || (s.description ?? "").toLowerCase().includes(q));
+});
+const table = useDataTable("services_table_cols", [
+  { key: "category", label: "Category", on: true },
+  { key: "description", label: "Description", on: false },
+]);
 </script>
 
 <template>
-  <div class="space-y-6 pb-16">
+  <div class="space-y-5 pb-16">
     <!-- Header -->
-    <div class="page-head flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div class="ds-page-head">
       <div class="min-w-0">
-        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">{{ t("Menu & Pricing") }}</p>
-        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">{{ t("Services Catalog") }}</h1>
+        <h1 class="ds-page-title">{{ t("Services") }}</h1>
+        <p class="ds-page-sub">{{ t("What customers can book, how long it takes and what it costs.") }}</p>
       </div>
-      <button
-        type="button"
-        @click="openCreate"
-        class="max-md:w-full max-md:justify-center max-md:min-h-11 inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm self-start sm:self-auto"
-      >
-        <Plus :size="16" />
-        <span>{{ t("Add Service") }}</span>
-      </button>
+      <div class="flex w-full items-center gap-2 sm:w-auto">
+        <button type="button" class="ui-btn ui-btn-secondary flex-1 sm:flex-none" :aria-expanded="showCategories" @click="showCategories = !showCategories">
+          <Tag :size="16" />
+          <span>{{ t("Categories") }}</span>
+        </button>
+        <button type="button" class="ui-btn ui-btn-primary flex-1 sm:flex-none" @click="openCreate">
+          <Plus :size="16" />
+          <span>{{ t("Add Service") }}</span>
+        </button>
+      </div>
     </div>
 
-    <!-- Category manager -->
-    <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm space-y-3">
-      <div class="flex items-center gap-2">
-        <Tag :size="16" class="text-rose-600" />
-        <h2 class="text-sm font-bold text-stone-900">{{ t("Categories") }}</h2>
+    <!-- Category manager (opens from the header) -->
+    <div v-if="showCategories" class="ds-card space-y-3 p-4">
+      <div class="flex items-center justify-between gap-2">
+        <div>
+          <h2 class="ds-section-title">{{ t("Categories") }}</h2>
+          <p class="ds-section-sub">{{ t("Group your services, e.g. Check-ups, Vaccines, Grooming.") }}</p>
+        </div>
+        <button type="button" class="ui-btn ui-btn-ghost ui-btn-icon" :aria-label="t('Close')" @click="showCategories = false">
+          <X :size="18" />
+        </button>
       </div>
-      <p v-if="!categoriesEnabled" class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+      <p v-if="!categoriesEnabled" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-[13px] text-amber-800">
         {{ t("Categories need a small database update first (scripts/service-categories.sql). Until then all services stay in \"General\".") }}
       </p>
       <template v-else>
@@ -324,17 +355,16 @@ const deleteService = async (s: ServiceItem) => {
           <span
             v-for="c in categories"
             :key="c"
-            class="inline-flex min-h-9 items-center gap-1 rounded-full border border-stone-200 bg-stone-50 ps-3 pe-1 text-xs font-semibold text-stone-800"
+            class="inline-flex h-8 items-center gap-1 rounded-full border border-stone-200 bg-stone-50 ps-3 pe-1 text-[13px] font-medium text-stone-800"
           >
             {{ c === "General" ? t("General") : c }}
             <button
               v-if="c !== 'General'"
               type="button"
               :disabled="categoryBusy"
+              class="grid size-6 place-items-center rounded-full text-stone-400 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+              :aria-label="t('Remove {name}', { name: c })"
               @click="removeCategory(c)"
-              class="grid size-8 place-items-center rounded-full text-stone-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
-              :aria-label="`Remove category ${c}`"
-              :title="`Remove ${c}`"
             >
               <X :size="14" />
             </button>
@@ -342,144 +372,162 @@ const deleteService = async (s: ServiceItem) => {
           </span>
         </div>
         <form class="flex gap-2" @submit.prevent="addCategory">
-          <input
-            v-model="newCategory"
-            type="text"
-            maxlength="60"
-            :placeholder="t('New category, e.g. Nails')"
-            class="min-w-0 flex-1 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs outline-none focus:border-stone-900 focus:bg-white sm:max-w-xs"
-          />
-          <button
-            type="submit"
-            :disabled="categoryBusy || !newCategory.trim()"
-            class="tap inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
-          >
-            <Plus :size="14" />
+          <input v-model="newCategory" type="text" maxlength="60" :placeholder="t('New category, e.g. Nails')" class="min-w-0 flex-1 px-3 sm:max-w-xs" />
+          <button type="submit" class="ui-btn ui-btn-secondary" :disabled="categoryBusy || !newCategory.trim()">
+            <Plus :size="16" />
             <span>{{ t("Add") }}</span>
           </button>
         </form>
-        <p v-if="categoryError" class="text-xs font-medium text-rose-700">{{ categoryError }}</p>
+        <p v-if="categoryError" class="text-[13px] font-medium text-red-700">{{ categoryError }}</p>
       </template>
     </div>
 
-    <!-- Loading State -->
-    <div v-if="isLoading" class="space-y-4">
-      <div v-for="i in 3" :key="i" class="h-32 rounded-3xl bg-stone-200/60 animate-pulse"></div>
-    </div>
-
-    <!-- Empty State -->
-    <div
-      v-else-if="!hasAnyGroup"
-      class="py-16 text-center rounded-3xl border border-dashed border-stone-200 bg-white"
-    >
-      <Sparkles :size="36" class="mx-auto text-stone-400" />
-      <h3 class="mt-3 font-display text-lg font-bold text-stone-900">{{ t("No services created") }}</h3>
-      <p class="mt-1 text-xs text-stone-500 max-w-sm mx-auto">
-        {{ t("Configure the treatments, haircuts, and sessions you offer to customers.") }}
-      </p>
-      <button
-        type="button"
-        @click="openCreate"
-        class="mt-4 inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white"
-      >
-        <Plus :size="14" />
-        <span>{{ t("Create First Service") }}</span>
-      </button>
-    </div>
-
-    <!-- Grouped Categories -->
-    <div v-else class="space-y-8">
-      <div
-        v-for="(catServices, category) in groupedServices"
-        :key="category"
-        class="space-y-3"
-      >
-        <!-- Category Title -->
-        <div class="flex items-center gap-2">
-          <Tag :size="16" class="text-rose-600" />
-          <h2 class="font-display text-lg font-bold text-stone-900">{{ category === "General" ? t("General") : category }}</h2>
-          <span class="rounded-full bg-stone-200 px-2 py-0.5 text-[10px] font-bold text-stone-700">
-            {{ catServices.length }}
-          </span>
-        </div>
-
-        <p
-          v-if="catServices.length === 0"
-          class="rounded-2xl border border-dashed border-stone-200 bg-white p-4 text-xs text-stone-500"
+    <div class="ds-card">
+      <!-- Category tabs -->
+      <div class="ds-tabs" role="tablist">
+        <button
+          v-for="tab in categoryTabs"
+          :key="tab.value"
+          type="button"
+          role="tab"
+          :aria-selected="svcTab === tab.value"
+          :class="['ds-tab', svcTab === tab.value ? 'is-active' : '']"
+          @click="svcTab = tab.value"
         >
-          {{ t('No services in this category yet. Add a service and choose "{category}".', { category: t(category) }) }}
-        </p>
+          {{ tab.label }}
+          <span class="count">{{ tab.count }}</span>
+        </button>
+      </div>
 
-        <!-- Category Grid -->
-        <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <div
-            v-for="s in catServices"
-            :key="s.id"
-            :class="[
-              s.active ? 'border-stone-200 bg-white' : 'border-stone-200/60 bg-stone-100/60 opacity-75',
-              'rounded-3xl border p-5 shadow-2xs space-y-3 transition flex flex-col justify-between',
-            ]"
-          >
-            <div class="space-y-2">
-              <div class="flex items-start justify-between">
-                <div class="flex items-center gap-2">
-                  <span
-                    class="size-3 rounded-full shrink-0 shadow-2xs"
-                    :style="{ backgroundColor: s.accent || '#ca7481' }"
-                  ></span>
-                  <h3 class="font-bold text-stone-900 text-sm leading-snug">{{ s.name }}</h3>
-                </div>
-                <button
-                  type="button"
-                  @click="toggleActive(s)"
-                  :class="[
-                    s.active
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : 'bg-stone-200 text-stone-600 border-stone-300',
-                    'rounded-lg border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
-                  ]"
-                >
-                  {{ s.active ? t("Active") : t("Hidden") }}
-                </button>
-              </div>
-
-              <p v-if="s.description" class="text-xs text-stone-500 line-clamp-2 leading-relaxed">
-                {{ s.description }}
-              </p>
-
-              <div class="flex items-center gap-4 text-xs pt-1">
-                <span class="flex items-center gap-1 font-semibold text-stone-800">
-                  <Clock :size="13" class="text-stone-400" />
-                  {{ t("{n} mins", { n: s.durationMinutes }) }}
-                </span>
-                <span class="flex items-center gap-1 font-bold text-stone-900 text-sm">
-                  {{ formatMoney(s.priceCents, s.currency) }}
-                </span>
-              </div>
-            </div>
-
-            <!-- Actions -->
-            <div class="flex items-center justify-end gap-1.5 pt-3 border-t border-stone-100">
-              <button
-                type="button"
-                @click="openEdit(s)"
-                class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-900"
-                :title="t('Edit Service')"
-              >
-                <Edit2 :size="14" />
-              </button>
-              <button
-                type="button"
-                @click="deleteService(s)"
-                class="rounded-lg p-1.5 text-stone-400 hover:bg-rose-50 hover:text-rose-600"
-                :title="t('Deactivate Service')"
-              >
-                <Trash2 :size="14" />
-              </button>
-            </div>
-          </div>
+      <!-- Toolbar -->
+      <div class="ds-toolbar">
+        <div class="relative min-w-0 flex-1 md:max-w-sm">
+          <Search :size="16" class="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-stone-400" />
+          <input v-model="svcSearch" type="search" enterkeyhint="search" :placeholder="t('Search services...')" class="w-full ps-9 pe-3" />
+        </div>
+        <div class="ms-auto hidden lg:block">
+          <ColumnPicker :columns="table.columns" :visible="table.visible" @toggle="table.toggle" @reset="table.reset" />
         </div>
       </div>
+
+      <!-- Loading -->
+      <div v-if="isLoading" class="space-y-2 p-4">
+        <div v-for="i in 4" :key="i" class="h-12 animate-pulse rounded-lg bg-stone-100"></div>
+      </div>
+
+      <!-- Empty -->
+      <div v-else-if="services.length === 0" class="px-4 py-16 text-center">
+        <span class="mx-auto grid size-12 place-items-center rounded-full bg-stone-100 text-stone-500">
+          <Sparkles :size="22" />
+        </span>
+        <h3 class="mt-3 text-base font-semibold text-stone-900">{{ t("No services created") }}</h3>
+        <p class="mx-auto mt-1 max-w-sm text-sm text-stone-500">
+          {{ t("Configure the treatments, haircuts, and sessions you offer to customers.") }}
+        </p>
+        <button type="button" class="ui-btn ui-btn-primary mt-4" @click="openCreate">
+          <Plus :size="16" />
+          <span>{{ t("Create First Service") }}</span>
+        </button>
+      </div>
+
+      <div v-else-if="filteredServices.length === 0" class="px-4 py-12 text-center text-sm text-stone-500">
+        <template v-if="svcTab !== 'ALL' && !svcSearch.trim()">
+          {{ t('No services in this category yet. Add a service and choose "{category}".', { category: svcTab === "General" ? t("General") : svcTab }) }}
+        </template>
+        <template v-else>{{ t("No services match this search.") }}</template>
+      </div>
+
+      <template v-else>
+        <!-- Desktop: data table -->
+        <div
+          :ref="(el) => (table.wrap.value = el as HTMLElement | null)"
+          :class="['ds-table-wrap hidden lg:block', table.scrolledX.value ? 'is-scrolled-x' : '', table.canScrollX.value ? 'can-scroll-x' : '']"
+          @scroll="table.onScroll"
+        >
+          <table class="ds-table">
+            <thead>
+              <tr>
+                <th class="sticky-start">{{ t("Service") }}</th>
+                <th v-if="table.visible.category">{{ t("Category") }}</th>
+                <th>{{ t("Duration") }}</th>
+                <th class="text-end">{{ t("Price") }}</th>
+                <th v-if="table.visible.description">{{ t("Description") }}</th>
+                <th>{{ t("Bookable") }}</th>
+                <th class="sticky-end text-end">{{ t("Actions") }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="s in filteredServices" :key="s.id" :class="s.active ? '' : 'opacity-60'">
+                <td class="sticky-start">
+                  <div class="flex items-center gap-3">
+                    <span class="size-2.5 shrink-0 rounded-full" :style="{ backgroundColor: s.accent || '#94a3b8' }"></span>
+                    <span class="is-strong max-w-[18rem] truncate">{{ s.name }}</span>
+                  </div>
+                </td>
+                <td v-if="table.visible.category"><span class="ds-tag">{{ s.category === "General" || !s.category ? t("General") : s.category }}</span></td>
+                <td class="num">{{ t("{n} min", { n: s.durationMinutes }) }}</td>
+                <td class="num text-end text-stone-800">{{ formatMoney(s.priceCents, s.currency) }}</td>
+                <td v-if="table.visible.description" class="max-w-[20rem] truncate" :title="s.description ?? ''">{{ s.description || "—" }}</td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <AppSwitch :model-value="s.active" :label="t('Shown on booking page')" @update:model-value="toggleActive(s)" />
+                    <span class="text-xs" :class="s.active ? 'text-emerald-700' : 'text-stone-500'">{{ s.active ? t("Active") : t("Hidden") }}</span>
+                  </div>
+                </td>
+                <td class="sticky-end">
+                  <div class="flex items-center justify-end gap-1.5">
+                    <button type="button" class="ui-btn ui-btn-sm ui-btn-soft" @click="openEdit(s)">
+                      <Edit2 :size="14" /> {{ t("Edit") }}
+                    </button>
+                    <RowActionMenu :label="t('More actions')">
+                      <button type="button" class="ds-menu-item" role="menuitem" @click="openEdit(s)">
+                        <Edit2 :size="16" /> {{ t("Edit Service") }}
+                      </button>
+                      <button type="button" class="ds-menu-item" role="menuitem" @click="toggleActive(s)">
+                        <component :is="s.active ? EyeOff : Eye" :size="16" /> {{ s.active ? t("Hide from booking page") : t("Show on booking page") }}
+                      </button>
+                      <div class="ds-menu-sep"></div>
+                      <button type="button" class="ds-menu-item ds-menu-item--danger" role="menuitem" @click="deleteService(s)">
+                        <Trash2 :size="16" /> {{ t("Deactivate Service") }}
+                      </button>
+                    </RowActionMenu>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Phones / tablets: cards -->
+        <div class="grid gap-3 p-3 sm:grid-cols-2 lg:hidden">
+          <article
+            v-for="s in filteredServices"
+            :key="s.id"
+            :class="['rounded-xl border border-stone-200 bg-white p-4', s.active ? '' : 'bg-stone-50']"
+          >
+            <div class="flex items-start gap-3">
+              <span class="mt-1.5 size-2.5 shrink-0 rounded-full" :style="{ backgroundColor: s.accent || '#94a3b8' }"></span>
+              <div class="min-w-0 flex-1">
+                <div class="text-base font-semibold text-stone-900">{{ s.name }}</div>
+                <div class="mt-0.5 flex flex-wrap items-center gap-x-3 text-[13px] text-stone-600">
+                  <span class="inline-flex items-center gap-1"><Clock :size="14" class="text-stone-400" /> {{ t("{n} min", { n: s.durationMinutes }) }}</span>
+                  <span class="font-semibold tabular-nums text-stone-900">{{ formatMoney(s.priceCents, s.currency) }}</span>
+                </div>
+                <p v-if="s.description" class="mt-1 line-clamp-2 text-[13px] text-stone-500">{{ s.description }}</p>
+              </div>
+              <AppSwitch :model-value="s.active" :label="t('Shown on booking page')" @update:model-value="toggleActive(s)" />
+            </div>
+            <div class="mt-3 flex gap-2 border-t border-stone-100 pt-3">
+              <button type="button" class="ui-btn ui-btn-secondary flex-1" @click="openEdit(s)">
+                <Edit2 :size="16" /> {{ t("Edit") }}
+              </button>
+              <button type="button" class="ui-btn ui-btn-secondary ui-btn-icon !text-red-700" :aria-label="t('Deactivate Service')" @click="deleteService(s)">
+                <Trash2 :size="16" />
+              </button>
+            </div>
+          </article>
+        </div>
+      </template>
     </div>
 
     <!-- Create Service Modal -->
@@ -598,14 +646,14 @@ const deleteService = async (s: ServiceItem) => {
             <button
               type="button"
               @click="showCreateModal = false"
-              class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+              class="ui-btn ui-btn-secondary rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
             >
               {{ t("Cancel") }}
             </button>
             <button
               type="submit"
               :disabled="isSubmitting"
-              class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
+              class="ui-btn ui-btn-primary rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
             >
               {{ isSubmitting ? t("Creating...") : t("Save Service") }}
             </button>
@@ -728,14 +776,14 @@ const deleteService = async (s: ServiceItem) => {
             <button
               type="button"
               @click="showEditModal = false"
-              class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+              class="ui-btn ui-btn-secondary rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
             >
               {{ t("Cancel") }}
             </button>
             <button
               type="submit"
               :disabled="isSubmitting"
-              class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
+              class="ui-btn ui-btn-primary rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
             >
               {{ isSubmitting ? t("Saving...") : t("Save Changes") }}
             </button>

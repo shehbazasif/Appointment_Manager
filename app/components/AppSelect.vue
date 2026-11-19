@@ -50,6 +50,23 @@ const list = ref<HTMLElement | null>(null);
 const searchEl = ref<HTMLInputElement | null>(null);
 const active = ref(0);
 const listId = useId();
+// Where the menu opens: flip to the end side / upwards when there is no room
+const menuEl = ref<HTMLElement | null>(null);
+const alignEnd = ref(false);
+const dropUp = ref(false);
+const placeMenu = () => {
+  const r = root.value?.getBoundingClientRect();
+  const m = menuEl.value;
+  if (!r || !m) return;
+  const rtl = document.documentElement.dir === "rtl";
+  const w = m.offsetWidth;
+  const h = m.offsetHeight;
+  // start-aligned menu would run past the window edge -> align it to the end
+  alignEnd.value = rtl ? r.right - w < 8 : r.left + w > window.innerWidth - 8;
+  // not enough room below but more above -> open upwards
+  const below = window.innerHeight - r.bottom;
+  dropUp.value = below < h + 12 && r.top > below;
+};
 
 // eslint-disable-next-line eqeqeq
 const same = (a: any, b: any) => a == b || (a === "" && b == null) || (a == null && b === "");
@@ -66,7 +83,10 @@ const openMenu = async () => {
   query.value = "";
   const all = getOptions();
   active.value = Math.max(0, all.findIndex((o) => same(o.value, model.value)));
+  alignEnd.value = false;
+  dropUp.value = false;
   await nextTick();
+  placeMenu();
   if (searchEl.value) searchEl.value.focus();
   else list.value?.focus();
   list.value?.querySelector<HTMLElement>(`[data-i="${active.value}"]`)?.scrollIntoView({ block: "nearest" });
@@ -110,8 +130,7 @@ const isPlaceholder = (all: Opt[]) => {
       :aria-controls="listId"
       aria-haspopup="listbox"
       :aria-required="required || undefined"
-      class="flex w-full items-center gap-2 text-start disabled:cursor-not-allowed disabled:opacity-60 max-md:text-base"
-      :class="open ? '!border-stone-900 !bg-white ring-4 ring-stone-900/5' : ''"
+      class="ui-control flex w-full items-center gap-2 ps-3 pe-2.5 text-start disabled:cursor-not-allowed disabled:opacity-60 max-md:text-base"
       @click="open ? close() : openMenu()"
       @keydown.down.prevent="!open && openMenu()"
     >
@@ -129,7 +148,9 @@ const isPlaceholder = (all: Opt[]) => {
     >
       <div
         v-if="open"
-        class="absolute start-0 top-full z-50 mt-1.5 w-full min-w-48 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl shadow-stone-900/15"
+        ref="menuEl"
+        class="absolute z-50 w-full min-w-48 overflow-hidden rounded-lg border border-stone-200 bg-white shadow-xl shadow-stone-900/10"
+        :class="[alignEnd ? 'end-0' : 'start-0', dropUp ? 'bottom-full mb-1' : 'top-full mt-1']"
         @keydown="onKey"
       >
         <div v-if="useSearch(getOptions())" class="relative border-b border-stone-100 p-2">
@@ -140,11 +161,11 @@ const isPlaceholder = (all: Opt[]) => {
             type="search"
             autocomplete="off"
             :placeholder="t('Type to search…')"
-            class="w-full rounded-xl border border-stone-200 bg-stone-50 py-2 pe-3 ps-8 text-xs outline-none focus:border-stone-900 focus:bg-white"
+            class="w-full pe-3 ps-8"
             @input="active = 0"
           />
         </div>
-        <ul :id="listId" ref="list" role="listbox" tabindex="-1" class="max-h-64 overflow-y-auto overscroll-contain p-1.5 outline-none max-md:max-h-[45dvh]">
+        <ul :id="listId" ref="list" role="listbox" tabindex="-1" class="grid max-h-64 gap-0.5 overflow-y-auto overscroll-contain p-1 outline-none max-md:max-h-[45dvh]">
           <li
             v-for="(o, i) in visibleOptions(getOptions())"
             :key="String(o.value) + i"
@@ -152,15 +173,19 @@ const isPlaceholder = (all: Opt[]) => {
             role="option"
             :aria-selected="same(o.value, model)"
             :aria-disabled="o.disabled || undefined"
-            class="flex min-h-10 cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors max-md:min-h-11"
+            class="flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] transition-colors max-md:min-h-11 max-md:text-[15px]"
             :class="[
-              o.disabled ? 'cursor-default text-stone-400' : same(o.value, model) ? 'bg-stone-900 font-semibold text-white' : i === active ? 'bg-stone-100 text-stone-900' : 'text-stone-700',
+              o.disabled
+                ? 'cursor-default text-stone-400'
+                : same(o.value, model)
+                  ? (i === active ? 'bg-rose-100 font-semibold text-rose-800' : 'bg-rose-50 font-semibold text-rose-700')
+                  : i === active ? 'bg-stone-100 text-stone-900' : 'text-stone-700',
             ]"
             @pointerenter="!o.disabled && (active = i)"
             @click="pick(o)"
           >
             <span class="min-w-0 flex-1 truncate">{{ o.label }}</span>
-            <Check v-if="same(o.value, model) && !o.disabled" :size="15" class="shrink-0" />
+            <Check v-if="same(o.value, model) && !o.disabled" :size="16" class="shrink-0" />
           </li>
           <li v-if="!visibleOptions(getOptions()).length" class="px-3 py-4 text-center text-xs text-stone-500">{{ t("No matches") }}</li>
         </ul>

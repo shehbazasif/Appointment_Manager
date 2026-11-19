@@ -65,8 +65,21 @@ export const organizationSettingsSchema = z.object({
   onLocationEnabled: z.boolean().optional(),
   // booking page: hide prices on the service list (shown after picking a service)
   hidePricesInList: z.boolean().optional(),
+  // booking page: show the queue token to the customer after booking
+  showTokenToCustomer: z.boolean().optional(),
+  tokensEnabled: z.boolean().optional(),
+  businessType: z.enum(["general", "clinic", "pet_grooming", "salon", "field_service"]).optional(),
+  // booking slots: how often a start time is offered, and free time after each booking
+  slotStepMinutes: z.number().int().min(5).max(240).optional(),
+  bufferMinutes: z.number().int().min(0).max(120).optional(),
   // dashboard + booking page language
   language: z.enum(["en", "el", "ar", "fr", "it"]).optional(),
+  // theme colour (hex) for dashboard + booking page; null = default
+  themeColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Use a colour like #4f6bed.")
+    .nullable()
+    .optional(),
 });
 
 export const dayHoursSchema = z.object({

@@ -15,9 +15,11 @@ import {
   UserX,
   AlertCircle,
   Upload,
-  MessageCircle,
+  Search,
+  CalendarCheck,
 } from "lucide-vue-next";
 const { t, intl } = useT();
+const { features } = useFeatures();
 
 const showImport = ref(false);
 
@@ -138,11 +140,13 @@ const loadData = async () => {
       const org = await $fetch<{ onLocationEnabled?: boolean }>("/api/organization");
       onLocation.value = org.onLocationEnabled === true;
     } catch {}
-    const [staffData, serviceData, scheduleData] = await Promise.all([
+    const [staffData, serviceData, scheduleData, apptData] = await Promise.all([
       $fetch<StaffMember[]>("/api/staff"),
       $fetch<ServiceItem[]>("/api/services"),
       $fetch<ScheduleRow[]>("/api/staff-schedules").catch(() => [] as ScheduleRow[]),
+      $fetch<any[]>("/api/appointments").catch(() => [] as any[]),
     ]);
+    todayBookings.value = countToday(apptData);
     staffList.value = staffData;
     services.value = serviceData;
     schedules.value = scheduleData;
@@ -300,181 +304,270 @@ const formatDate = (isoString: string) => {
   const date = new Date(isoString);
   return date.toLocaleDateString(intl.value, { weekday: "short", month: "short", day: "numeric" });
 };
+// Design-system table: tabs, search, optional columns
+const STAFF_TABS = [
+  { value: "ALL", label: "All" },
+  { value: "ACTIVE", label: "Active" },
+  { value: "INACTIVE", label: "Inactive" },
+] as const;
+const staffTab = ref<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
+const staffSearch = ref("");
+const staffCounts = computed(() => ({
+  ALL: staffList.value.length,
+  ACTIVE: staffList.value.filter((m) => m.active).length,
+  INACTIVE: staffList.value.filter((m) => !m.active).length,
+}));
+const filteredStaff = computed(() => {
+  const q = staffSearch.value.trim().toLowerCase();
+  return staffList.value.filter(
+    (m) =>
+      (staffTab.value === "ALL" || (staffTab.value === "ACTIVE") === m.active) &&
+      (!q || m.name.toLowerCase().includes(q) || m.role.toLowerCase().includes(q) || (m.phone ?? "").includes(q)),
+  );
+});
+// Today's bookings per staff member (cancelled / no-show not counted)
+const todayBookings = ref<Record<string, number>>({});
+const countToday = (rows: any[]) => {
+  const now = new Date();
+  const key = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const out: Record<string, number> = {};
+  for (const r of rows ?? []) {
+    const a = r?.appointment;
+    if (!a?.staffId || ["CANCELLED", "NO_SHOW"].includes(a.status)) continue;
+    if (key(new Date(a.startAt)) !== key(now)) continue;
+    out[a.staffId] = (out[a.staffId] ?? 0) + 1;
+  }
+  return out;
+};
+const serviceNames = (m: StaffMember) =>
+  (m.serviceIds ?? []).map((id) => services.value.find((s) => s.id === id)?.name).filter(Boolean) as string[];
+const table = useDataTable("staff_table_cols", [
+  { key: "today", label: "Today", on: true },
+  { key: "services", label: "Services", on: true },
+  { key: "email", label: "Email", on: false },
+]);
 </script>
 
 <template>
-  <div class="space-y-6 pb-16">
+  <div class="space-y-5 pb-16">
     <!-- Header -->
-    <div class="page-head flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div class="ds-page-head">
       <div class="min-w-0">
-        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">{{ t("Team & Providers") }}</p>
-        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">{{ t("Staff Members") }}</h1>
+        <h1 class="ds-page-title">{{ t("Staff") }}</h1>
+        <p class="ds-page-sub">{{ t("Your team, what they do and when they work. Switch someone off to stop new bookings for them.") }}</p>
       </div>
-      <div class="page-head-actions flex flex-wrap items-center gap-2 self-start sm:self-auto">
-        <button
-          type="button"
-          @click="showImport = true"
-          class="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50 transition shadow-sm"
-        >
+      <div class="flex w-full items-center gap-2 sm:w-auto">
+        <button v-if="features.import" type="button" class="ui-btn ui-btn-secondary flex-1 sm:flex-none" @click="showImport = true">
           <Upload :size="16" />
           <span>{{ t("Import Excel") }}</span>
         </button>
-        <button
-          type="button"
-          @click="openCreate"
-          class="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm"
-        >
+        <button type="button" class="ui-btn ui-btn-primary flex-1 sm:flex-none" @click="openCreate">
           <Plus :size="16" />
           <span>{{ t("Add Staff Member") }}</span>
         </button>
       </div>
     </div>
 
-    <!-- Loading State -->
-    <div v-if="isLoading" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <div v-for="i in 3" :key="i" class="h-44 rounded-3xl bg-stone-200/60 animate-pulse"></div>
-    </div>
+    <div class="ds-card">
+      <!-- Tabs -->
+      <div class="ds-tabs" role="tablist">
+        <button
+          v-for="tab in STAFF_TABS"
+          :key="tab.value"
+          type="button"
+          role="tab"
+          :aria-selected="staffTab === tab.value"
+          :class="['ds-tab', staffTab === tab.value ? 'is-active' : '']"
+          @click="staffTab = tab.value"
+        >
+          {{ t(tab.label) }}
+          <span class="count">{{ staffCounts[tab.value] }}</span>
+        </button>
+      </div>
 
-    <!-- Empty State -->
-    <div
-      v-else-if="staffList.length === 0"
-      class="py-16 text-center rounded-3xl border border-dashed border-stone-200 bg-white"
-    >
-      <UserCheck :size="36" class="mx-auto text-stone-400" />
-      <h3 class="mt-3 font-display text-lg font-bold text-stone-900">{{ t("No team members added yet") }}</h3>
-      <p class="mt-1 text-xs text-stone-500 max-w-sm mx-auto">
-        {{ t("Add your staff specialists to assign incoming appointments and manage individual schedules.") }}
-      </p>
-      <button
-        type="button"
-        @click="openCreate"
-        class="mt-4 inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white"
-      >
-        <Plus :size="14" />
-        <span>{{ t("Add First Staff Member") }}</span>
-      </button>
-    </div>
-
-    <!-- Staff Cards Grid -->
-    <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <div
-        v-for="member in staffList"
-        :key="member.id"
-        :class="[
-          member.active ? 'border-stone-200 bg-white' : 'border-stone-200/60 bg-stone-100/60 opacity-75',
-          'rounded-3xl border p-5 shadow-sm space-y-4 transition flex flex-col justify-between',
-        ]"
-      >
-        <div class="space-y-3">
-          <!-- Member Top Row -->
-          <div class="flex items-start justify-between">
-            <div class="flex items-center gap-3">
-              <div
-                :class="[
-                  member.active ? 'bg-stone-900 text-white' : 'bg-stone-400 text-white',
-                  'grid size-11 place-items-center rounded-2xl text-sm font-bold shadow-2xs',
-                ]"
-              >
-                {{ member.name.charAt(0) }}
-              </div>
-              <div>
-                <h3 class="font-bold text-stone-900 text-base leading-snug">{{ member.name }}</h3>
-                <p class="text-xs text-rose-600 font-semibold">{{ member.role }}</p>
-              </div>
-            </div>
-
-            <!-- Active Status Badge -->
-            <button
-              type="button"
-              @click="toggleActive(member)"
-              :class="[
-                member.active
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                  : 'bg-stone-200 text-stone-600 border-stone-300 hover:bg-stone-300',
-                'rounded-lg border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider transition',
-              ]"
-              :title="member.active ? 'Click to deactivate' : 'Click to activate'"
-            >
-              {{ member.active ? t("Active") : t("Inactive") }}
-            </button>
-          </div>
-
-          <!-- Contact info -->
-          <div class="space-y-1.5 text-xs text-stone-500 pt-1">
-            <div v-if="member.phone" class="flex items-center gap-2 text-stone-700">
-              <Phone :size="13" class="text-stone-400" />
-              <span><bdi dir="ltr">{{ member.phone }}</bdi></span>
-            </div>
-            <div v-if="member.email" class="flex min-w-0 items-center gap-2 text-stone-700">
-              <Mail :size="13" class="shrink-0 text-stone-400" />
-              <span class="truncate">{{ member.email }}</span>
-            </div>
-            <div v-if="todayDuty(member.id)" class="flex items-center gap-2 text-stone-700">
-              <Clock :size="13" class="text-stone-400" />
-              <span class="font-semibold">{{ todayDuty(member.id) }}</span>
-            </div>
-          </div>
-
-          <!-- Call / WhatsApp -->
-          <div v-if="member.phone" class="grid grid-cols-2 gap-2">
-            <a
-              :href="telHref(member.phone)"
-              class="tap inline-flex items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white py-2 text-xs font-bold text-stone-800 hover:bg-stone-50"
-            >
-              <Phone :size="14" />
-              <span>{{ t("Call") }}</span>
-            </a>
-            <a
-              :href="waHref(member.phone)"
-              :target="waTarget"
-              rel="noopener"
-              class="tap inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-700"
-            >
-              <MessageCircle :size="14" />
-              <span>{{ t("WhatsApp") }}</span>
-            </a>
-          </div>
-
-          <!-- Assigned Services Count -->
-          <div class="rounded-xl bg-stone-50 p-2.5 text-xs flex items-center justify-between border border-stone-200/60">
-            <span class="text-stone-500 font-medium">{{ t("Assigned Services") }}</span>
-            <span class="font-bold text-stone-900">{{ t("{n} services", { n: member.serviceIds?.length ?? 0 }) }}</span>
-          </div>
+      <!-- Toolbar -->
+      <div class="ds-toolbar">
+        <div class="relative min-w-0 flex-1 md:max-w-sm">
+          <Search :size="16" class="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-stone-400" />
+          <input v-model="staffSearch" type="search" enterkeyhint="search" :placeholder="t('Search by name, role, phone...')" class="w-full ps-9 pe-3" />
         </div>
-
-        <!-- Action Controls -->
-        <div class="grid grid-cols-3 gap-2 pt-3 border-t border-stone-100">
-          <button
-            type="button"
-            @click="openServicesAssign(member)"
-            class="tap flex items-center justify-center gap-1 rounded-xl border border-stone-200 bg-white py-2 text-[11px] font-bold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
-            :title="t('Assign Services')"
-          >
-            <Sparkles :size="12" />
-            <span>{{ t("Services") }}</span>
-          </button>
-
-          <button
-            type="button"
-            @click="openSchedule(member)"
-            class="tap flex items-center justify-center gap-1 rounded-xl border border-stone-200 bg-white py-2 text-[11px] font-bold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
-            :title="t('View Schedule')"
-          >
-            <Calendar :size="12" />
-            <span>{{ t("Schedule") }}</span>
-          </button>
-
-          <button
-            type="button"
-            @click="openEdit(member)"
-            class="tap flex items-center justify-center gap-1 rounded-xl border border-stone-200 bg-white py-2 text-[11px] font-bold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
-            :title="t('Edit Staff')"
-          >
-            <Edit2 :size="12" />
-            <span>{{ t("Edit") }}</span>
-          </button>
+        <div class="ms-auto hidden lg:block">
+          <ColumnPicker :columns="table.columns" :visible="table.visible" @toggle="table.toggle" @reset="table.reset" />
         </div>
       </div>
+
+      <!-- Loading -->
+      <div v-if="isLoading" class="space-y-2 p-4">
+        <div v-for="i in 4" :key="i" class="h-12 animate-pulse rounded-lg bg-stone-100"></div>
+      </div>
+
+      <!-- Empty -->
+      <div v-else-if="staffList.length === 0" class="px-4 py-16 text-center">
+        <span class="mx-auto grid size-12 place-items-center rounded-full bg-stone-100 text-stone-500">
+          <UserCheck :size="22" />
+        </span>
+        <h3 class="mt-3 text-base font-semibold text-stone-900">{{ t("No team members added yet") }}</h3>
+        <p class="mx-auto mt-1 max-w-sm text-sm text-stone-500">
+          {{ t("Add your staff specialists to assign incoming appointments and manage individual schedules.") }}
+        </p>
+        <button type="button" class="ui-btn ui-btn-primary mt-4" @click="openCreate">
+          <Plus :size="16" />
+          <span>{{ t("Add First Staff Member") }}</span>
+        </button>
+      </div>
+
+      <div v-else-if="filteredStaff.length === 0" class="px-4 py-12 text-center text-sm text-stone-500">
+        {{ t("No staff match this search.") }}
+      </div>
+
+      <template v-else>
+        <!-- Desktop: data table -->
+        <div
+          :ref="(el) => (table.wrap.value = el as HTMLElement | null)"
+          :class="['ds-table-wrap hidden lg:block', table.scrolledX.value ? 'is-scrolled-x' : '', table.canScrollX.value ? 'can-scroll-x' : '']"
+          @scroll="table.onScroll"
+        >
+          <table class="ds-table">
+            <thead>
+              <tr>
+                <th class="sticky-start">{{ t("Staff member") }}</th>
+                <th>{{ t("Phone") }}</th>
+                <th v-if="table.visible.email">{{ t("Email") }}</th>
+                <th v-if="table.visible.today">{{ t("Today") }}</th>
+                <th v-if="table.visible.services">{{ t("Services") }}</th>
+                <th>{{ t("Available") }}</th>
+                <th class="sticky-end text-end">{{ t("Actions") }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="member in filteredStaff" :key="member.id" :class="member.active ? '' : 'opacity-60'">
+                <td class="sticky-start">
+                  <div class="flex items-center gap-3">
+                    <span class="ds-avatar">{{ initialsOf(member.name.split(' ')[0], member.name.split(' ')[1]) }}</span>
+                    <div class="min-w-0">
+                      <div class="is-strong max-w-[14rem] truncate">{{ member.name }}</div>
+                      <div class="text-xs text-stone-500">{{ member.role }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="num">
+                  <a v-if="member.phone" :href="telHref(member.phone)" class="text-stone-800 hover:text-rose-700"><bdi dir="ltr">{{ member.phone }}</bdi></a>
+                  <span v-else class="text-stone-400">—</span>
+                </td>
+                <td v-if="table.visible.email" class="max-w-[16rem] truncate">{{ member.email || "—" }}</td>
+                <td v-if="table.visible.today">
+                  <NuxtLink
+                    :to="`/dashboard/appointments?range=today&staffId=${member.id}`"
+                    class="font-semibold hover:text-rose-700"
+                    :class="todayBookings[member.id] ? 'text-stone-900' : 'text-stone-400'"
+                  >
+                    {{ todayBookings[member.id] === 1 ? t("1 booking") : t("{n} bookings", { n: todayBookings[member.id] ?? 0 }) }}
+                  </NuxtLink>
+                  <div v-if="todayDuty(member.id)" class="text-xs text-stone-500">{{ todayDuty(member.id) }}</div>
+                </td>
+                <td v-if="table.visible.services">
+                  <button
+                    type="button"
+                    class="flex max-w-[16rem] flex-wrap items-center gap-1 text-start"
+                    :title="serviceNames(member).join(', ')"
+                    @click="openServicesAssign(member)"
+                  >
+                    <template v-if="serviceNames(member).length">
+                      <span v-for="n in serviceNames(member).slice(0, 2)" :key="n" class="ds-tag max-w-[7rem] truncate">{{ n }}</span>
+                      <span v-if="serviceNames(member).length > 2" class="ds-tag">+{{ serviceNames(member).length - 2 }}</span>
+                    </template>
+                    <span v-else class="text-xs font-semibold text-amber-700 hover:underline">{{ t("Assign Services") }}</span>
+                  </button>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <AppSwitch :model-value="member.active" :label="t('Active (available for bookings)')" @update:model-value="toggleActive(member)" />
+                    <span class="text-xs" :class="member.active ? 'text-emerald-700' : 'text-stone-500'">{{ member.active ? t("Active") : t("Inactive") }}</span>
+                  </div>
+                </td>
+                <td class="sticky-end">
+                  <div class="flex items-center justify-end gap-1.5">
+                    <a
+                      v-if="member.phone"
+                      :href="waHref(member.phone)"
+                      :target="waTarget"
+                      rel="noopener"
+                      class="ui-btn ui-btn-sm ui-btn-secondary"
+                      :title="t('WhatsApp')"
+                    >
+                      <WhatsAppIcon :size="16" /> {{ t("WhatsApp") }}
+                    </a>
+                    <a
+                      v-if="member.phone"
+                      :href="telHref(member.phone)"
+                      class="ui-btn ui-btn-sm ui-btn-secondary ui-btn-icon"
+                      :title="t('Call')"
+                      :aria-label="t('Call')"
+                    >
+                      <Phone :size="14" />
+                    </a>
+                    <button type="button" class="ui-btn ui-btn-sm ui-btn-soft" @click="openSchedule(member)">
+                      <Calendar :size="14" /> {{ t("Schedule") }}
+                    </button>
+                    <RowActionMenu :label="t('More actions')">
+                      <button type="button" class="ds-menu-item" role="menuitem" @click="openEdit(member)">
+                        <Edit2 :size="16" /> {{ t("Edit Staff") }}
+                      </button>
+                      <button type="button" class="ds-menu-item" role="menuitem" @click="openServicesAssign(member)">
+                        <Sparkles :size="16" /> {{ t("Assign Services") }}
+                      </button>
+                    </RowActionMenu>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Phones / tablets: cards -->
+        <div class="grid gap-3 p-3 sm:grid-cols-2 lg:hidden">
+          <article
+            v-for="member in filteredStaff"
+            :key="member.id"
+            :class="['rounded-xl border border-stone-200 bg-white p-4', member.active ? '' : 'bg-stone-50']"
+          >
+            <div class="flex items-center gap-3">
+              <span class="ds-avatar !size-11 !text-sm">{{ initialsOf(member.name.split(' ')[0], member.name.split(' ')[1]) }}</span>
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-base font-semibold text-stone-900">{{ member.name }}</div>
+                <div class="text-[13px] text-stone-500">{{ member.role }}</div>
+              </div>
+              <AppSwitch :model-value="member.active" :label="t('Active (available for bookings)')" @update:model-value="toggleActive(member)" />
+            </div>
+            <div class="mt-3 grid gap-1.5 text-[13px] text-stone-600">
+              <div class="flex items-center gap-2">
+                <CalendarCheck :size="14" class="text-stone-400" />
+                {{ todayBookings[member.id] === 1 ? t("1 booking") : t("{n} bookings", { n: todayBookings[member.id] ?? 0 }) }} · {{ t("Today") }}
+                <span v-if="todayDuty(member.id)" class="text-stone-400">({{ todayDuty(member.id) }})</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <Sparkles :size="14" class="mt-0.5 shrink-0 text-stone-400" />
+                <span>{{ serviceNames(member).length ? serviceNames(member).join(", ") : t("No services assigned") }}</span>
+              </div>
+            </div>
+            <div class="mt-3 flex gap-2 border-t border-stone-100 pt-3">
+              <a v-if="member.phone" :href="telHref(member.phone)" class="ui-btn ui-btn-secondary ui-btn-icon" :aria-label="t('Call')"><Phone :size="16" /></a>
+              <a v-if="member.phone" :href="waHref(member.phone)" :target="waTarget" rel="noopener" class="ui-btn ui-btn-secondary ui-btn-icon" :aria-label="t('WhatsApp')"><WhatsAppIcon :size="18" /></a>
+              <button type="button" class="ui-btn ui-btn-soft flex-1" @click="openSchedule(member)">
+                <Calendar :size="16" /> {{ t("Schedule") }}
+              </button>
+              <RowActionMenu :label="t('More actions')" size="md">
+                <button type="button" class="ds-menu-item" @click="openEdit(member)">
+                  <Edit2 :size="16" /> {{ t("Edit Staff") }}
+                </button>
+                <button type="button" class="ds-menu-item" @click="openServicesAssign(member)">
+                  <Sparkles :size="16" /> {{ t("Assign Services") }}
+                </button>
+              </RowActionMenu>
+            </div>
+          </article>
+        </div>
+      </template>
     </div>
 
     <!-- Create Staff Modal -->
@@ -557,14 +650,14 @@ const formatDate = (isoString: string) => {
             <button
               type="button"
               @click="showCreateModal = false"
-              class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+              class="ui-btn ui-btn-secondary rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
             >
               {{ t("Cancel") }}
             </button>
             <button
               type="submit"
               :disabled="isSubmitting"
-              class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
+              class="ui-btn ui-btn-primary rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
             >
               {{ isSubmitting ? t("Creating...") : t("Save Member") }}
             </button>
@@ -626,17 +719,7 @@ const formatDate = (isoString: string) => {
             </div>
           </div>
 
-          <div class="flex items-center gap-2 pt-1">
-            <input
-              type="checkbox"
-              id="activeCheckbox"
-              v-model="staffForm.active"
-              class="rounded border-stone-300 text-stone-900"
-            />
-            <label for="activeCheckbox" class="text-xs font-semibold text-stone-700 cursor-pointer">
-              {{ t("Active (available for bookings)") }}
-            </label>
-          </div>
+          <SettingToggle v-model="staffForm.active" :title="t('Active (available for bookings)')" />
 
           <p v-if="formError" class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 font-medium">
             {{ formError }}
@@ -646,14 +729,14 @@ const formatDate = (isoString: string) => {
             <button
               type="button"
               @click="showEditModal = false"
-              class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+              class="ui-btn ui-btn-secondary rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
             >
               {{ t("Cancel") }}
             </button>
             <button
               type="submit"
               :disabled="isSubmitting"
-              class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
+              class="ui-btn ui-btn-primary rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
             >
               {{ isSubmitting ? t("Saving...") : t("Save Changes") }}
             </button>
@@ -689,7 +772,7 @@ const formatDate = (isoString: string) => {
           <button
             type="button"
             @click="showServicesModal = false"
-            class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+            class="ui-btn ui-btn-secondary rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
           >
             {{ t("Cancel") }}
           </button>
@@ -697,7 +780,7 @@ const formatDate = (isoString: string) => {
             type="button"
             :disabled="isSubmitting"
             @click="handleSaveServices"
-            class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
+            class="ui-btn ui-btn-primary rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
           >
             {{ isSubmitting ? t("Saving...") : t("Save Assigned Services") }}
           </button>
@@ -757,7 +840,7 @@ const formatDate = (isoString: string) => {
           <button
             type="button"
             @click="showScheduleModal = false"
-            class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+            class="ui-btn ui-btn-secondary rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
           >
             {{ t("Close") }}
           </button>

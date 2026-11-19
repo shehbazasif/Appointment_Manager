@@ -3,6 +3,9 @@
 @config "../../../tailwind.config.ts";
 
 @layer base {
+  html.ui :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]), select, textarea) {
+    padding-inline: 12px;
+  }
   body {
     @apply m-0 bg-paper font-sans text-ink antialiased;
   }
@@ -267,3 +270,310 @@ html {
 [dir="rtl"] input[type="email"] {
   text-align: right;
 }
+
+/* ------------------------------------------------------------------
+   Business colour theme: <html class="brand-theme" style="--brand:#hex">
+   re-maps the rose accent scale to the business colour (no UI rewrite).
+   ------------------------------------------------------------------ */
+.brand-theme {
+  --color-rose-50: color-mix(in oklab, var(--brand) 7%, white);
+  --color-rose-100: color-mix(in oklab, var(--brand) 14%, white);
+  --color-rose-200: color-mix(in oklab, var(--brand) 28%, white);
+  --color-rose-300: color-mix(in oklab, var(--brand) 45%, white);
+  --color-rose-400: color-mix(in oklab, var(--brand) 70%, white);
+  --color-rose-500: color-mix(in oklab, var(--brand) 88%, white);
+  --color-rose-600: var(--brand);
+  --color-rose-700: color-mix(in oklab, var(--brand) 85%, black);
+  --color-rose-800: color-mix(in oklab, var(--brand) 70%, black);
+  --color-rose-900: color-mix(in oklab, var(--brand) 55%, black);
+  --color-rose-950: color-mix(in oklab, var(--brand) 40%, black);
+  --color-rose: var(--brand);
+  --color-rose-soft: color-mix(in oklab, var(--brand) 12%, white);
+}
+.brand-theme .text-rose,
+.brand-theme .eyebrow {
+  color: var(--brand);
+}
+
+/* ==================================================================
+   Reventos design system (UI v2) — applied app-wide via <html class="ui">
+   (dashboard + booking page). Values mirror the Design System tokens.
+   Unlayered on purpose: these rules win over per-element utility classes,
+   so every input, dropdown and primary button looks the same everywhere.
+   ================================================================== */
+html.ui {
+  /* calmer corners: Tailwind's rounded-* utilities read these */
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  --radius-2xl: 8px;
+  --radius-3xl: 12px;
+  --ui-radius-control: 6px;
+  --ui-radius-card: 8px;
+  --ui-bg: #f5f7fa;
+  --ui-surface: #ffffff;
+  --ui-surface-muted: #f8fafc;
+  --ui-border: #e5e9ef;
+  --ui-border-control: #c4cbd6;
+  --ui-ink: #111827;
+  --ui-ink-muted: #4b5563;
+  --ui-ink-subtle: #6b7280;
+  --ui-control-h: 36px;
+  /* default accent = blue; a business theme sets --brand-choice */
+  --brand: var(--brand-choice, #2563eb);
+  /* warm stone greys -> cool, clean greys */
+  --color-stone-50: #f8fafc;
+  --color-stone-100: #f1f4f8;
+  --color-stone-200: #e5e9ef;
+  --color-stone-300: #cfd6df;
+  --color-stone-400: #97a1b0;
+  --color-stone-500: #6b7280;
+  --color-stone-600: #4b5563;
+  --color-stone-700: #374151;
+  --color-stone-800: #1f2937;
+  --color-stone-900: #111827;
+  --color-stone-950: #0b1220;
+}
+html.ui {
+  --color-rose-50: color-mix(in oklab, var(--brand) 7%, white);
+  --color-rose-100: color-mix(in oklab, var(--brand) 14%, white);
+  --color-rose-200: color-mix(in oklab, var(--brand) 28%, white);
+  --color-rose-300: color-mix(in oklab, var(--brand) 45%, white);
+  --color-rose-400: color-mix(in oklab, var(--brand) 70%, white);
+  --color-rose-500: color-mix(in oklab, var(--brand) 88%, white);
+  --color-rose-600: var(--brand);
+  --color-rose-700: color-mix(in oklab, var(--brand) 85%, black);
+  --color-rose-800: color-mix(in oklab, var(--brand) 70%, black);
+  --color-rose-900: color-mix(in oklab, var(--brand) 55%, black);
+  --color-rose-950: color-mix(in oklab, var(--brand) 40%, black);
+  --color-rose: var(--brand);
+  --color-rose-soft: color-mix(in oklab, var(--brand) 12%, white);
+}
+html.ui .text-rose,
+html.ui .eyebrow { color: var(--brand); }
+
+/* ---- Inputs, selects, textareas and custom dropdown triggers ---- */
+html.ui :is(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="hidden"]):not([type="submit"]):not([type="button"]),
+  select,
+  textarea,
+  .ui-control
+) {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--ui-ink);
+  background-color: var(--ui-surface);
+  border: 1px solid var(--ui-border-control);
+  border-radius: var(--ui-radius-control);
+  box-shadow: 0 1px 1px rgb(16 24 40 / 0.03);
+  transition: border-color .15s, box-shadow .15s;
+}
+html.ui :is(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="hidden"]):not([type="submit"]):not([type="button"]),
+  select,
+  .ui-control
+) {
+  height: var(--ui-control-h);
+  min-height: var(--ui-control-h);
+  padding-top: 0;
+  padding-bottom: 0;
+}
+html.ui textarea { padding-top: 8px; padding-bottom: 8px; min-height: 76px; }
+html.ui .ui-control-multi { min-height: var(--ui-control-h); height: auto; padding-top: 4px; padding-bottom: 4px; }
+html.ui :is(input, select, textarea, .ui-control)::placeholder { color: var(--ui-ink-subtle); opacity: 1; }
+html.ui :is(input, select, textarea):hover:not(:focus):not(:disabled),
+html.ui .ui-control:hover { border-color: #97a1b0; }
+html.ui :is(input, select, textarea):focus,
+html.ui .ui-control:focus-visible,
+html.ui .ui-control[aria-expanded="true"] {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 18%, transparent);
+}
+html.ui :is(input, select, textarea):disabled { background-color: var(--ui-surface-muted); color: var(--ui-ink-subtle); }
+html.ui input[type="checkbox"], html.ui input[type="radio"] { accent-color: var(--brand); }
+
+/* ---- Buttons (marked by the markup as ui-btn) ---- */
+html.ui .ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--ui-control-h);
+  min-height: var(--ui-control-h);
+  padding: 0 14px;
+  border-radius: var(--ui-radius-control);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgb(16 24 40 / 0.06);
+  transition: background-color .15s, border-color .15s, box-shadow .15s;
+}
+html.ui .ui-btn-primary { background-color: var(--brand); color: #ffffff; border: 1px solid transparent; }
+html.ui .ui-btn-primary:hover:not(:disabled) { background-color: color-mix(in oklab, var(--brand) 85%, black); }
+html.ui .ui-btn-secondary { background-color: var(--ui-surface); color: var(--ui-ink); border: 1px solid var(--ui-border-control); }
+html.ui .ui-btn-secondary:hover:not(:disabled) { background-color: var(--ui-surface-muted); border-color: #97a1b0; }
+html.ui .ui-btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+html.ui .ui-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+/* Phones: thumb-sized controls, 16px text so iOS does not zoom */
+@media (max-width: 767px) {
+  html.ui { --ui-control-h: 44px; }
+  html.ui :is(input, select, textarea, .ui-control) { font-size: 16px; }
+  html.ui .ui-btn { font-size: 14px; }
+}
+html.ui .ui-control-multi {
+  font-size: 13px;
+  color: var(--ui-ink);
+  background-color: var(--ui-surface);
+  border: 1px solid var(--ui-border-control);
+  border-radius: var(--ui-radius-control);
+  padding-left: 6px;
+}
+html.ui .ui-control-multi[aria-expanded="true"] { border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 18%, transparent); }
+html.ui .ui-control.is-invalid { border-color: #dc2626; background-color: #fef2f2; }
+
+/* ==================================================================
+   Reventos design system — components (ds-*). Same names/values as the
+   Design System artifact (Button, Pill, Card, DataTable, SidebarNav,
+   Tabs, ActionMenu, Avatar). Use these classes for new markup.
+   ================================================================== */
+html.ui {
+  --ui-primary-soft: color-mix(in oklab, var(--brand) 10%, white);
+  --ui-primary-soft-ink: color-mix(in oklab, var(--brand) 78%, black);
+  --ui-success: #047857; --ui-success-soft: #e7f6ef;
+  --ui-warning: #b45309; --ui-warning-soft: #fdf3e2;
+  --ui-danger: #c81e1e;  --ui-danger-soft: #fdecec;
+  --ui-info: #1d4ed8;    --ui-info-soft: #eaf1fe;
+  --ui-shadow-card: 0 1px 2px rgb(16 24 40 / .04), 0 1px 3px rgb(16 24 40 / .04);
+  --ui-shadow-pop: 0 12px 32px rgb(16 24 40 / .14), 0 2px 6px rgb(16 24 40 / .06);
+  --ui-sidebar-w: 248px;
+}
+
+/* One type family: page titles drop the serif */
+html.ui .font-display { font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.015em; }
+html.ui .dash-main .page-head h1 { font-size: 24px; line-height: 32px; font-weight: 700; }
+html.ui .dash-main .page-head > div > p:first-child.uppercase { display: none; }
+/* Cards: 12px corners, light shadow (modals keep 16px) */
+html.ui .dash-main :is(.rounded-2xl, .rounded-3xl):not(.m-sheet-panel):not(.m-drawer-panel) { border-radius: var(--ui-radius-card); }
+html.ui .dash-main :is(.m-sheet-panel, .m-drawer-panel) { border-radius: 12px; }
+html.ui .dash-main .shadow-sm { box-shadow: var(--ui-shadow-card); }
+/* Old shouting badges -> calm sentence-case pills */
+html.ui .dash-main span.uppercase.tracking-wider.rounded-md.border {
+  text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 600;
+  border-radius: 9999px; padding: 2px 10px; border-color: transparent;
+}
+
+/* Card */
+.ds-card { background: var(--ui-surface, #fff); border: 1px solid var(--ui-border, #e5e9ef); border-radius: var(--ui-radius-card, 8px); box-shadow: var(--ui-shadow-card); }
+
+/* Page header */
+.ds-page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 16px; }
+.ds-page-title { font-size: 24px; line-height: 32px; font-weight: 700; letter-spacing: -0.015em; color: var(--ui-ink, #111827); }
+.ds-page-sub { margin-top: 2px; font-size: 13px; line-height: 18px; color: var(--ui-ink-muted, #4b5563); }
+
+/* Buttons (extra variants; ui-btn / ui-btn-primary / ui-btn-secondary above) */
+html.ui .ui-btn-ghost { background: transparent; color: var(--ui-ink-muted); border: 1px solid transparent; box-shadow: none; }
+html.ui .ui-btn-ghost:hover:not(:disabled) { background: var(--ui-surface-muted); color: var(--ui-ink); }
+html.ui .ui-btn-sm { height: 30px; min-height: 30px; padding: 0 10px; font-size: 12px; }
+html.ui .ui-btn-icon { width: var(--ui-control-h); padding: 0; }
+html.ui .ui-btn-icon.ui-btn-sm { width: 30px; }
+html.ui .ui-btn-soft { background: var(--ui-primary-soft); color: var(--ui-primary-soft-ink); border: 1px solid transparent; box-shadow: none; }
+html.ui .ui-btn-soft:hover:not(:disabled) { background: color-mix(in oklab, var(--brand) 16%, white); }
+
+/* Status pill */
+.ds-pill { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; line-height: 16px; white-space: nowrap; }
+.ds-pill::before { content: ""; width: 6px; height: 6px; border-radius: 9999px; background: currentColor; }
+.ds-pill--success { background: var(--ui-success-soft); color: var(--ui-success); }
+.ds-pill--warning { background: var(--ui-warning-soft); color: var(--ui-warning); }
+.ds-pill--danger  { background: var(--ui-danger-soft);  color: var(--ui-danger); }
+.ds-pill--info    { background: var(--ui-info-soft);    color: var(--ui-info); }
+.ds-pill--neutral { background: var(--ui-surface-muted); color: var(--ui-ink-muted); box-shadow: inset 0 0 0 1px var(--ui-border); }
+.ds-tag { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px; font-size: 12px; font-weight: 600; background: var(--ui-surface-muted); color: var(--ui-ink-muted); box-shadow: inset 0 0 0 1px var(--ui-border); white-space: nowrap; }
+.ds-token { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 26px; padding: 0 8px; border-radius: 4px; background: var(--ui-primary-soft); color: var(--ui-primary-soft-ink); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Avatar */
+.ds-avatar { width: 32px; height: 32px; border-radius: 9999px; display: inline-grid; place-items: center; flex-shrink: 0; font-size: 12px; font-weight: 700; background: var(--ui-primary-soft); color: var(--ui-primary-soft-ink); }
+
+/* Tabs */
+.ds-tabs { display: flex; gap: 24px; padding: 0 20px; border-bottom: 1px solid var(--ui-border); overflow-x: auto; scrollbar-width: none; }
+.ds-tabs::-webkit-scrollbar { display: none; }
+.ds-tab { position: relative; display: inline-flex; align-items: center; gap: 8px; padding: 14px 0; font-size: 14px; font-weight: 500; color: var(--ui-ink-muted); white-space: nowrap; }
+.ds-tab:hover { color: var(--ui-ink); }
+.ds-tab.is-active { color: var(--ui-primary-soft-ink); font-weight: 600; }
+.ds-tab.is-active::after { content: ""; position: absolute; inset-inline: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--brand); }
+.ds-tab .count { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 9999px; display: inline-grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--ui-surface-muted); color: var(--ui-ink-muted); }
+.ds-tab.is-active .count { background: var(--ui-primary-soft); color: var(--ui-primary-soft-ink); }
+
+/* Data table: scrolls inside its card (header stays on top; the first and
+   last columns stay put when extra columns need left/right scroll) */
+/* pages are split with a pager, so the table grows with the page; only sideways scroll here */
+.ds-table-wrap { overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; }
+.ds-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.ds-table th { position: sticky; top: 0; z-index: 2; text-align: start; font-size: 12px; font-weight: 500; color: var(--ui-ink-muted); background: var(--ui-surface-muted); padding: 10px 16px; border-bottom: 1px solid var(--ui-border); white-space: nowrap; }
+.ds-table td { padding: 10px 16px; border-bottom: 1px solid var(--ui-border); color: var(--ui-ink-muted); white-space: nowrap; vertical-align: middle; background: var(--ui-surface); }
+.ds-table tbody tr:last-child td { border-bottom: 0; }
+/* headers follow their column: numbers and actions line up on the end side */
+.ds-table :is(th, td).text-end { text-align: end; }
+.ds-table :is(th, td).text-center { text-align: center; }
+.ds-table tbody tr:hover td { background: #f8fafc; }
+.ds-table .is-strong { color: var(--ui-ink); font-weight: 600; }
+.ds-table .num { font-variant-numeric: tabular-nums; }
+.ds-table .sticky-start { position: sticky; inset-inline-start: 0; z-index: 1; }
+.ds-table .sticky-end { position: sticky; inset-inline-end: 0; z-index: 1; }
+.ds-table th.sticky-start, .ds-table th.sticky-end { z-index: 3; }
+.ds-table-wrap.is-scrolled-x .sticky-start { box-shadow: 6px 0 8px -6px rgb(16 24 40 / .14); }
+.ds-table-wrap.can-scroll-x .sticky-end { box-shadow: -6px 0 8px -6px rgb(16 24 40 / .14); }
+.ds-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--ui-border); }
+
+/* Action menu (teleported to <body>) */
+.ds-menu { position: fixed; z-index: 80; min-width: 220px; padding: 4px; background: var(--ui-surface, #fff); border: 1px solid var(--ui-border, #e5e9ef); border-radius: 8px; box-shadow: var(--ui-shadow-pop); }
+.ds-menu-item { display: flex; width: 100%; align-items: center; gap: 10px; min-height: 34px; padding: 0 10px; border-radius: 4px; font-size: 13px; font-weight: 500; color: var(--ui-ink, #111827); text-align: start; cursor: pointer; }
+.ds-menu-item svg { color: var(--ui-ink-muted, #4b5563); flex-shrink: 0; }
+.ds-menu-item:hover { background: var(--ui-surface-muted, #f8fafc); }
+.ds-menu-item--danger, .ds-menu-item--danger svg { color: var(--ui-danger, #c81e1e); }
+.ds-menu > .ds-menu-item + .ds-menu-item, .ds-menu-item + .ds-menu-item { margin-top: 2px; }
+.ds-menu-sep { height: 1px; margin: 6px 4px; background: var(--ui-border, #e5e9ef); }
+.ds-menu-label { padding: 6px 10px 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ui-ink-subtle, #6b7280); }
+
+/* Sidebar nav */
+.ds-nav-group { padding: 16px 12px 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ui-ink-subtle); }
+.ds-nav-item { display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 12px; border-radius: 6px; font-size: 14px; font-weight: 500; color: var(--ui-ink-muted); transition: background-color .15s, color .15s; }
+.ds-nav-item svg { color: var(--ui-ink-subtle); flex-shrink: 0; }
+.ds-nav-item:hover { background: var(--ui-surface-muted); color: var(--ui-ink); }
+.ds-nav-item.is-active { background: var(--ui-primary-soft); color: var(--ui-primary-soft-ink); font-weight: 600; }
+.ds-nav-item.is-active svg { color: var(--brand); }
+
+@media (max-width: 767px) {
+  .ds-table-wrap { max-height: none; }
+  .ds-page-title { font-size: 22px; line-height: 28px; }
+  .ds-menu-item { min-height: 44px; font-size: 15px; }
+}
+/* Older tables (Customers, Staff, Services): design-system header row */
+html.ui .dash-main thead:is(.uppercase, .uppercase *),
+html.ui .dash-main thead .uppercase { text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 500; color: var(--ui-ink-muted); }
+html.ui .dash-main thead { background: var(--ui-surface-muted); }
+
+/* Switch (design system) */
+.ds-switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; border-radius: 9999px; background: #b4bcc8; transition: background-color .15s ease-out; cursor: pointer; }
+.ds-switch:hover { background: #9aa3b0; }
+.ds-switch.is-on { background: var(--brand, #2563eb); }
+.ds-switch.is-on:hover { background: color-mix(in oklab, var(--brand, #2563eb) 85%, black); }
+.ds-switch:focus-visible { outline: 2px solid var(--brand, #2563eb); outline-offset: 2px; }
+.ds-switch:disabled { opacity: .5; cursor: not-allowed; }
+.ds-switch-knob { position: absolute; top: 3px; inset-inline-start: 3px; width: 18px; height: 18px; border-radius: 9999px; background: #fff; box-shadow: 0 1px 2px rgb(16 24 40 / .25); transition: inset-inline-start .15s ease-out; }
+.ds-switch.is-on .ds-switch-knob { inset-inline-start: 23px; }
+@media (prefers-reduced-motion: reduce) { .ds-switch, .ds-switch-knob { transition: none; } }
+/* Setting row (title + help + switch) */
+.ds-setting { display: flex; align-items: center; gap: 16px; padding: 16px; border: 1px solid var(--ui-border, #e5e9ef); border-radius: var(--ui-radius-card, 8px); background: var(--ui-surface, #fff); cursor: pointer; transition: border-color .15s; }
+.ds-setting:hover { border-color: #cfd6df; }
+.ds-setting.is-disabled { cursor: not-allowed; opacity: .6; }
+.ds-setting-title { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--ui-ink, #111827); }
+.ds-setting-sub { margin-top: 2px; font-size: 13px; line-height: 18px; color: var(--ui-ink-muted, #4b5563); }
+/* Section card used on Settings */
+.ds-section-title { font-size: 16px; line-height: 24px; font-weight: 600; color: var(--ui-ink, #111827); }
+.ds-section-sub { margin-top: 2px; font-size: 13px; line-height: 18px; color: var(--ui-ink-muted, #4b5563); }
+.ds-label { display: block; margin-bottom: 6px; font-size: 13px; line-height: 18px; font-weight: 500; color: var(--ui-ink, #111827); }
+.ds-help { margin-top: 6px; font-size: 12px; line-height: 16px; color: var(--ui-ink-muted, #4b5563); }

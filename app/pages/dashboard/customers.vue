@@ -18,8 +18,10 @@ import {
   AlertCircle,
   ShieldCheck,
   Upload,
+  MoveHorizontal,
 } from "lucide-vue-next";
 const { t, intl } = useT();
+const { features } = useFeatures();
 
 const showImport = ref(false);
 
@@ -238,209 +240,187 @@ const formatDate = (isoString: string) => {
   const date = new Date(isoString);
   return date.toLocaleDateString(intl.value, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 };
+// Design-system table: optional columns + sideways scroll
+const table = useDataTable("customers_table_cols", [
+  { key: "email", label: "Email", on: true },
+  { key: "notes", label: "Notes", on: true },
+  { key: "added", label: "Added", on: false },
+]);
+const pager = usePager(filteredCustomers, "customers_page_size", table.wrap);
+const fullName = (c: Customer) => `${c.firstName} ${c.lastName === "Customer" ? "" : c.lastName}`.trim();
+const formatShortDate = (iso: string) =>
+  iso ? new Date(iso).toLocaleDateString(intl.value, { day: "numeric", month: "short", year: "numeric" }) : "—";
 </script>
 
 <template>
-  <div class="space-y-6 pb-16">
+  <div class="space-y-5 pb-16">
     <!-- Header -->
-    <div class="page-head flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div class="ds-page-head">
       <div class="min-w-0">
-        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">{{ t("Customer CRM") }}</p>
-        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">{{ t("Clients Directory") }}</h1>
+        <h1 class="ds-page-title">{{ t("Customers") }}</h1>
+        <p class="ds-page-sub">{{ t("Everyone who has booked with you. Open a customer to see their visits.") }}</p>
       </div>
-      <div class="page-head-actions flex flex-wrap items-center gap-2 self-start sm:self-auto">
-        <button
-          type="button"
-          @click="showImport = true"
-          class="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50 transition shadow-sm"
-        >
+      <div class="flex w-full items-center gap-2 sm:w-auto">
+        <button v-if="features.import" type="button" class="ui-btn ui-btn-secondary flex-1 sm:flex-none" @click="showImport = true">
           <Upload :size="16" />
           <span>{{ t("Import Excel") }}</span>
         </button>
-        <button
-          type="button"
-          @click="openCreate"
-          class="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm"
-        >
+        <button type="button" class="ui-btn ui-btn-primary flex-1 sm:flex-none" @click="openCreate">
           <Plus :size="16" />
           <span>{{ t("Add Customer") }}</span>
         </button>
       </div>
     </div>
 
-    <!-- Search Bar -->
-    <div class="rounded-2xl border border-stone-200 bg-white p-3 shadow-sm sm:p-4">
-      <div class="relative max-w-md">
-        <Search :size="15" class="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-stone-400 md:top-3 md:translate-y-0" />
-        <input
-          v-model="searchQuery"
-          type="search"
-          enterkeyhint="search"
-          :placeholder="t('Search by name, phone number, email...')"
-          class="w-full rounded-xl border border-stone-200 bg-stone-50/60 ps-9 pe-3 py-2 text-xs outline-none focus:border-stone-900 focus:bg-white"
-        />
+    <div class="ds-card">
+      <!-- Toolbar -->
+      <div class="ds-toolbar">
+        <div class="relative min-w-0 flex-1 md:max-w-sm">
+          <Search :size="16" class="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-stone-400" />
+          <input
+            v-model="searchQuery"
+            type="search"
+            enterkeyhint="search"
+            :placeholder="t('Search by name, phone number, email...')"
+            class="w-full ps-9 pe-3"
+          />
+        </div>
+        <span class="hidden text-[13px] text-stone-500 md:inline">
+          {{ filteredCustomers.length === 1 ? t("1 client") : t("{n} clients", { n: filteredCustomers.length }) }}
+        </span>
+        <div class="ms-auto hidden lg:block">
+          <ColumnPicker :columns="table.columns" :visible="table.visible" @toggle="table.toggle" @reset="table.reset" />
+        </div>
       </div>
-    </div>
 
-    <!-- Loading State -->
-    <div v-if="isLoading" class="space-y-3">
-      <div v-for="i in 5" :key="i" class="h-16 rounded-2xl bg-stone-200/60 animate-pulse"></div>
-    </div>
+      <!-- Loading -->
+      <div v-if="isLoading" class="space-y-2 p-4">
+        <div v-for="i in 6" :key="i" class="h-12 animate-pulse rounded-lg bg-stone-100"></div>
+      </div>
 
-    <!-- Empty State -->
-    <div
-      v-else-if="filteredCustomers.length === 0"
-      class="py-16 text-center rounded-3xl border border-dashed border-stone-200 bg-white"
-    >
-      <Users :size="36" class="mx-auto text-stone-400" />
-      <h3 class="mt-3 font-display text-lg font-bold text-stone-900">{{ t("No customers found") }}</h3>
-      <p class="mt-1 text-xs text-stone-500 max-w-sm mx-auto">
-        {{ t("Add your first client profile or accept online bookings to automatically build your CRM.") }}
-      </p>
-      <button
-        type="button"
-        @click="openCreate"
-        class="mt-4 inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white"
-      >
-        <Plus :size="14" />
-        <span>{{ t("Add Customer") }}</span>
-      </button>
-    </div>
+      <!-- Empty -->
+      <div v-else-if="filteredCustomers.length === 0" class="px-4 py-16 text-center">
+        <span class="mx-auto grid size-12 place-items-center rounded-full bg-stone-100 text-stone-500">
+          <Users :size="22" />
+        </span>
+        <h3 class="mt-3 text-base font-semibold text-stone-900">{{ t("No customers found") }}</h3>
+        <p class="mx-auto mt-1 max-w-sm text-sm text-stone-500">
+          {{ t("Add your first client profile or accept online bookings to automatically build your CRM.") }}
+        </p>
+        <button type="button" class="ui-btn ui-btn-primary mt-4" @click="openCreate">
+          <Plus :size="16" />
+          <span>{{ t("Add Customer") }}</span>
+        </button>
+      </div>
 
-    <template v-else>
-    <!-- Phones: customer cards (tap to open the profile) -->
-    <div class="space-y-3 md:hidden">
-      <p class="px-1 text-xs font-semibold text-stone-500">
-        {{ filteredCustomers.length === 1 ? t("1 client") : t("{n} clients", { n: filteredCustomers.length }) }}
-      </p>
-      <article
-        v-for="c in filteredCustomers"
-        :key="c.id"
-        role="button"
-        tabindex="0"
-        @click="openDetail(c)"
-        @keydown.enter.self="openDetail(c)"
-        class="cursor-pointer rounded-2xl border border-stone-200 bg-white p-4 shadow-sm transition active:bg-stone-50"
-      >
-        <div class="flex items-center gap-3">
-          <div class="grid size-11 shrink-0 place-items-center rounded-full bg-stone-900 text-sm font-bold text-white">
-            {{ c.firstName.charAt(0) }}{{ c.lastName.charAt(0) }}
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="truncate text-base font-bold text-stone-900">{{ c.firstName }} {{ c.lastName }}</div>
-            <div v-if="c.email" class="truncate text-xs text-stone-500">{{ c.email }}</div>
-          </div>
-        </div>
-        <p v-if="c.notes" class="mt-2 line-clamp-2 text-xs text-stone-500">{{ c.notes }}</p>
-        <div class="mt-3 flex gap-2 border-t border-stone-100 pt-3" @click.stop>
-          <a
-            v-if="c.phone"
-            :href="`tel:${c.phone}`"
-            class="tap inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 text-sm font-bold text-stone-800"
-          >
-            <Phone :size="15" class="shrink-0" />
-            <span class="truncate"><bdi dir="ltr">{{ c.phone }}</bdi></span>
-          </a>
-          <button
-            type="button"
-            @click="openMessage(c)"
-            class="tap inline-flex items-center justify-center rounded-xl border border-stone-200 bg-white px-3 text-stone-700"
-            :aria-label="t('Send message')"
-            :title="t('Send Email / SMS / WhatsApp')"
-          >
-            <MessageSquare :size="17" />
-          </button>
-          <button
-            type="button"
-            @click="openEdit(c)"
-            class="tap inline-flex items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 text-sm font-bold text-stone-800"
-          >
-            <Edit2 :size="15" />
-            <span>{{ t("Edit") }}</span>
-          </button>
-        </div>
-      </article>
-    </div>
-
-    <!-- Tablet / desktop: table -->
-    <div class="hidden rounded-3xl border border-stone-200 bg-white shadow-sm overflow-hidden md:block">
-      <div class="overflow-x-auto">
-        <table class="w-full text-start text-xs text-stone-600">
-          <thead class="bg-stone-50/80 border-b border-stone-200 text-[10px] font-bold uppercase tracking-wider text-stone-500">
-            <tr>
-              <th class="py-3.5 ps-6 pe-3">{{ t("Name") }}</th>
-              <th class="px-3 py-3.5">{{ t("Contact Phone") }}</th>
-              <th class="px-3 py-3.5">{{ t("Email Address") }}</th>
-              <th class="px-3 py-3.5">{{ t("Notes") }}</th>
-              <th class="py-3.5 ps-3 pe-6 text-end">{{ t("Actions") }}</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-stone-100 font-medium">
-            <tr
-              v-for="c in filteredCustomers"
-              :key="c.id"
-              class="hover:bg-stone-50/60 transition cursor-pointer"
-              @click="openDetail(c)"
-            >
-              <!-- Name -->
-              <td class="py-4 ps-6 pe-3 whitespace-nowrap">
-                <div class="font-bold text-stone-900 text-sm flex items-center gap-2">
-                  <div class="grid size-7 place-items-center rounded-full bg-stone-900 text-[11px] font-bold text-white">
-                    {{ c.firstName.charAt(0) }}{{ c.lastName.charAt(0) }}
+      <template v-else>
+        <!-- Desktop: data table -->
+        <div
+          :ref="(el) => (table.wrap.value = el as HTMLElement | null)"
+          :class="['ds-table-wrap hidden lg:block', table.scrolledX.value ? 'is-scrolled-x' : '', table.canScrollX.value ? 'can-scroll-x' : '']"
+          @scroll="table.onScroll"
+        >
+          <table class="ds-table">
+            <thead>
+              <tr>
+                <th class="sticky-start">{{ t("Customer") }}</th>
+                <th>{{ t("Phone") }}</th>
+                <th v-if="table.visible.email">{{ t("Email") }}</th>
+                <th v-if="table.visible.notes">{{ t("Notes") }}</th>
+                <th v-if="table.visible.added">{{ t("Added") }}</th>
+                <th class="sticky-end text-end">{{ t("Actions") }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="c in pager.rows" :key="c.id" class="cursor-pointer" @click="openDetail(c)">
+                <td class="sticky-start">
+                  <div class="flex items-center gap-3">
+                    <span class="ds-avatar">{{ initialsOf(c.firstName, c.lastName) }}</span>
+                    <span class="is-strong max-w-[16rem] truncate">{{ fullName(c) }}</span>
                   </div>
-                  <span>{{ c.firstName }} {{ c.lastName }}</span>
-                </div>
-              </td>
+                </td>
+                <td class="num">
+                  <a :href="`tel:${c.phone}`" class="text-stone-800 hover:text-rose-700" @click.stop><bdi dir="ltr">{{ c.phone }}</bdi></a>
+                </td>
+                <td v-if="table.visible.email" class="max-w-[16rem] truncate">{{ c.email || "—" }}</td>
+                <td v-if="table.visible.notes" class="max-w-[18rem] truncate" :title="c.notes ?? ''">{{ c.notes || "—" }}</td>
+                <td v-if="table.visible.added" class="num">{{ formatShortDate(c.createdAt) }}</td>
+                <td class="sticky-end" @click.stop>
+                  <div class="flex items-center justify-end gap-1.5">
+                    <button type="button" class="ui-btn ui-btn-sm ui-btn-secondary" @click="openMessage(c)">
+                      <MessageSquare :size="14" /> {{ t("Message") }}
+                    </button>
+                    <button type="button" class="ui-btn ui-btn-sm ui-btn-soft" @click="openDetail(c)">
+                      <History :size="14" /> {{ t("View") }}
+                    </button>
+                    <RowActionMenu :label="t('More actions')">
+                      <button type="button" class="ds-menu-item" role="menuitem" @click="openEdit(c)">
+                        <Edit2 :size="16" /> {{ t("Edit Profile") }}
+                      </button>
+                      <a :href="`tel:${c.phone}`" class="ds-menu-item" role="menuitem">
+                        <Phone :size="16" /> {{ t("Call") }}
+                      </a>
+                      <div class="ds-menu-sep"></div>
+                      <button
+                        type="button"
+                        class="ds-menu-item ds-menu-item--danger"
+                        role="menuitem"
+                        @click="selectedCustomer = c; showAnonymizeConfirm = true"
+                      >
+                        <Trash2 :size="16" /> {{ t("Anonymize customer") }}
+                      </button>
+                    </RowActionMenu>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-if="table.canScrollX.value" class="hidden items-center justify-end gap-1 border-t border-stone-200 px-4 py-2.5 text-xs text-stone-500 lg:flex">
+          <MoveHorizontal :size="14" /> {{ t("Scroll sideways to see more columns") }}
+        </div>
 
-              <!-- Phone -->
-              <td class="px-3 py-4 whitespace-nowrap">
-                <span class="flex items-center gap-1.5 text-stone-800 font-semibold">
-                  <Phone :size="13" class="text-stone-400" />
-                  <bdi dir="ltr">{{ c.phone }}</bdi>
-                </span>
-              </td>
-
-              <!-- Email -->
-              <td class="px-3 py-4 whitespace-nowrap">
-                <span v-if="c.email" class="flex items-center gap-1.5 text-stone-600">
-                  <Mail :size="13" class="text-stone-400" />
-                  {{ c.email }}
-                </span>
-                <span v-else class="text-stone-300 italic">{{ t("No email provided") }}</span>
-              </td>
-
-              <!-- Notes -->
-              <td class="px-3 py-4 max-w-xs truncate text-stone-500">
-                {{ c.notes || '—' }}
-              </td>
-
-              <!-- Actions -->
-              <td class="py-4 ps-3 pe-6 text-end whitespace-nowrap" @click.stop>
-                <div class="flex items-center justify-end gap-1.5">
-                  <button
-                    type="button"
-                    @click="openMessage(c)"
-                    class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-900"
-                    :title="t('Send Email / SMS')"
-                  >
-                    <MessageSquare :size="15" />
-                  </button>
-                  <button
-                    type="button"
-                    @click="openEdit(c)"
-                    class="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-900"
-                    :title="t('Edit Profile')"
-                  >
-                    <Edit2 :size="15" />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        <!-- Phones / tablets: cards -->
+        <div class="grid gap-3 p-3 sm:grid-cols-2 lg:hidden">
+          <p class="px-1 text-xs font-semibold text-stone-500 sm:col-span-2">
+            {{ filteredCustomers.length === 1 ? t("1 client") : t("{n} clients", { n: filteredCustomers.length }) }}
+          </p>
+          <article
+            v-for="c in pager.rows"
+            :key="c.id"
+            role="button"
+            tabindex="0"
+            class="cursor-pointer rounded-xl border border-stone-200 bg-white p-4 transition active:bg-stone-50"
+            @click="openDetail(c)"
+            @keydown.enter.self="openDetail(c)"
+          >
+            <div class="flex items-center gap-3">
+              <span class="ds-avatar !size-11 !text-sm">{{ initialsOf(c.firstName, c.lastName) }}</span>
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-base font-semibold text-stone-900">{{ fullName(c) }}</div>
+                <div v-if="c.email" class="truncate text-[13px] text-stone-500">{{ c.email }}</div>
+              </div>
+            </div>
+            <p v-if="c.notes" class="mt-2 line-clamp-2 text-[13px] text-stone-500">{{ c.notes }}</p>
+            <div class="mt-3 flex gap-2 border-t border-stone-100 pt-3" @click.stop>
+              <a v-if="c.phone" :href="`tel:${c.phone}`" class="ui-btn ui-btn-secondary min-w-0 flex-1">
+                <Phone :size="16" class="shrink-0" />
+                <span class="truncate"><bdi dir="ltr">{{ c.phone }}</bdi></span>
+              </a>
+              <button type="button" class="ui-btn ui-btn-secondary" @click="openMessage(c)">
+                <MessageSquare :size="16" />
+                <span>{{ t("Message") }}</span>
+              </button>
+              <button type="button" class="ui-btn ui-btn-secondary" @click="openEdit(c)">
+                <Edit2 :size="16" />
+                <span>{{ t("Edit") }}</span>
+              </button>
+            </div>
+          </article>
+        </div>
+        <TablePager :pager="pager" />
+      </template>
     </div>
-    </template>
 
     <!-- Customer Detail Slideover / Modal -->
     <div
@@ -492,7 +472,7 @@ const formatDate = (isoString: string) => {
             <button
               type="button"
               @click="openMessage(selectedCustomer)"
-              class="flex items-center justify-center gap-2 rounded-xl bg-stone-900 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition"
+              class="ui-btn ui-btn-primary flex items-center justify-center gap-2 rounded-xl bg-stone-900 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition"
             >
               <MessageSquare :size="14" />
               <span>{{ t("Send Message") }}</span>
@@ -645,14 +625,14 @@ const formatDate = (isoString: string) => {
             <button
               type="button"
               @click="showCreateModal = false"
-              class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+              class="ui-btn ui-btn-secondary rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
             >
               {{ t("Cancel") }}
             </button>
             <button
               type="submit"
               :disabled="isSubmitting"
-              class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
+              class="ui-btn ui-btn-primary rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
             >
               {{ isSubmitting ? t("Creating...") : t("Save Client") }}
             </button>
@@ -732,14 +712,14 @@ const formatDate = (isoString: string) => {
             <button
               type="button"
               @click="showEditModal = false"
-              class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+              class="ui-btn ui-btn-secondary rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
             >
               {{ t("Cancel") }}
             </button>
             <button
               type="submit"
               :disabled="isSubmitting"
-              class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
+              class="ui-btn ui-btn-primary rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
             >
               {{ isSubmitting ? t("Updating...") : t("Save Changes") }}
             </button>
@@ -766,7 +746,7 @@ const formatDate = (isoString: string) => {
           <button
             type="button"
             @click="showAnonymizeConfirm = false"
-            class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+            class="ui-btn ui-btn-secondary rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
           >
             {{ t("Cancel") }}
           </button>

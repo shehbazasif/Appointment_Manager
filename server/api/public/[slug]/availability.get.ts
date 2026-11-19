@@ -73,7 +73,7 @@ export default defineEventHandler(async (event) => {
 
   // Staff-aware data (needs scripts/staff-features.sql). If it has not been run
   // yet, fall back to the old behaviour so the booking page keeps working.
-  const [staffRes, schedRes, apptRes] = await Promise.all([
+  const [staffRes, schedRes, apptRes, flagsRes] = await Promise.all([
     sb.rpc("public_staff_for_business", { p_business_id: business.id }),
     sb.rpc("public_staff_schedules", { p_business_id: business.id }),
     sb.rpc("public_day_appointments_v2", {
@@ -81,7 +81,14 @@ export default defineEventHandler(async (event) => {
       p_day_start: dayStart.toISOString(),
       p_day_end: dayEnd.toISOString(),
     }),
+    sb.rpc("public_business_flags", { p_business_id: business.id }),
   ]);
+  // Business timing (Working Hours → Booking slots). Defaults = old behaviour.
+  const flags: any = flagsRes.error ? {} : flagsRes.data ?? {};
+  const clamp = (v: unknown, min: number, max: number, dflt: number) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= min && n <= max ? Math.round(n) : dflt;
+  };
   const staffMode = !staffRes.error && !schedRes.error && !apptRes.error;
 
   let dayAppointments: any[] = [];
@@ -117,7 +124,8 @@ export default defineEventHandler(async (event) => {
 
   const slots: { time: string; startAt: string }[] = [];
   const now = new Date();
-  const stepMinutes = 30;
+  const stepMinutes = clamp(flags.slotStepMinutes, 5, 240, 30);
+  const bufferMs = clamp(flags.bufferMinutes, 0, 120, 0) * 60000;
   const durationMinutes = service.duration_minutes ?? 30;
 
   for (
@@ -130,11 +138,12 @@ export default defineEventHandler(async (event) => {
 
     if (startAt.getTime() <= now.getTime()) continue;
 
+    // the buffer keeps free time after every booking (existing and new)
     const overlapping = dayAppointments.filter(
       (appt: any) =>
         !INACTIVE.has(appt.status) &&
-        new Date(appt.start_at) < endAt &&
-        new Date(appt.end_at) > startAt,
+        new Date(appt.start_at).getTime() < endAt.getTime() + bufferMs &&
+        new Date(appt.end_at).getTime() + bufferMs > startAt.getTime(),
     );
 
     let available: boolean;

@@ -13,6 +13,7 @@ import {
   Clock3,
   Globe2,
   Loader2,
+  Timer,
 } from "lucide-vue-next";
 const { t, intl } = useT();
 
@@ -40,9 +41,18 @@ const savedSnapshot = ref("");
 // Business country + time zone: all hours below are in this time zone
 const region = reactive({ country: "", timezone: "", currency: "" });
 const savedRegion = reactive({ country: "", timezone: "" });
+// Booking slots: how often a start time is offered + free time after each booking
+const timing = reactive({ slotStepMinutes: 30, bufferMinutes: 0 });
+const savedTiming = reactive({ slotStepMinutes: 30, bufferMinutes: 0 });
+const STEP_OPTIONS = [10, 15, 20, 30, 45, 60];
+const BUFFER_OPTIONS = [0, 5, 10, 15];
 const loadRegion = async () => {
   try {
-    const org = await $fetch<{ country?: string | null; timezone?: string; currency?: string }>("/api/organization");
+    const org = await $fetch<{ country?: string | null; timezone?: string; currency?: string; slotStepMinutes?: number; bufferMinutes?: number }>("/api/organization");
+    timing.slotStepMinutes = org.slotStepMinutes ?? 30;
+    timing.bufferMinutes = org.bufferMinutes ?? 0;
+    savedTiming.slotStepMinutes = timing.slotStepMinutes;
+    savedTiming.bufferMinutes = timing.bufferMinutes;
     region.country = org.country ?? "";
     region.timezone = org.timezone ?? "";
     region.currency = org.currency ?? "";
@@ -59,7 +69,13 @@ const browserZone = (() => {
 })();
 
 const snapshot = () =>
-  JSON.stringify({ s: schedule.value.map((d) => [d.enabled, d.startTime, d.endTime]), c: region.country, z: region.timezone });
+  JSON.stringify({
+    s: schedule.value.map((d) => [d.enabled, d.startTime, d.endTime]),
+    c: region.country,
+    z: region.timezone,
+    st: timing.slotStepMinutes,
+    b: timing.bufferMinutes,
+  });
 
 const loadHours = async () => {
   isLoading.value = true;
@@ -110,6 +126,14 @@ const barStyle = (d: DaySchedule) => {
   return { insetInlineStart: `${s * 100}%`, width: `${Math.max(0, e - s) * 100}%` };
 };
 
+const exampleTimes = computed(() => {
+  const first = schedule.value.find((d) => d.enabled) ?? { startTime: "09:00" };
+  const start = toMin(first.startTime);
+  return [0, 1, 2, 3].map((i) => {
+    const m = start + i * timing.slotStepMinutes;
+    return `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  });
+});
 const openDays = computed(() => schedule.value.filter((d) => d.enabled).length);
 const weeklyMinutes = computed(() => schedule.value.reduce((sum, d) => sum + dayMinutes(d), 0));
 const hasErrors = computed(() => schedule.value.some(isInvalid));
@@ -163,18 +187,29 @@ const saveHours = async () => {
       enabled: d.enabled,
     }));
 
-    // Save country / time zone first (only when changed)
-    if (region.timezone && (region.timezone !== savedRegion.timezone || region.country !== savedRegion.country)) {
+    // Save country / time zone and booking-slot timing first (only when changed)
+    const regionChanged =
+      !!region.timezone && (region.timezone !== savedRegion.timezone || region.country !== savedRegion.country);
+    const timingChanged =
+      timing.slotStepMinutes !== savedTiming.slotStepMinutes || timing.bufferMinutes !== savedTiming.bufferMinutes;
+    if (regionChanged || timingChanged) {
       await $fetch("/api/organization", {
         method: "PATCH",
         body: {
-          timezone: region.timezone,
-          ...(region.country ? { country: region.country } : {}),
-          ...(region.currency ? { currency: region.currency } : {}),
+          ...(regionChanged
+            ? {
+                timezone: region.timezone,
+                ...(region.country ? { country: region.country } : {}),
+                ...(region.currency ? { currency: region.currency } : {}),
+              }
+            : {}),
+          ...(timingChanged ? { slotStepMinutes: timing.slotStepMinutes, bufferMinutes: timing.bufferMinutes } : {}),
         },
       });
       savedRegion.country = region.country;
       savedRegion.timezone = region.timezone;
+      savedTiming.slotStepMinutes = timing.slotStepMinutes;
+      savedTiming.bufferMinutes = timing.bufferMinutes;
     }
 
     await $fetch("/api/business-hours", { method: "PUT", body: { hours: payload } });
@@ -233,7 +268,7 @@ const applyPreset = (type: PresetId) => {
         type="button"
         :disabled="isSaving || isLoading"
         @click="saveHours"
-        class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-stone-800 disabled:opacity-50 max-sm:w-full"
+        class="ui-btn ui-btn-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-stone-800 disabled:opacity-50 max-sm:w-full"
       >
         <Loader2 v-if="isSaving" :size="16" class="animate-spin" />
         <Save v-else :size="16" />
@@ -278,20 +313,7 @@ const applyPreset = (type: PresetId) => {
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
               <!-- switch + day -->
               <div class="flex min-w-0 items-center gap-3 sm:w-48">
-                <button
-                  type="button"
-                  role="switch"
-                  :aria-checked="day.enabled"
-                  :aria-label="t(day.dayName)"
-                  class="relative h-7 w-12 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-100"
-                  :class="day.enabled ? 'bg-emerald-500' : 'bg-stone-300'"
-                  @click="day.enabled = !day.enabled"
-                >
-                  <span
-                    class="absolute top-1 size-5 rounded-full bg-white shadow transition-all"
-                    :class="day.enabled ? 'start-6' : 'start-1'"
-                  />
-                </button>
+                <AppSwitch v-model="day.enabled" :label="t(day.dayName)" />
                 <div class="min-w-0">
                   <p class="flex items-center gap-2 text-sm font-bold" :class="day.enabled ? 'text-stone-900' : 'text-stone-400'">
                     {{ t(day.dayName) }}
@@ -389,6 +411,48 @@ const applyPreset = (type: PresetId) => {
             <span class="font-semibold">{{ nowInfo.open ? t("Open now") : t("Closed now") }}</span>
             <span class="ms-auto inline-flex items-center gap-1 tabular-nums text-stone-300"><Clock3 :size="13" /> {{ nowInfo.time }}</span>
           </div>
+        </div>
+
+        <!-- Booking slots timing -->
+        <div class="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
+          <p class="flex items-center gap-2 px-1 text-sm font-bold text-stone-900"><Timer :size="16" class="text-rose-600" /> {{ t("Booking slots") }}</p>
+          <p class="mt-1 px-1 text-xs text-stone-500">{{ t("How often customers can start a booking online.") }}</p>
+
+          <p class="mt-4 px-1 text-[11px] font-bold uppercase tracking-wider text-stone-500">{{ t("Start a booking every") }}</p>
+          <div class="mt-2 grid grid-cols-3 gap-1.5">
+            <button
+              v-for="m in STEP_OPTIONS"
+              :key="m"
+              type="button"
+              class="min-h-10 rounded-xl border text-sm font-semibold transition"
+              :class="timing.slotStepMinutes === m ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-200 text-stone-700 hover:border-stone-300'"
+              :aria-pressed="timing.slotStepMinutes === m"
+              @click="timing.slotStepMinutes = m"
+            >
+              {{ t("{n} min", { n: m }) }}
+            </button>
+          </div>
+          <p class="mt-2 px-1 text-[11px] text-stone-500">
+            {{ t("Example start times:") }} <span class="font-semibold tabular-nums text-stone-700">{{ exampleTimes.join(" · ") }} …</span>
+          </p>
+
+          <p class="mt-4 px-1 text-[11px] font-bold uppercase tracking-wider text-stone-500">{{ t("Break after each booking") }}</p>
+          <div class="mt-2 grid grid-cols-4 gap-1.5">
+            <button
+              v-for="m in BUFFER_OPTIONS"
+              :key="m"
+              type="button"
+              class="min-h-10 rounded-xl border text-sm font-semibold transition"
+              :class="timing.bufferMinutes === m ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-200 text-stone-700 hover:border-stone-300'"
+              :aria-pressed="timing.bufferMinutes === m"
+              @click="timing.bufferMinutes = m"
+            >
+              {{ m === 0 ? t("None") : t("{n} min", { n: m }) }}
+            </button>
+          </div>
+          <p class="mt-3 rounded-2xl bg-stone-50 p-3 text-[11px] leading-5 text-stone-500">
+            {{ t("Tip: short check-ups (10–15 min) → every 10 or 15 min. Long services (1 hour or more) → every 30 or 60 min.") }}
+          </p>
         </div>
 
         <!-- Presets -->

@@ -153,9 +153,18 @@ export default defineEventHandler(async (event) => {
     console.warn("[booking] notification failed (booking still valid):", notifyError?.message);
   }
 
+  // Queue token assigned by the database trigger (null if the SQL update is not run yet)
+  let token: { tokenNumber: number | null; tokenDate: string | null } = { tokenNumber: null, tokenDate: null };
+  try {
+    const { data: tk } = await sb.rpc("public_appointment_token", { p_appointment_id: appointmentId });
+    if (tk) token = { tokenNumber: (tk as any).tokenNumber ?? null, tokenDate: (tk as any).tokenDate ?? null };
+  } catch {
+    /* token is optional */
+  }
+
   setResponseStatus(event, 201);
   return {
-    appointment: { id: appointmentId, status: "CONFIRMED", source: "ONLINE" },
+    appointment: { id: appointmentId, status: "CONFIRMED", source: "ONLINE", ...token },
     service: {
       id: service.id,
       name: service.name,

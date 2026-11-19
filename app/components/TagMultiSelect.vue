@@ -54,7 +54,7 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", onDocDown));
       :aria-expanded="open"
       :aria-controls="listId"
       aria-haspopup="listbox"
-      class="flex min-h-12 w-full cursor-pointer flex-wrap items-center gap-1.5 rounded-2xl border bg-stone-50/60 px-2.5 py-2 transition"
+      class="ui-control-multi flex min-h-12 w-full cursor-pointer flex-wrap items-center gap-1.5 rounded-2xl border bg-stone-50/60 px-2.5 py-2 transition"
       :class="open ? 'border-stone-900 bg-white ring-4 ring-stone-900/5' : 'border-stone-200 hover:border-stone-300'"
       @click="open ? (open = false) : openMenu()"
       @keydown.enter.prevent="openMenu"
@@ -64,12 +64,12 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", onDocDown));
       <span
         v-for="o in selectedOpts"
         :key="o.value"
-        class="inline-flex max-w-full items-center gap-1 rounded-lg bg-stone-900 py-1 pe-1 ps-2.5 text-xs font-semibold text-white"
+        class="inline-flex max-w-full items-center gap-1 rounded-md bg-rose-50 py-1 pe-1 ps-2.5 text-xs font-semibold text-rose-700"
       >
         <span class="truncate">{{ o.label }}</span>
         <button
           type="button"
-          class="grid size-5 shrink-0 place-items-center rounded-md text-white/70 hover:bg-white/20 hover:text-white"
+          class="grid size-5 shrink-0 place-items-center rounded text-rose-500 hover:bg-rose-100 hover:text-rose-800"
           :aria-label="t('Remove {name}', { name: o.label })"
           @click.stop="remove(o.value)"
         >
@@ -88,7 +88,7 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", onDocDown));
     >
       <div
         v-if="open"
-        class="absolute start-0 top-full z-50 mt-1.5 w-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl shadow-stone-900/15"
+        class="absolute start-0 top-full z-50 mt-1.5 w-full overflow-hidden rounded-lg border border-stone-200 bg-white shadow-xl shadow-stone-900/10"
         @keydown.esc="open = false"
       >
         <div class="flex items-center gap-2 border-b border-stone-100 p-2">
@@ -100,7 +100,7 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", onDocDown));
               type="search"
               autocomplete="off"
               :placeholder="t('Type to search…')"
-              class="w-full rounded-xl border border-stone-200 bg-stone-50 py-2 pe-3 ps-8 text-xs outline-none focus:border-stone-900 focus:bg-white"
+              class="w-full pe-3 ps-8"
             />
           </div>
           <button
@@ -126,7 +126,7 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", onDocDown));
           >
             <span
               class="grid size-5 shrink-0 place-items-center rounded-md border-2 transition"
-              :class="model.includes(o.value) ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-300 bg-white'"
+              :class="model.includes(o.value) ? 'border-rose-600 bg-rose-600 text-white' : 'border-stone-300 bg-white'"
             >
               <Check v-if="model.includes(o.value)" :size="13" :stroke-width="3" />
             </span>
@@ -137,7 +137,7 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", onDocDown));
         </ul>
         <div class="flex items-center justify-between border-t border-stone-100 px-3 py-2 text-[11px] text-stone-500">
           <span>{{ t("{n} selected", { n: model.length }) }}</span>
-          <button type="button" class="rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-bold text-white" @click="open = false">{{ t("Done") }}</button>
+          <button type="button" class="ui-btn ui-btn-primary ui-btn-sm" @click="open = false">{{ t("Done") }}</button>
         </div>
       </div>
     </Transition>

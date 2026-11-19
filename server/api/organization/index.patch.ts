@@ -34,7 +34,13 @@ export default defineEventHandler(async (event) => {
     input.bookingActive !== undefined ||
     input.onLocationEnabled !== undefined ||
     input.hidePricesInList !== undefined ||
+    input.showTokenToCustomer !== undefined ||
+    input.tokensEnabled !== undefined ||
+    input.businessType !== undefined ||
+    input.slotStepMinutes !== undefined ||
+    input.bufferMinutes !== undefined ||
     input.language !== undefined ||
+    input.themeColor !== undefined ||
     input.timezone !== undefined ||
     input.currency !== undefined;
 
@@ -92,13 +98,31 @@ export default defineEventHandler(async (event) => {
           ...(input.bookingActive !== undefined ? { online_booking_enabled: input.bookingActive } : {}),
           ...(input.onLocationEnabled !== undefined ? { on_location_enabled: input.onLocationEnabled } : {}),
           ...(input.hidePricesInList !== undefined ? { hide_prices_in_list: input.hidePricesInList } : {}),
+          ...(input.showTokenToCustomer !== undefined ? { show_token_to_customer: input.showTokenToCustomer } : {}),
+          ...(input.tokensEnabled !== undefined ? { tokens_enabled: input.tokensEnabled } : {}),
+          ...(input.businessType !== undefined ? { business_type: input.businessType } : {}),
+          ...(input.slotStepMinutes !== undefined ? { slot_step_minutes: input.slotStepMinutes } : {}),
+          ...(input.bufferMinutes !== undefined ? { buffer_minutes: input.bufferMinutes } : {}),
           ...(input.language !== undefined ? { language: input.language } : {}),
+          ...(input.themeColor !== undefined ? { theme_color: input.themeColor ? input.themeColor.toLowerCase() : null } : {}),
           ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
           ...(input.currency !== undefined ? { currency: input.currency } : {}),
           updated_at: new Date().toISOString(),
         },
         { onConflict: "business_id" },
       );
+    if (settingsError && /show_token_to_customer/.test(String(settingsError.message ?? "")))
+      throw createError({
+        statusCode: 400,
+        statusMessage:
+          "The token option needs a database update first. Run scripts/customer-token.sql in Supabase (SQL Editor) once, then save again.",
+      });
+    if (settingsError && /theme_color|valid_theme_color/.test(String(settingsError.message ?? "")))
+      throw createError({
+        statusCode: 400,
+        statusMessage:
+          "The theme option needs a database update first. Run scripts/tokens-and-theme.sql in Supabase (SQL Editor) once, then save again.",
+      });
     if (settingsError && /column .*language|valid_language/.test(String(settingsError.message ?? "")))
       throw createError({
         statusCode: 400,

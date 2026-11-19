@@ -141,7 +141,7 @@ const showGroup = (i: number) => {
       :aria-expanded="open"
       :aria-controls="listId"
       aria-haspopup="listbox"
-      class="flex min-h-11 w-full items-center gap-2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2.5 text-start text-xs outline-none transition focus:border-stone-900 focus:bg-white disabled:opacity-60 max-md:text-base"
+      class="ui-control flex min-h-11 w-full items-center gap-2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2.5 text-start text-xs outline-none transition focus:border-stone-900 focus:bg-white disabled:opacity-60 max-md:text-base"
       :class="open ? 'border-stone-900 bg-white' : ''"
       @click="open ? close() : openList()"
       @keydown.down.prevent="openList"

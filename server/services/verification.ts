@@ -1,18 +1,28 @@
-import { createHash, randomInt } from "node:crypto";
+import { createHmac, randomInt } from "node:crypto";
 import type { SupabaseClient as SBClient } from "@supabase/supabase-js";
 import { sendEmail } from "./notifications";
 
-type SupabaseLike = Pick<SBClient, "from">;
+type SupabaseLike = Pick<SBClient, "from" | "rpc">;
 
 const CODE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_ATTEMPTS = 5;
 const MAX_CODES_PER_WINDOW = 3;
 const WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 
+/**
+ * Server-only secret mixed into every code hash (HMAC). Users can read their
+ * own code rows, so a plain hash of a 6-digit code could be cracked offline;
+ * without this secret it cannot.
+ */
+export const serverSecret = () => {
+  const s = process.env.AUTH_CODE_SECRET || process.env.CRON_SECRET || process.env.ATTENDANCE_SECRET;
+  if (!s) throw createError({ statusCode: 503, statusMessage: "Server secret is not configured (AUTH_CODE_SECRET)." });
+  return s;
+};
 const hashCode = (userId: string, code: string) =>
-  createHash("sha256").update(`${userId}:${code}`).digest("hex");
+  createHmac("sha256", serverSecret()).update(`${userId}:${code}`).digest("hex");
 
-export type VerificationKind = "EMAIL_CHANGE" | "PHONE_CHANGE";
+export type VerificationKind = "EMAIL_CHANGE" | "PHONE_CHANGE" | "LOGIN";
 
 /**
  * Rate-limits code requests per user+kind (3 per 10 minutes), then generates a
@@ -108,17 +118,12 @@ export const consumeVerificationCode = async (
   );
 
   if (!match) {
-    // Bump attempts on recent rows so guessing is capped even across retries.
-    await Promise.all(
-      (rows ?? [])
-        .filter((r) => new Date(r.expires_at).getTime() > now && (r.attempts ?? 0) < MAX_ATTEMPTS)
-        .map((r) =>
-          sb
-            .from("account_verification_codes")
-            .update({ attempts: (r.attempts ?? 0) + 1 })
-            .eq("id", r.id),
-        ),
-    );
+    // Bump attempts on recent rows so guessing is capped even across retries
+    // (a database function that can only add +1 — users cannot reset it).
+    const ids = (rows ?? [])
+      .filter((r) => new Date(r.expires_at).getTime() > now && (r.attempts ?? 0) < MAX_ATTEMPTS)
+      .map((r) => r.id);
+    if (ids.length) await sb.rpc("bump_verification_attempts", { p_ids: ids });
     return null;
   }
 

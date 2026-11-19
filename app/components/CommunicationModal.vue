@@ -309,14 +309,14 @@ const send = async () => {
           <button
             type="button"
             @click="emit('update:modelValue', false)"
-            class="rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+            class="ui-btn ui-btn-secondary rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-semibold text-stone-700 hover:bg-stone-50"
           >
             {{ t("Cancel") }}
           </button>
           <button
             type="submit"
             :disabled="isSubmitting"
-            class="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50 transition"
+            class="ui-btn ui-btn-primary inline-flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50 transition"
           >
             <Send :size="14" />
             <span>{{ primaryLabel }}</span>

@@ -1,34 +1,11 @@
 import { requireSuperAdmin } from "../../utils/auth";
 import { getUserClient } from "../../utils/supabase";
 
+// Platform-wide numbers. The database function itself refuses non-admins.
 export default defineEventHandler(async (event) => {
   await requireSuperAdmin(event);
   const sb = await getUserClient(event);
-
-  const [
-    { count: orgCount },
-    { count: apptCount },
-    { count: userCount },
-    { count: custCount },
-    { count: staffCount },
-    { count: servCount },
-  ] = await Promise.all([
-    sb.from("businesses").select("id", { count: "exact", head: true }),
-    sb.from("appointments").select("id", { count: "exact", head: true }),
-    sb.from("profiles").select("id", { count: "exact", head: true }),
-    sb.from("customers").select("id", { count: "exact", head: true }),
-    sb.from("staff").select("id", { count: "exact", head: true }),
-    sb.from("services").select("id", { count: "exact", head: true }),
-  ]);
-
-  return {
-    totalOrganizations: orgCount ?? 0,
-    totalAppointments: apptCount ?? 0,
-    totalUsers: userCount ?? 0,
-    totalCustomers: custCount ?? 0,
-    totalStaff: staffCount ?? 0,
-    totalServices: servCount ?? 0,
-    systemStatus: "Healthy",
-    timestamp: new Date().toISOString(),
-  };
+  const { data, error } = await sb.rpc("admin_stats");
+  if (error) throw createError({ statusCode: error.code === "42501" ? 403 : 500, statusMessage: error.message });
+  return { ...(data as Record<string, number>), timestamp: new Date().toISOString() };
 });

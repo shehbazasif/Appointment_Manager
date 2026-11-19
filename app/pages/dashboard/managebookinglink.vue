@@ -6,7 +6,6 @@ import {
   Check,
   ExternalLink,
   QrCode,
-  MessageCircle,
   Mail,
 } from "lucide-vue-next";
 const { t } = useT();
@@ -119,16 +118,10 @@ const qrSrc = computed(() => {
             <span class="text-[10px] font-bold uppercase tracking-wider text-rose-600">{{ t("Customer Booking Hub") }}</span>
             <h2 class="font-display text-xl font-bold text-stone-900 mt-0.5">{{ t("Your Public Booking Page") }}</h2>
           </div>
-          <div class="flex items-center gap-3 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-2.5">
-            <span class="text-xs font-bold text-stone-800">{{ t("Online Booking") }}</span>
-            <input
-              type="checkbox"
-              v-model="org.bookingActive"
-              @change="saveToggle"
-              :disabled="isSaving"
-              class="size-4.5 rounded border-stone-300 text-stone-900 focus:ring-stone-900"
-            />
-          </div>
+          <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-2.5">
+            <span class="text-sm font-semibold text-stone-800">{{ t("Online Booking") }}</span>
+            <AppSwitch v-model="org.bookingActive" :disabled="isSaving" :label="t('Online Booking')" @change="saveToggle" />
+          </label>
         </div>
 
         <!-- URL bar -->
@@ -140,7 +133,7 @@ const qrSrc = computed(() => {
             <button
               type="button"
               @click="copyLink"
-              class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3.5 py-2 text-xs font-bold text-stone-700 hover:bg-stone-100 transition"
+              class="ui-btn ui-btn-secondary flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3.5 py-2 text-xs font-bold text-stone-700 hover:bg-stone-100 transition"
             >
               <Check v-if="copied" :size="14" class="text-emerald-600" />
               <Copy v-else :size="14" class="text-stone-400" />
@@ -149,7 +142,7 @@ const qrSrc = computed(() => {
             <NuxtLink
               :to="`/book/${org.slug}`"
               target="_blank"
-              class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white hover:bg-stone-800 transition"
+              class="ui-btn ui-btn-primary flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white hover:bg-stone-800 transition"
             >
               <ExternalLink :size="14" />
               <span>{{ t("Open Page") }}</span>
@@ -164,7 +157,7 @@ const qrSrc = computed(() => {
             @click="whatsappShare"
             class="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition"
           >
-            <MessageCircle :size="16" />
+            <WhatsAppIcon :size="18" />
             <span>{{ t("Share on WhatsApp") }}</span>
           </button>
           <button
@@ -203,7 +196,7 @@ const qrSrc = computed(() => {
               :href="qrSrc"
               download="booking-qr.png"
               target="_blank"
-              class="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white hover:bg-stone-800 transition"
+              class="ui-btn ui-btn-primary inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white hover:bg-stone-800 transition"
             >
               <Share2 :size="14" />
               <span>{{ t("Download QR") }}</span>

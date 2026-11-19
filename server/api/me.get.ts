@@ -1,4 +1,5 @@
-import { getTenantContext, requireAuthUser, serializeBusiness } from "../utils/auth";
+import { getTenantContext, loginCodeRequired, requireAuthUser, serializeBusiness } from "../utils/auth";
+import { trustDevice } from "../utils/deviceTrust";
 import { getUserClient } from "../utils/supabase";
 
 /**
@@ -9,6 +10,16 @@ import { getUserClient } from "../utils/supabase";
  */
 export default defineEventHandler(async (event) => {
   const authUser = await requireAuthUser(event);
+  // 2-step login: nothing about the business until the emailed code is confirmed
+  if (loginCodeRequired(event, authUser.id)) {
+    return {
+      user: { id: authUser.id, email: authUser.email, firstName: "", lastName: "" },
+      organization: null,
+      role: null,
+      loginCodeRequired: true,
+    };
+  }
+  trustDevice(event, authUser.id);
   const tenant = await getTenantContext(event);
   const metadata = authUser.userMetadata;
 

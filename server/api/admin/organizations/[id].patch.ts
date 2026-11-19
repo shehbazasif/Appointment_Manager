@@ -1,59 +1,36 @@
 import { readValidatedBody } from "h3";
 import { z } from "zod";
-import { requireSuperAdmin, serializeBusiness } from "../../../utils/auth";
+import { requireSuperAdmin } from "../../../utils/auth";
 import { getUserClient } from "../../../utils/supabase";
 
 const patchOrgSchema = z.object({
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
   bookingActive: z.boolean().optional(),
-  name: z.string().min(2).optional(),
-  slug: z.string().min(2).optional(),
+  businessType: z.enum(["general", "clinic", "pet_grooming", "salon", "field_service"]).optional(),
+  allowedFeatures: z
+    .object({
+      tokens: z.boolean(),
+      onLocation: z.boolean(),
+      attendance: z.boolean(),
+      import: z.boolean(),
+      theme: z.boolean(),
+    })
+    .partial()
+    .optional(),
 });
 
+// Admin changes to a business (status, booking, type, which features it may use).
 export default defineEventHandler(async (event) => {
   await requireSuperAdmin(event);
   const id = getRouterParam(event, "id");
-  if (!id)
-    throw createError({ statusCode: 400, statusMessage: "Organization ID is required." });
-
+  if (!id) throw createError({ statusCode: 400, statusMessage: "Organization ID is required." });
   const input = await readValidatedBody(event, patchOrgSchema.parse);
   const sb = await getUserClient(event);
-
-  const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (input.status !== undefined) updateData.status = input.status;
-  if (input.name !== undefined) updateData.name = input.name;
-  if (input.slug !== undefined) updateData.slug = input.slug.toLowerCase();
-
-  // Booking on/off lives in business_settings.online_booking_enabled
-  if (input.bookingActive !== undefined) {
-    const { error: settingsError } = await sb
-      .from("business_settings")
-      .upsert(
-        { business_id: id, online_booking_enabled: input.bookingActive, updated_at: new Date().toISOString() },
-        { onConflict: "business_id" },
-      );
-    if (settingsError)
-      throw createError({
-        statusCode: 500,
-        statusMessage: `Failed to update booking toggle: ${settingsError.message}`,
-      });
-  }
-
-  const { data: updated, error } = await sb
-    .from("businesses")
-    .update(updateData)
-    .eq("id", id)
-    .select()
-    .single();
-
-  if (error || !updated)
-    throw createError({ statusCode: 404, statusMessage: "Organization not found." });
-
-  const { data: freshSettings } = await sb
-    .from("business_settings")
-    .select("*")
-    .eq("business_id", id)
-    .maybeSingle();
-
-  return serializeBusiness(updated, freshSettings);
+  const { data, error } = await sb.rpc("admin_update_business", { p_business_id: id, p_patch: input });
+  if (error)
+    throw createError({
+      statusCode: error.code === "42501" ? 403 : error.code === "P0002" ? 404 : 500,
+      statusMessage: error.message,
+    });
+  return data;
 });

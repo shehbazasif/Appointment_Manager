@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from "vue";
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import {
   CalendarCheck,
   Plus,
@@ -22,9 +22,13 @@ import {
   Truck,
   MapPin,
   MapPinned,
-  MessageCircle,
+  Printer,
+  Columns3,
+  RotateCcw,
+  MoveHorizontal,
 } from "lucide-vue-next";
 const { t, intl } = useT();
+const { features } = useFeatures();
 
 definePageMeta({
   layout: "dashboard",
@@ -44,6 +48,8 @@ interface AppointmentDetail {
     source: string;
     notes?: string | null;
     fieldStatus?: string | null;
+    tokenNumber?: number | null;
+    tokenDate?: string | null;
     location?: { lat: number; lng: number; accuracy?: number | null; note?: string | null } | null;
   };
   customer: {
@@ -109,14 +115,6 @@ const FIELD_STATUSES = [
   { value: "ON_LOCATION", label: "On location" },
 ];
 const fieldLabel = (v?: string | null) => t(FIELD_STATUSES.find((f) => f.value === v)?.label ?? "Not assigned");
-const getFieldBadge = (v?: string | null) =>
-  v === "ASSIGNED"
-    ? "bg-blue-50 text-blue-700 border-blue-200"
-    : v === "ON_THE_WAY"
-      ? "bg-amber-50 text-amber-700 border-amber-200"
-      : v === "ON_LOCATION"
-        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-        : "bg-stone-50 text-stone-600 border-stone-200";
 const mapsUrl = (item: AppointmentDetail) => {
   const l = item.appointment.location;
   return l ? `https://www.google.com/maps?q=${l.lat},${l.lng}` : "";
@@ -320,14 +318,10 @@ const filteredAppointments = computed(() => {
     list = list.filter((a) => new Date(a.appointment.startAt) >= now);
   }
 
-  // Today / upcoming views read best in time order
-  if (dateFilter.value !== "ALL") {
-    list = [...list].sort(
-      (a, b) =>
-        new Date(a.appointment.startAt).getTime() -
-        new Date(b.appointment.startAt).getTime(),
-    );
-  }
+  // Today / tomorrow / upcoming: queue order (earliest first).
+  // All dates: newest first, so recent bookings are on top.
+  const time = (a: AppointmentDetail) => new Date(a.appointment.startAt).getTime();
+  list = [...list].sort((a, b) => (dateFilter.value === "ALL" ? time(b) - time(a) : time(a) - time(b)));
 
   return list;
 });
@@ -503,564 +497,593 @@ const openCommunication = (cust: any, apptId: string) => {
   showCommModal.value = true;
 };
 
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "CONFIRMED":
-      return "bg-emerald-50 text-emerald-700 border-emerald-200";
-    case "CHECKED_IN":
-      return "bg-blue-50 text-blue-700 border-blue-200";
-    case "COMPLETED":
-      return "bg-stone-100 text-stone-700 border-stone-200";
-    case "CANCELLED":
-      return "bg-rose-50 text-rose-700 border-rose-200";
-    case "NO_SHOW":
-      return "bg-amber-50 text-amber-700 border-amber-200";
-    case "RESCHEDULED":
-      return "bg-purple-50 text-purple-700 border-purple-200";
-    default:
-      return "bg-stone-50 text-stone-600 border-stone-200";
+// ---- Design-system table helpers ----
+
+const DATE_TABS = [
+  { value: "ALL", label: "All" },
+  { value: "TODAY", label: "Today" },
+  { value: "TOMORROW", label: "Tomorrow" },
+  { value: "UPCOMING", label: "Upcoming" },
+];
+const dateCounts = computed<Record<string, number>>(() => {
+  const now = new Date();
+  const key = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const tom = new Date(now);
+  tom.setDate(tom.getDate() + 1);
+  const c = { ALL: 0, TODAY: 0, TOMORROW: 0, UPCOMING: 0 };
+  for (const a of appointments.value) {
+    const d = new Date(a.appointment.startAt);
+    c.ALL++;
+    if (key(d) === key(now)) c.TODAY++;
+    if (key(d) === key(tom)) c.TOMORROW++;
+    if (d >= now) c.UPCOMING++;
   }
+  return c;
+});
+
+// Columns people can switch on/off (saved on this device)
+type ColKey = "email" | "service" | "duration" | "price" | "staff" | "source" | "notes";
+const OPTIONAL_COLUMNS: { key: ColKey; label: string; on: boolean }[] = [
+  { key: "service", label: "Service", on: true },
+  { key: "staff", label: "Staff", on: true },
+  { key: "price", label: "Price", on: true },
+  { key: "duration", label: "Duration", on: false },
+  { key: "email", label: "Email", on: false },
+  { key: "source", label: "Source", on: false },
+  { key: "notes", label: "Notes", on: false },
+];
+const COLS_KEY = "appt_table_cols";
+const defaultCols = () => Object.fromEntries(OPTIONAL_COLUMNS.map((c) => [c.key, c.on])) as Record<ColKey, boolean>;
+const visibleCols = reactive<Record<ColKey, boolean>>(defaultCols());
+const columnsOpen = ref(false);
+onMounted(() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(COLS_KEY) ?? "null");
+    if (saved && typeof saved === "object") {
+      for (const c of OPTIONAL_COLUMNS) if (typeof saved[c.key] === "boolean") visibleCols[c.key] = saved[c.key];
+    }
+  } catch {}
+});
+const saveCols = () => {
+  try {
+    localStorage.setItem(COLS_KEY, JSON.stringify(visibleCols));
+  } catch {}
+  nextTick(measureTable);
 };
+const toggleCol = (k: ColKey) => {
+  visibleCols[k] = !visibleCols[k];
+  saveCols();
+};
+const resetCols = () => {
+  Object.assign(visibleCols, defaultCols());
+  saveCols();
+};
+
+// Shadows on the pinned first/last columns while scrolling sideways
+const tableWrap = ref<HTMLElement | null>(null);
+const pager = usePager(filteredAppointments, "appointments_page_size", tableWrap);
+const scrolledX = ref(false);
+const canScrollX = ref(false);
+const measureTable = () => {
+  const el = tableWrap.value;
+  if (!el) return;
+  const x = Math.abs(el.scrollLeft);
+  scrolledX.value = x > 2;
+  canScrollX.value = el.scrollWidth - el.clientWidth - x > 2;
+};
+const onTableScroll = () => measureTable();
+let tableObserver: ResizeObserver | null = null;
+watch(tableWrap, (el) => {
+  tableObserver?.disconnect();
+  if (el && typeof ResizeObserver !== "undefined") {
+    tableObserver = new ResizeObserver(measureTable);
+    tableObserver.observe(el);
+    const tbl = el.querySelector("table");
+    if (tbl) tableObserver.observe(tbl);
+  }
+  nextTick(measureTable);
+});
+onBeforeUnmount(() => tableObserver?.disconnect());
+
+const customerName = (c: { firstName: string; lastName: string }) =>
+  `${c.firstName} ${c.lastName === "Customer" ? "" : c.lastName}`.trim();
+const initials = (c: { firstName: string; lastName: string }) =>
+  ((c.firstName?.[0] ?? "") + (c.lastName && c.lastName !== "Customer" ? c.lastName[0] : "")).toUpperCase() || "?";
+const statusPill = (s: string) =>
+  ({
+    CONFIRMED: "ds-pill--success",
+    PENDING: "ds-pill--warning",
+    CHECKED_IN: "ds-pill--info",
+    RESCHEDULED: "ds-pill--info",
+    COMPLETED: "ds-pill--neutral",
+    CANCELLED: "ds-pill--danger",
+    NO_SHOW: "ds-pill--danger",
+  })[s] ?? "ds-pill--neutral";
+const fieldOf = (item: AppointmentDetail) => item.appointment.fieldStatus ?? (item.staff ? "ASSIGNED" : null);
+const fieldPill = (item: AppointmentDetail) =>
+  ({ ASSIGNED: "ds-pill--info", ON_THE_WAY: "ds-pill--warning", ON_LOCATION: "ds-pill--success" })[fieldOf(item) ?? ""] ??
+  "ds-pill--neutral";
+const sourceLabel = (src: string) => (src === "ONLINE" ? t("Online") : src === "MANUAL" ? t("Manual") : src);
+
 </script>
 
 <template>
-  <div class="space-y-6 pb-16">
+  <div class="space-y-5 pb-16">
     <!-- Header -->
-    <div class="page-head flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div class="ds-page-head">
       <div class="min-w-0">
-        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">{{ t("Scheduling") }}</p>
-        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">{{ t("Appointments") }}</h1>
+        <h1 class="ds-page-title">{{ t("Appointments") }}</h1>
+        <p class="ds-page-sub">{{ t("Every booking in one place. Check people in, print tokens and reschedule.") }}</p>
       </div>
-      <div class="page-head-actions flex items-center gap-2">
-        <NuxtLink
-          to="/dashboard/calendar"
-          class="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3.5 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
-        >
-          <Calendar :size="15" />
+      <div class="flex w-full items-center gap-2 sm:w-auto">
+        <NuxtLink to="/dashboard/calendar" class="ui-btn ui-btn-secondary flex-1 sm:flex-none">
+          <Calendar :size="16" />
           <span>{{ t("Calendar View") }}</span>
         </NuxtLink>
-        <button
-          type="button"
-          @click="openCreateModal"
-          class="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm"
-        >
+        <button type="button" class="ui-btn ui-btn-primary flex-1 sm:flex-none" @click="openCreateModal">
           <Plus :size="16" />
           <span>{{ t("New Booking") }}</span>
         </button>
       </div>
     </div>
 
-    <!-- Filters & Search Toolbar -->
-    <div class="rounded-2xl border border-stone-200 bg-white p-3 shadow-sm space-y-3 sm:p-4">
-      <!-- Phones: search + Filters toggle in one row -->
-      <div class="flex items-center gap-2 md:hidden">
-        <div class="relative min-w-0 flex-1">
-          <Search :size="16" class="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+    <div class="ds-card">
+      <!-- Date tabs -->
+      <div class="ds-tabs" role="tablist">
+        <button
+          v-for="tab in DATE_TABS"
+          :key="tab.value"
+          type="button"
+          role="tab"
+          :aria-selected="dateFilter === tab.value"
+          :class="['ds-tab', dateFilter === tab.value ? 'is-active' : '']"
+          @click="dateFilter = tab.value"
+        >
+          {{ t(tab.label) }}
+          <span class="count">{{ dateCounts[tab.value] }}</span>
+        </button>
+      </div>
+
+      <!-- Toolbar: search + filters + columns -->
+      <div class="ds-toolbar">
+        <div class="relative min-w-0 flex-1 md:max-w-xs">
+          <Search :size="16" class="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-stone-400" />
           <input
             v-model="searchQuery"
             type="search"
             enterkeyhint="search"
-            :placeholder="t('Search client, phone...')"
-            class="w-full rounded-xl border border-stone-200 bg-stone-50/60 ps-10 pe-3 py-2 outline-none focus:border-stone-900 focus:bg-white"
-          />
-        </div>
-        <button
-          type="button"
-          @click="filtersOpen = !filtersOpen"
-          :aria-expanded="filtersOpen"
-          :class="[
-            filtersOpen || activeFilterCount ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-200 bg-white text-stone-700',
-            'tap inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3.5 text-sm font-bold',
-          ]"
-        >
-          <Filter :size="16" />
-          <span>{{ t("Filters") }}</span>
-          <span
-            v-if="activeFilterCount"
-            class="grid size-5 place-items-center rounded-full bg-rose-500 text-[11px] text-white"
-          >{{ activeFilterCount }}</span>
-          <ChevronDown :size="16" :class="filtersOpen ? 'rotate-180' : ''" class="transition" />
-        </button>
-      </div>
-
-      <div :class="[filtersOpen ? 'grid' : 'hidden', 'gap-3 md:grid md:grid-cols-4']">
-        <!-- Search Input (tablet / desktop) -->
-        <div class="relative hidden md:col-span-1 md:block">
-          <Search :size="15" class="absolute start-3.5 top-3 text-stone-400" />
-          <input
-            v-model="searchQuery"
-            type="text"
             :placeholder="t('Search client, phone, service...')"
-            class="w-full rounded-xl border border-stone-200 bg-stone-50/60 ps-9 pe-3 py-2 text-xs outline-none focus:border-stone-900 focus:bg-white"
+            class="w-full ps-9 pe-3"
           />
         </div>
-
-        <!-- Date Range Filter -->
-        <div>
-          <AppSelect
-            v-model="dateFilter"
-            class="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs font-medium text-stone-800 outline-none focus:border-stone-900 focus:bg-white"
+        <div class="md:hidden">
+          <button
+            type="button"
+            class="ui-btn ui-btn-secondary"
+            :aria-expanded="filtersOpen"
+            @click="filtersOpen = !filtersOpen"
           >
-            <option value="ALL">{{ t("All Dates") }}</option>
-            <option value="TODAY">{{ t("Today's Schedule") }}</option>
-            <option value="TOMORROW">{{ t("Tomorrow") }}</option>
-            <option value="UPCOMING">{{ t("Upcoming Queue") }}</option>
-          </AppSelect>
+            <Filter :size="16" />
+            <span>{{ t("Filters") }}</span>
+            <span v-if="activeFilterCount" class="grid size-5 place-items-center rounded-full bg-rose-600 text-[11px] text-white">{{ activeFilterCount }}</span>
+          </button>
         </div>
-
-        <!-- Status Filter -->
-        <div>
-          <AppSelect
-            v-model="statusFilter"
-            class="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs font-medium text-stone-800 outline-none focus:border-stone-900 focus:bg-white"
-          >
+        <div :class="[filtersOpen ? 'grid' : 'hidden', 'w-full grid-cols-1 gap-2 md:flex md:w-auto md:items-center']">
+          <AppSelect v-model="statusFilter" class="w-full md:w-44">
             <option value="ALL">{{ t("All Statuses") }}</option>
             <template v-if="onLocation">
               <option value="NONE">{{ t("Not assigned") }}</option>
               <option v-for="f in FIELD_STATUSES" :key="f.value" :value="f.value">{{ t(f.label) }}</option>
             </template>
             <template v-else>
-            <option value="PENDING">{{ t("Pending") }}</option>
-            <option value="CONFIRMED">{{ t("Confirmed") }}</option>
-            <option value="CHECKED_IN">{{ t("Checked-in") }}</option>
-            <option value="COMPLETED">{{ t("Completed") }}</option>
-            <option value="CANCELLED">{{ t("Cancelled") }}</option>
-            <option value="NO_SHOW">{{ t("No-Show") }}</option>
-            <option value="RESCHEDULED">{{ t("Rescheduled") }}</option>
+              <option value="PENDING">{{ t("Pending") }}</option>
+              <option value="CONFIRMED">{{ t("Confirmed") }}</option>
+              <option value="CHECKED_IN">{{ t("Checked-in") }}</option>
+              <option value="COMPLETED">{{ t("Completed") }}</option>
+              <option value="CANCELLED">{{ t("Cancelled") }}</option>
+              <option value="NO_SHOW">{{ t("No-Show") }}</option>
+              <option value="RESCHEDULED">{{ t("Rescheduled") }}</option>
             </template>
           </AppSelect>
-        </div>
-
-        <!-- Staff Member Filter -->
-        <div>
-          <AppSelect
-            v-model="staffFilter"
-            class="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs font-medium text-stone-800 outline-none focus:border-stone-900 focus:bg-white"
-          >
+          <AppSelect v-model="staffFilter" class="w-full md:w-48">
             <option value="ALL">{{ t("All Staff Members") }}</option>
-            <option value="unassigned">{{ t("⚠️ Unassigned Only") }}</option>
-            <option v-for="s in staffList" :key="s.id" :value="s.id">
-              {{ s.name }}
-            </option>
+            <option value="unassigned">{{ t("Unassigned only") }}</option>
+            <option v-for="s in staffList" :key="s.id" :value="s.id">{{ s.name }}</option>
           </AppSelect>
+          <button v-if="activeFilterCount" type="button" class="ui-btn ui-btn-ghost" @click="clearFilters">
+            <X :size="16" />
+            <span>{{ t("Clear filters") }}</span>
+          </button>
         </div>
 
-        <button
-          v-if="activeFilterCount"
-          type="button"
-          @click="clearFilters"
-          class="tap rounded-xl border border-stone-200 text-sm font-semibold text-stone-600 md:hidden"
-        >
-          {{ t("Clear filters") }}
+        <!-- Columns picker (table only) -->
+        <div class="relative ms-auto hidden lg:block">
+          <button
+            type="button"
+            class="ui-btn ui-btn-secondary"
+            :aria-expanded="columnsOpen"
+            @click.stop="columnsOpen = !columnsOpen"
+          >
+            <Columns3 :size="16" />
+            <span>{{ t("Columns") }}</span>
+          </button>
+          <div v-if="columnsOpen" class="fixed inset-0 z-40" @click="columnsOpen = false"></div>
+          <div v-if="columnsOpen" class="absolute end-0 top-full z-50 mt-1.5 w-60 rounded-xl border border-stone-200 bg-white p-1.5 shadow-xl">
+            <div class="ds-menu-label">{{ t("Show columns") }}</div>
+            <label
+              v-for="c in OPTIONAL_COLUMNS"
+              :key="c.key"
+              class="ds-menu-item"
+            >
+              <input type="checkbox" class="size-4" :checked="visibleCols[c.key]" @change="toggleCol(c.key)" />
+              <span>{{ t(c.label) }}</span>
+            </label>
+            <div class="ds-menu-sep"></div>
+            <button type="button" class="ds-menu-item" @click="resetCols">
+              <RotateCcw :size="16" />
+              <span>{{ t("Reset columns") }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div v-if="isLoading" class="space-y-2 p-4">
+        <div v-for="i in 6" :key="i" class="h-12 animate-pulse rounded-lg bg-stone-100"></div>
+      </div>
+
+      <!-- Empty -->
+      <div v-else-if="filteredAppointments.length === 0" class="px-4 py-16 text-center">
+        <span class="mx-auto grid size-12 place-items-center rounded-full bg-stone-100 text-stone-500">
+          <CalendarCheck :size="22" />
+        </span>
+        <h3 class="mt-3 text-base font-semibold text-stone-900">{{ t("No appointments found") }}</h3>
+        <p class="mx-auto mt-1 max-w-sm text-sm text-stone-500">
+          {{ t("Try adjusting your search criteria or create a new appointment manually.") }}
+        </p>
+        <button type="button" class="ui-btn ui-btn-primary mt-4" @click="openCreateModal">
+          <Plus :size="16" />
+          <span>{{ t("Create Booking") }}</span>
         </button>
       </div>
-    </div>
 
-    <!-- Loading State -->
-    <div v-if="isLoading" class="space-y-3">
-      <div v-for="i in 5" :key="i" class="h-16 rounded-2xl bg-stone-200/60 animate-pulse"></div>
-    </div>
-
-    <!-- Empty State -->
-    <div
-      v-else-if="filteredAppointments.length === 0"
-      class="py-16 text-center rounded-3xl border border-dashed border-stone-200 bg-white"
-    >
-      <CalendarCheck :size="36" class="mx-auto text-stone-400" />
-      <h3 class="mt-3 font-display text-lg font-bold text-stone-900">{{ t("No appointments found") }}</h3>
-      <p class="mt-1 text-xs text-stone-500 max-w-sm mx-auto">
-        {{ t("Try adjusting your search criteria or create a new appointment manually.") }}
-      </p>
-      <button
-        type="button"
-        @click="openCreateModal"
-        class="mt-4 inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white"
-      >
-        <Plus :size="14" />
-        <span>{{ t("Create Booking") }}</span>
-      </button>
-    </div>
-
-    <template v-else>
-    <!-- Phones: booking cards (tap a card to edit / reschedule) -->
-    <div class="grid gap-3 md:grid-cols-2 xl:hidden">
-      <p class="px-1 text-xs font-semibold text-stone-500 md:col-span-2">
-        {{ filteredAppointments.length === 1 ? t("1 booking") : t("{n} bookings", { n: filteredAppointments.length }) }}
-      </p>
-      <article
-        v-for="item in filteredAppointments"
-        :key="item.appointment.id"
-        role="button"
-        tabindex="0"
-        @click="openEditModal(item)"
-        @keydown.enter.self="openEditModal(item)"
-        class="cursor-pointer rounded-2xl border border-stone-200 bg-white p-4 shadow-sm transition active:bg-stone-50"
-      >
-        <!-- Top row: date/time + status -->
-        <div class="flex items-start justify-between gap-3">
-          <div class="min-w-0">
-            <div class="text-sm font-bold text-stone-900">
-              {{ formatDate(item.appointment.startAt) }} · {{ formatTime(item.appointment.startAt) }}
-            </div>
-            <div class="text-[11px] font-medium text-stone-500">{{ t("{n} min", { n: item.service.durationMinutes }) }}</div>
-          </div>
-          <span
-            v-if="onLocation"
-            :class="[
-              getFieldBadge(item.appointment.fieldStatus ?? (item.staff ? 'ASSIGNED' : null)),
-              'shrink-0 rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-wider',
-            ]"
-          >
-            {{ fieldLabel(item.appointment.fieldStatus ?? (item.staff ? 'ASSIGNED' : null)) }}
-          </span>
-          <span
-            v-else
-            :class="[
-              getStatusBadge(item.appointment.status),
-              'shrink-0 rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-wider',
-            ]"
-          >
-            {{ t(statusText(item.appointment.status)) }}
-          </span>
-        </div>
-
-        <!-- Customer -->
-        <div class="mt-3">
-          <div class="text-base font-bold text-stone-900">
-            {{ item.customer.firstName }} {{ item.customer.lastName }}
-          </div>
-          <a
-            v-if="item.customer.phone"
-            :href="`tel:${item.customer.phone}`"
-            @click.stop
-            class="mt-0.5 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-rose-700"
-          >
-            <Phone :size="15" />
-            <bdi dir="ltr">{{ item.customer.phone }}</bdi>
-          </a>
-        </div>
-
-        <!-- Service + price -->
-        <div class="flex items-center justify-between gap-3 rounded-xl bg-stone-50 px-3 py-2 text-sm">
-          <span class="flex min-w-0 items-center gap-2">
-            <span class="size-2.5 shrink-0 rounded-full" :style="{ backgroundColor: item.service.accent || '#ca7481' }"></span>
-            <span class="truncate font-semibold text-stone-800">{{ item.service.name }}</span>
-          </span>
-          <span class="shrink-0 font-bold text-stone-900">{{ formatMoney(item.service.priceCents, item.service.currency) }}</span>
-        </div>
-
-        <!-- Staff -->
-        <div class="mt-2 flex items-center justify-between gap-2 text-sm">
-          <span v-if="item.staff" class="inline-flex items-center gap-1.5 font-semibold text-stone-800">
-            <UserCheck :size="15" class="text-emerald-600" />
-            {{ item.staff.name }}
-          </span>
-          <button
-            v-else
-            type="button"
-            @click.stop="openAssignModal(item)"
-            class="tap inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-700"
-          >
-            <AlertCircle :size="15" />
-            <span>{{ t("Assign staff") }}</span>
-          </button>
-          <span class="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] font-semibold text-stone-500">
-            {{ item.appointment.source }}
-          </span>
-        </div>
-
-        <!-- Action buttons: max two per row so nothing gets squeezed -->
-        <div class="mt-3 space-y-2 border-t border-stone-100 pt-3" @click.stop>
-          <!-- 1. Status steps -->
-          <div
-            v-if="onLocation ? item.staff && item.appointment.fieldStatus !== 'ON_LOCATION' : (item.appointment.status === 'CONFIRMED' || item.appointment.status === 'CHECKED_IN')"
-            class="flex flex-wrap gap-2"
-          >
-            <template v-if="onLocation">
-              <button
-                v-if="item.appointment.fieldStatus !== 'ON_THE_WAY'"
-                type="button"
-                @click="updateFieldStatus(item.appointment.id, 'ON_THE_WAY')"
-                class="tap basis-[calc(50%-0.25rem)] grow inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-700"
-              >
-                <Truck :size="16" class="shrink-0" />
-                <span>{{ t("On the way") }}</span>
-              </button>
-              <button
-                type="button"
-                @click="updateFieldStatus(item.appointment.id, 'ON_LOCATION')"
-                class="tap basis-[calc(50%-0.25rem)] grow inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-sm font-bold text-emerald-700"
-              >
-                <MapPinned :size="16" class="shrink-0" />
-                <span>{{ t("On location") }}</span>
-              </button>
-            </template>
-            <template v-else>
-              <button
-                v-if="item.appointment.status === 'CONFIRMED'"
-                type="button"
-                @click="updateStatus(item.appointment.id, 'CHECKED_IN')"
-                class="tap basis-[calc(50%-0.25rem)] grow inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-blue-200 bg-blue-50 px-3 text-sm font-bold text-blue-700"
-              >
-                <UserCheck :size="16" class="shrink-0" />
-                <span>{{ t("Check-in") }}</span>
-              </button>
-              <button
-                type="button"
-                @click="updateStatus(item.appointment.id, 'COMPLETED')"
-                class="tap basis-[calc(50%-0.25rem)] grow inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-stone-200 bg-stone-100 px-3 text-sm font-bold text-stone-800"
-              >
-                <CheckCircle2 :size="16" class="shrink-0" />
-                <span>{{ t("Done") }}</span>
-              </button>
-            </template>
-          </div>
-
-          <!-- 2. On-location: map + WhatsApp the staff -->
-          <div v-if="onLocation && (mapsUrl(item) || item.staff)" class="flex flex-wrap gap-2">
-            <a
-              v-if="mapsUrl(item)"
-              :href="mapsUrl(item)"
-              target="_blank"
-              rel="noopener"
-              class="tap basis-[calc(50%-0.25rem)] grow inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-stone-200 bg-stone-100 px-3 text-sm font-bold text-stone-800"
-            >
-              <MapPin :size="16" class="shrink-0" />
-              <span>{{ t("Open map") }}</span>
-            </a>
-            <a
-              v-if="item.staff && whatsappUrl(item)"
-              :href="whatsappUrl(item)"
-              :target="waTarget"
-              rel="noopener"
-              :title="t('Send the job details to the staff member on WhatsApp')"
-              class="tap basis-[calc(50%-0.25rem)] grow inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-emerald-600 px-3 text-sm font-bold text-white"
-            >
-              <MessageCircle :size="16" class="shrink-0" />
-              <span>{{ t("WhatsApp") }}</span>
-            </a>
-            <span
-              v-else-if="item.staff"
-              class="basis-[calc(50%-0.25rem)] grow inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl border border-amber-200 bg-amber-50 px-3 text-xs font-bold text-amber-700"
-            >
-              {{ t("No staff phone") }}
-            </span>
-          </div>
-
-          <!-- 3. Edit + message + cancel -->
-          <div class="flex gap-2">
-            <button
-              type="button"
-              @click="openEditModal(item)"
-              class="tap inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-stone-200 bg-white px-3 text-sm font-bold text-stone-800"
-            >
-              <Edit2 :size="15" class="shrink-0" />
-              <span>{{ t("Edit / Reschedule") }}</span>
-            </button>
-            <button
-              type="button"
-              @click="openCommunication(item.customer, item.appointment.id)"
-              class="tap inline-flex shrink-0 items-center justify-center rounded-xl border border-stone-200 bg-white px-3 text-stone-700"
-              :aria-label="t('Message client')"
-              :title="t('Message client')"
-            >
-              <MessageSquare :size="17" />
-            </button>
-            <button
-              v-if="item.appointment.status !== 'CANCELLED' && item.appointment.status !== 'COMPLETED'"
-              type="button"
-              @click="updateStatus(item.appointment.id, 'CANCELLED')"
-              class="tap inline-flex shrink-0 items-center justify-center rounded-xl border border-stone-200 bg-white px-3 text-stone-400 hover:text-rose-600"
-              :aria-label="t('Cancel appointment')"
-              :title="t('Cancel appointment')"
-            >
-              <XCircle :size="18" />
-            </button>
-          </div>
-        </div>
-      </article>
-    </div>
-
-    <!-- Tablet / desktop: table -->
-    <div class="hidden rounded-3xl border border-stone-200 bg-white shadow-sm overflow-hidden xl:block">
-      <div>
-        <table class="w-full table-auto text-start text-xs text-stone-600">
-          <thead class="bg-stone-50/80 border-b border-stone-200 text-[10px] font-bold uppercase tracking-wider text-stone-500">
-            <tr>
-              <th class="py-3.5 ps-6 pe-3">{{ t("Date & Time") }}</th>
-              <th class="px-3 py-3.5">{{ t("Customer") }}</th>
-              <th class="px-3 py-3.5">{{ t("Service") }}</th>
-              <th class="px-3 py-3.5">{{ t("Staff Assigned") }}</th>
-              <th class="px-3 py-3.5">{{ t("Status") }}</th>
-              <th class="py-3.5 ps-3 pe-6 text-end">{{ t("Actions") }}</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-stone-100 font-medium">
-            <tr
-              v-for="item in filteredAppointments"
-              :key="item.appointment.id"
-              class="hover:bg-stone-50/60 transition"
-            >
-              <!-- Date & Time -->
-              <td class="py-4 ps-6 pe-3 whitespace-nowrap">
-                <div class="font-bold text-stone-900">{{ formatDate(item.appointment.startAt) }}</div>
-                <div class="text-[11px] text-stone-500 font-display font-semibold">{{ formatTime(item.appointment.startAt) }} ({{ item.service.durationMinutes }}m)</div>
-              </td>
-
-              <!-- Customer -->
-              <td class="px-3 py-4">
-                <div class="max-w-[12rem] truncate font-bold text-stone-900" :title="`${item.customer.firstName} ${item.customer.lastName}`">{{ item.customer.firstName }} {{ item.customer.lastName }}</div>
-                <div class="text-[11px] text-stone-500 flex items-center gap-1">
-                  <Phone :size="11" />
-                  <bdi dir="ltr">{{ item.customer.phone }}</bdi>
-                </div>
-              </td>
-
-              <!-- Service -->
-              <td class="px-3 py-4">
-                <div class="flex max-w-[11rem] items-center gap-1.5">
-                  <span class="size-2 shrink-0 rounded-full" :style="{ backgroundColor: item.service.accent || '#ca7481' }"></span>
-                  <span class="truncate font-semibold text-stone-800" :title="item.service.name">{{ item.service.name }}</span>
-                </div>
-                <div class="text-[11px] text-stone-500 font-bold">{{ formatMoney(item.service.priceCents, item.service.currency) }}</div>
-              </td>
-
-              <!-- Staff Assigned -->
-              <td class="px-3 py-4 whitespace-nowrap">
-                <div v-if="item.staff" class="inline-flex items-center gap-1 text-stone-800 font-semibold">
-                  <UserCheck :size="13" class="text-emerald-600" />
-                  <span>{{ item.staff.name }}</span>
-                </div>
-                <button
-                  v-else
-                  type="button"
-                  @click="openAssignModal(item)"
-                  class="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2 py-1 text-[11px] font-bold text-amber-700 hover:bg-amber-100"
-                >
-                  <AlertCircle :size="12" />
-                  <span>{{ t("Assign Staff") }}</span>
-                </button>
-              </td>
-
-              <!-- Status (+ where the booking came from) -->
-              <td class="px-3 py-4 whitespace-nowrap">
-                <span
-                  v-if="onLocation"
-                  :class="[
-                    getFieldBadge(item.appointment.fieldStatus ?? (item.staff ? 'ASSIGNED' : null)),
-                    'rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
-                  ]"
-                >
-                  {{ fieldLabel(item.appointment.fieldStatus ?? (item.staff ? "ASSIGNED" : null)) }}
-                </span>
-                <span
-                  v-else
-                  :class="[
-                    getStatusBadge(item.appointment.status),
-                    'rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
-                  ]"
-                >
-                  {{ t(statusText(item.appointment.status)) }}
-                </span>
-                <div class="mt-1.5 text-[10px] font-semibold uppercase tracking-wider text-stone-400">
-                  {{ item.appointment.source === "ONLINE" ? t("Online") : item.appointment.source === "MANUAL" ? t("Manual") : item.appointment.source }}
-                </div>
-              </td>
-
-              <!-- Actions: compact icons + one "next step" button -->
-              <td class="py-4 ps-3 pe-6">
-                <div class="flex items-center justify-end gap-1.5">
-                  <template v-if="onLocation">
-                    <button
-                      v-if="item.staff && (!item.appointment.fieldStatus || item.appointment.fieldStatus === 'ASSIGNED')"
-                      type="button"
-                      @click="updateFieldStatus(item.appointment.id, 'ON_THE_WAY')"
-                      class="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-amber-200 bg-amber-50 px-2.5 text-[11px] font-bold text-amber-700 hover:bg-amber-100"
-                    >
-                      <Truck :size="14" /> {{ t("On the way") }}
-                    </button>
-                    <button
-                      v-else-if="item.staff && item.appointment.fieldStatus === 'ON_THE_WAY'"
-                      type="button"
-                      @click="updateFieldStatus(item.appointment.id, 'ON_LOCATION')"
-                      class="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100"
-                    >
-                      <MapPinned :size="14" /> {{ t("On location") }}
-                    </button>
-                  </template>
-                  <template v-else>
-                    <button
-                      v-if="item.appointment.status === 'CONFIRMED'"
-                      type="button"
-                      @click="updateStatus(item.appointment.id, 'CHECKED_IN')"
-                      class="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-blue-200 bg-blue-50 px-2.5 text-[11px] font-bold text-blue-700 hover:bg-blue-100"
-                    >
-                      <UserCheck :size="14" /> {{ t("Check-in") }}
-                    </button>
-                    <button
-                      v-else-if="item.appointment.status === 'CHECKED_IN'"
-                      type="button"
-                      @click="updateStatus(item.appointment.id, 'COMPLETED')"
-                      class="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-stone-200 bg-stone-100 px-2.5 text-[11px] font-bold text-stone-800 hover:bg-stone-200"
-                    >
-                      <CheckCircle2 :size="14" /> {{ t("Done") }}
-                    </button>
-                  </template>
-
-                  <a
-                    v-if="onLocation && item.staff && whatsappUrl(item)"
-                    :href="whatsappUrl(item)"
-                    :target="waTarget"
-                    rel="noopener"
-                    class="inline-grid size-8 shrink-0 place-items-center rounded-lg bg-emerald-600 text-white transition hover:bg-emerald-700"
-                    :title="t('Send job details to staff on WhatsApp')"
-                    :aria-label="t('WhatsApp staff')"
-                  >
-                    <MessageCircle :size="15" />
-                  </a>
-                  <span
-                    v-else-if="onLocation && item.staff"
-                    class="inline-grid size-8 shrink-0 place-items-center rounded-lg border border-amber-200 bg-amber-50 text-amber-600"
-                    :title="t(&quot;Add this staff member's WhatsApp number on the Staff page&quot;)"
-                  >
-                    <MessageCircle :size="15" />
+      <template v-else>
+        <!-- Desktop / laptop: data table -->
+        <div
+          ref="tableWrap"
+          :class="['ds-table-wrap hidden lg:block', scrolledX ? 'is-scrolled-x' : '', canScrollX ? 'can-scroll-x' : '']"
+          @scroll="onTableScroll"
+        >
+          <table class="ds-table">
+            <thead>
+              <tr>
+                <th v-if="features.tokens" class="sticky-start w-[72px]">{{ t("Token") }}</th>
+                <th :class="features.tokens ? '' : 'sticky-start'">{{ t("Date & time") }}</th>
+                <th>{{ t("Customer") }}</th>
+                <th v-if="visibleCols.email">{{ t("Email") }}</th>
+                <th v-if="visibleCols.service">{{ t("Service") }}</th>
+                <th v-if="visibleCols.duration">{{ t("Duration") }}</th>
+                <th v-if="visibleCols.price" class="text-end">{{ t("Price") }}</th>
+                <th v-if="visibleCols.staff">{{ onLocation ? t("Staff") : t("Staff Assigned") }}</th>
+                <th>{{ t("Status") }}</th>
+                <th v-if="visibleCols.source">{{ t("Source") }}</th>
+                <th v-if="visibleCols.notes">{{ t("Notes") }}</th>
+                <th class="sticky-end text-end">{{ t("Actions") }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in pager.rows" :key="item.appointment.id">
+                <td v-if="features.tokens" class="sticky-start">
+                  <span v-if="item.appointment.tokenNumber" class="ds-token" :title="t('Token number')">
+                    {{ formatToken(item.appointment.tokenNumber) }}
                   </span>
-                  <a
-                    v-if="onLocation && mapsUrl(item)"
-                    :href="mapsUrl(item)"
-                    target="_blank"
-                    rel="noopener"
-                    class="inline-grid size-8 shrink-0 place-items-center rounded-lg border border-stone-200 bg-white text-stone-500 transition hover:border-stone-300 hover:bg-stone-50 hover:text-stone-900"
-                    :title="t('Open map')"
-                    :aria-label="t('Open map')"
-                  >
-                    <MapPin :size="15" />
-                  </a>
-
-                  <button type="button" @click="openCommunication(item.customer, item.appointment.id)" class="inline-grid size-8 shrink-0 place-items-center rounded-lg border border-stone-200 bg-white text-stone-500 transition hover:border-stone-300 hover:bg-stone-50 hover:text-stone-900" :title="t('Message Client')" :aria-label="t('Message Client')">
-                    <MessageSquare :size="15" />
-                  </button>
-                  <button type="button" @click="openEditModal(item)" class="inline-grid size-8 shrink-0 place-items-center rounded-lg border border-stone-200 bg-white text-stone-500 transition hover:border-stone-300 hover:bg-stone-50 hover:text-stone-900" :title="t('Edit / Reschedule')" :aria-label="t('Edit / Reschedule')">
-                    <Edit2 :size="15" />
-                  </button>
+                  <span v-else class="text-stone-400">—</span>
+                </td>
+                <td class="num" :class="features.tokens ? '' : 'sticky-start'">
+                  <div class="is-strong">{{ formatTime(item.appointment.startAt) }}</div>
+                  <div class="text-xs text-stone-500">{{ formatDate(item.appointment.startAt) }}</div>
+                </td>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <span class="ds-avatar">{{ initials(item.customer) }}</span>
+                    <div class="min-w-0">
+                      <div class="is-strong max-w-[14rem] truncate">{{ customerName(item.customer) }}</div>
+                      <a :href="`tel:${item.customer.phone}`" class="num text-xs text-stone-500 hover:text-rose-700">
+                        <bdi dir="ltr">{{ item.customer.phone }}</bdi>
+                      </a>
+                    </div>
+                  </div>
+                </td>
+                <td v-if="visibleCols.email" class="max-w-[14rem] truncate">{{ item.customer.email || "—" }}</td>
+                <td v-if="visibleCols.service">
+                  <div class="flex max-w-[13rem] items-center gap-2">
+                    <span class="size-2 shrink-0 rounded-full" :style="{ backgroundColor: item.service.accent || '#94a3b8' }"></span>
+                    <span class="truncate text-stone-800" :title="item.service.name">{{ item.service.name }}</span>
+                  </div>
+                </td>
+                <td v-if="visibleCols.duration" class="num">{{ t("{n} min", { n: item.service.durationMinutes }) }}</td>
+                <td v-if="visibleCols.price" class="num text-end text-stone-800">{{ formatMoney(item.service.priceCents, item.service.currency) }}</td>
+                <td v-if="visibleCols.staff">
+                  <span v-if="item.staff" class="text-stone-800">{{ item.staff.name }}</span>
                   <button
-                    v-if="item.appointment.status !== 'CANCELLED' && item.appointment.status !== 'COMPLETED'"
+                    v-else
                     type="button"
-                    @click="updateStatus(item.appointment.id, 'CANCELLED')"
-                    class="inline-grid size-8 shrink-0 place-items-center rounded-lg border border-stone-200 bg-white text-stone-400 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
-                    :title="t('Cancel Appointment')"
-                    :aria-label="t('Cancel Appointment')"
+                    class="ui-btn ui-btn-sm ui-btn-secondary !border-amber-300 !bg-amber-50 !text-amber-800"
+                    @click="openAssignModal(item)"
                   >
-                    <XCircle :size="15" />
+                    <AlertCircle :size="14" />
+                    <span>{{ t("Assign Staff") }}</span>
                   </button>
+                </td>
+                <td>
+                  <span v-if="onLocation" :class="['ds-pill', fieldPill(item)]">{{ fieldLabel(fieldOf(item)) }}</span>
+                  <span v-else :class="['ds-pill', statusPill(item.appointment.status)]">{{ t(statusText(item.appointment.status)) }}</span>
+                </td>
+                <td v-if="visibleCols.source">
+                  <span class="ds-tag">{{ sourceLabel(item.appointment.source) }}</span>
+                </td>
+                <td v-if="visibleCols.notes" class="max-w-[16rem] truncate" :title="item.appointment.notes ?? ''">{{ item.appointment.notes || "—" }}</td>
+                <td class="sticky-end">
+                  <div class="flex items-center justify-end gap-1.5">
+                    <!-- one "next step" button -->
+                    <template v-if="onLocation">
+                      <button
+                        v-if="item.staff && (!item.appointment.fieldStatus || item.appointment.fieldStatus === 'ASSIGNED')"
+                        type="button"
+                        class="ui-btn ui-btn-sm ui-btn-soft"
+                        @click="updateFieldStatus(item.appointment.id, 'ON_THE_WAY')"
+                      >
+                        <Truck :size="14" /> {{ t("On the way") }}
+                      </button>
+                      <button
+                        v-else-if="item.staff && item.appointment.fieldStatus === 'ON_THE_WAY'"
+                        type="button"
+                        class="ui-btn ui-btn-sm ui-btn-soft"
+                        @click="updateFieldStatus(item.appointment.id, 'ON_LOCATION')"
+                      >
+                        <MapPinned :size="14" /> {{ t("On location") }}
+                      </button>
+                    </template>
+                    <template v-else>
+                      <button
+                        v-if="item.appointment.status === 'CONFIRMED'"
+                        type="button"
+                        class="ui-btn ui-btn-sm ui-btn-soft"
+                        @click="updateStatus(item.appointment.id, 'CHECKED_IN')"
+                      >
+                        <UserCheck :size="14" /> {{ t("Check-in") }}
+                      </button>
+                      <button
+                        v-else-if="item.appointment.status === 'CHECKED_IN'"
+                        type="button"
+                        class="ui-btn ui-btn-sm ui-btn-soft"
+                        @click="updateStatus(item.appointment.id, 'COMPLETED')"
+                      >
+                        <CheckCircle2 :size="14" /> {{ t("Done") }}
+                      </button>
+                    </template>
+                    <button
+                      v-if="features.tokens && item.appointment.tokenNumber"
+                      type="button"
+                      class="ui-btn ui-btn-sm ui-btn-secondary ui-btn-icon"
+                      :title="t('Print token')"
+                      :aria-label="t('Print token')"
+                      @click="printToken(item.appointment.id)"
+                    >
+                      <Printer :size="15" />
+                    </button>
+                    <RowActionMenu :label="t('More actions')">
+                      <button type="button" class="ds-menu-item" role="menuitem" @click="openEditModal(item)">
+                        <Edit2 :size="16" /> {{ t("Edit / Reschedule") }}
+                      </button>
+                      <button type="button" class="ds-menu-item" role="menuitem" @click="openCommunication(item.customer, item.appointment.id)">
+                        <MessageSquare :size="16" /> {{ t("Message Client") }}
+                      </button>
+                      <button type="button" class="ds-menu-item" role="menuitem" @click="openAssignModal(item)">
+                        <UserPlus :size="16" /> {{ item.staff ? t("Change staff") : t("Assign Staff") }}
+                      </button>
+                      <a
+                        v-if="onLocation && item.staff && whatsappUrl(item)"
+                        :href="whatsappUrl(item)"
+                        :target="waTarget"
+                        rel="noopener"
+                        class="ds-menu-item"
+                        role="menuitem"
+                      >
+                        <WhatsAppIcon :size="16" /> {{ t("WhatsApp staff") }}
+                      </a>
+                      <a v-if="onLocation && mapsUrl(item)" :href="mapsUrl(item)" target="_blank" rel="noopener" class="ds-menu-item" role="menuitem">
+                        <MapPin :size="16" /> {{ t("Open map") }}
+                      </a>
+                      <template v-if="!onLocation && item.appointment.status !== 'CANCELLED' && item.appointment.status !== 'COMPLETED'">
+                        <button
+                          v-if="item.appointment.status !== 'NO_SHOW'"
+                          type="button"
+                          class="ds-menu-item"
+                          role="menuitem"
+                          @click="updateStatus(item.appointment.id, 'NO_SHOW')"
+                        >
+                          <AlertCircle :size="16" /> {{ t("Mark as no-show") }}
+                        </button>
+                      </template>
+                      <template v-if="item.appointment.status !== 'CANCELLED' && item.appointment.status !== 'COMPLETED'">
+                        <div class="ds-menu-sep"></div>
+                        <button
+                          type="button"
+                          class="ds-menu-item ds-menu-item--danger"
+                          role="menuitem"
+                          @click="updateStatus(item.appointment.id, 'CANCELLED')"
+                        >
+                          <XCircle :size="16" /> {{ t("Cancel Appointment") }}
+                        </button>
+                      </template>
+                    </RowActionMenu>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-if="canScrollX" class="hidden items-center justify-end gap-1 border-t border-stone-200 px-4 py-2.5 text-xs text-stone-500 lg:flex">
+          <MoveHorizontal :size="14" /> {{ t("Scroll sideways to see more columns") }}
+        </div>
+
+        <!-- Phones / tablets: booking cards -->
+        <div class="grid gap-3 p-3 sm:grid-cols-2 lg:hidden">
+          <p class="px-1 text-xs font-semibold text-stone-500 sm:col-span-2">
+            {{ filteredAppointments.length === 1 ? t("1 booking") : t("{n} bookings", { n: filteredAppointments.length }) }}
+          </p>
+          <article
+            v-for="item in pager.rows"
+            :key="item.appointment.id"
+            role="button"
+            tabindex="0"
+            class="cursor-pointer rounded-xl border border-stone-200 bg-white p-4 transition active:bg-stone-50"
+            @click="openEditModal(item)"
+            @keydown.enter.self="openEditModal(item)"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex min-w-0 items-center gap-3">
+                <span v-if="features.tokens && item.appointment.tokenNumber" class="ds-token !h-10 !min-w-12 !text-lg">{{ formatToken(item.appointment.tokenNumber) }}</span>
+                <div class="min-w-0">
+                  <div class="text-sm font-semibold tabular-nums text-stone-900">
+                    {{ formatTime(item.appointment.startAt) }} · {{ formatDate(item.appointment.startAt) }}
+                  </div>
+                  <div class="text-xs text-stone-500">{{ t("{n} min", { n: item.service.durationMinutes }) }}</div>
                 </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+              </div>
+              <span v-if="onLocation" :class="['ds-pill shrink-0', fieldPill(item)]">{{ fieldLabel(fieldOf(item)) }}</span>
+              <span v-else :class="['ds-pill shrink-0', statusPill(item.appointment.status)]">{{ t(statusText(item.appointment.status)) }}</span>
+            </div>
+
+            <div class="mt-3 flex items-center gap-3">
+              <span class="ds-avatar">{{ initials(item.customer) }}</span>
+              <div class="min-w-0">
+                <div class="truncate text-base font-semibold text-stone-900">{{ customerName(item.customer) }}</div>
+                <a
+                  v-if="item.customer.phone"
+                  :href="`tel:${item.customer.phone}`"
+                  class="inline-flex min-h-8 items-center gap-1.5 text-sm font-medium text-rose-700"
+                  @click.stop
+                >
+                  <Phone :size="14" />
+                  <bdi dir="ltr">{{ item.customer.phone }}</bdi>
+                </a>
+              </div>
+            </div>
+
+            <div class="mt-3 flex items-center justify-between gap-3 rounded-lg bg-stone-50 px-3 py-2 text-sm">
+              <span class="flex min-w-0 items-center gap-2">
+                <span class="size-2 shrink-0 rounded-full" :style="{ backgroundColor: item.service.accent || '#94a3b8' }"></span>
+                <span class="truncate text-stone-800">{{ item.service.name }}</span>
+              </span>
+              <span class="shrink-0 font-semibold tabular-nums text-stone-900">{{ formatMoney(item.service.priceCents, item.service.currency) }}</span>
+            </div>
+
+            <div class="mt-2 flex items-center justify-between gap-2 text-sm">
+              <span v-if="item.staff" class="inline-flex items-center gap-1.5 text-stone-700">
+                <UserCheck :size="15" class="text-stone-400" />
+                {{ item.staff.name }}
+              </span>
+              <button
+                v-else
+                type="button"
+                class="ui-btn ui-btn-secondary !border-amber-300 !bg-amber-50 !text-amber-800"
+                @click.stop="openAssignModal(item)"
+              >
+                <AlertCircle :size="15" />
+                <span>{{ t("Assign staff") }}</span>
+              </button>
+              <span class="ds-tag">{{ sourceLabel(item.appointment.source) }}</span>
+            </div>
+
+            <!-- Actions -->
+            <div class="mt-3 flex gap-2 border-t border-stone-100 pt-3" @click.stop>
+              <template v-if="onLocation">
+                <button
+                  v-if="item.staff && item.appointment.fieldStatus !== 'ON_THE_WAY' && item.appointment.fieldStatus !== 'ON_LOCATION'"
+                  type="button"
+                  class="ui-btn ui-btn-soft flex-1"
+                  @click="updateFieldStatus(item.appointment.id, 'ON_THE_WAY')"
+                >
+                  <Truck :size="16" /> {{ t("On the way") }}
+                </button>
+                <button
+                  v-else-if="item.staff && item.appointment.fieldStatus === 'ON_THE_WAY'"
+                  type="button"
+                  class="ui-btn ui-btn-soft flex-1"
+                  @click="updateFieldStatus(item.appointment.id, 'ON_LOCATION')"
+                >
+                  <MapPinned :size="16" /> {{ t("On location") }}
+                </button>
+              </template>
+              <template v-else>
+                <button
+                  v-if="item.appointment.status === 'CONFIRMED'"
+                  type="button"
+                  class="ui-btn ui-btn-soft flex-1"
+                  @click="updateStatus(item.appointment.id, 'CHECKED_IN')"
+                >
+                  <UserCheck :size="16" /> {{ t("Check-in") }}
+                </button>
+                <button
+                  v-else-if="item.appointment.status === 'CHECKED_IN'"
+                  type="button"
+                  class="ui-btn ui-btn-soft flex-1"
+                  @click="updateStatus(item.appointment.id, 'COMPLETED')"
+                >
+                  <CheckCircle2 :size="16" /> {{ t("Done") }}
+                </button>
+              </template>
+              <button type="button" class="ui-btn ui-btn-secondary flex-1" @click="openEditModal(item)">
+                <Edit2 :size="15" /> {{ t("Edit") }}
+              </button>
+              <button
+                v-if="features.tokens && item.appointment.tokenNumber"
+                type="button"
+                class="ui-btn ui-btn-secondary ui-btn-icon"
+                :aria-label="t('Print token')"
+                @click="printToken(item.appointment.id)"
+              >
+                <Printer :size="17" />
+              </button>
+              <RowActionMenu :label="t('More actions')" size="md">
+                <button type="button" class="ds-menu-item" @click="openCommunication(item.customer, item.appointment.id)">
+                  <MessageSquare :size="16" /> {{ t("Message Client") }}
+                </button>
+                <a
+                  v-if="onLocation && item.staff && whatsappUrl(item)"
+                  :href="whatsappUrl(item)"
+                  :target="waTarget"
+                  rel="noopener"
+                  class="ds-menu-item"
+                >
+                  <WhatsAppIcon :size="16" /> {{ t("WhatsApp staff") }}
+                </a>
+                <a v-if="onLocation && mapsUrl(item)" :href="mapsUrl(item)" target="_blank" rel="noopener" class="ds-menu-item">
+                  <MapPin :size="16" /> {{ t("Open map") }}
+                </a>
+                <button
+                  v-if="!onLocation && item.appointment.status !== 'CANCELLED' && item.appointment.status !== 'COMPLETED' && item.appointment.status !== 'NO_SHOW'"
+                  type="button"
+                  class="ds-menu-item"
+                  @click="updateStatus(item.appointment.id, 'NO_SHOW')"
+                >
+                  <AlertCircle :size="16" /> {{ t("Mark as no-show") }}
+                </button>
+                <template v-if="item.appointment.status !== 'CANCELLED' && item.appointment.status !== 'COMPLETED'">
+                  <div class="ds-menu-sep"></div>
+                  <button type="button" class="ds-menu-item ds-menu-item--danger" @click="updateStatus(item.appointment.id, 'CANCELLED')">
+                    <XCircle :size="16" /> {{ t("Cancel Appointment") }}
+                  </button>
+                </template>
+              </RowActionMenu>
+            </div>
+          </article>
+        </div>
+        <TablePager :pager="pager" />
+      </template>
     </div>
-    </template>
 
     <!-- Create Appointment Modal -->
     <div
@@ -1100,7 +1123,7 @@ const getStatusBadge = (status: string) => {
               class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-sm outline-none focus:border-stone-900 focus:bg-white"
             >
               <option v-for="c in customers" :key="c.id" :value="c.id">
-                {{ c.firstName }} {{ c.lastName }} (<bdi dir="ltr">{{ c.phone }}</bdi>)
+                {{ c.firstName }} {{ c.lastName }} ({{ c.phone }})
               </option>
             </AppSelect>
 
@@ -1214,14 +1237,14 @@ const getStatusBadge = (status: string) => {
             <button
               type="button"
               @click="showCreateModal = false"
-              class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+              class="ui-btn ui-btn-secondary rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
             >
               {{ t("Cancel") }}
             </button>
             <button
               type="submit"
               :disabled="isSubmitting"
-              class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
+              class="ui-btn ui-btn-primary rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
             >
               {{ isSubmitting ? t("Creating...") : t("Save Appointment") }}
             </button>
@@ -1359,14 +1382,14 @@ const getStatusBadge = (status: string) => {
             <button
               type="button"
               @click="showEditModal = false"
-              class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+              class="ui-btn ui-btn-secondary rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
             >
               {{ t("Cancel") }}
             </button>
             <button
               type="submit"
               :disabled="isSubmitting"
-              class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
+              class="ui-btn ui-btn-primary rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
             >
               {{ isSubmitting ? t("Saving...") : t("Update Appointment") }}
             </button>
@@ -1402,7 +1425,7 @@ const getStatusBadge = (status: string) => {
           <button
             type="button"
             @click="showAssignModal = false"
-            class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+            class="ui-btn ui-btn-secondary rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
           >
             {{ t("Cancel") }}
           </button>
@@ -1410,7 +1433,7 @@ const getStatusBadge = (status: string) => {
             type="button"
             :disabled="isSubmitting"
             @click="handleAssignStaff"
-            class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
+            class="ui-btn ui-btn-primary rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
           >
             {{ isSubmitting ? t("Saving...") : t("Confirm") }}
           </button>

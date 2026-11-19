@@ -117,8 +117,8 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", onDocDown));
   <div ref="root" class="relative min-w-0">
     <button
       type="button"
-      class="flex h-11 w-full min-w-0 items-center gap-2 rounded-xl border bg-white px-3 text-start text-sm font-semibold tabular-nums text-stone-900 transition hover:border-stone-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-stone-900/5 max-md:text-base"
-      :class="[open ? 'border-stone-900 ring-4 ring-stone-900/5' : invalid ? 'border-rose-300 bg-rose-50/40' : 'border-stone-200']"
+      class="ui-control flex h-11 w-full min-w-0 items-center gap-2 rounded-xl border bg-white px-3 text-start text-sm font-semibold tabular-nums text-stone-900 transition hover:border-stone-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-stone-900/5 max-md:text-base"
+      :class="[open ? 'border-stone-900 ring-4 ring-stone-900/5' : invalid ? 'is-invalid border-rose-300 bg-rose-50/40' : 'border-stone-200']"
       :aria-expanded="open"
       :aria-controls="listId"
       aria-haspopup="listbox"
@@ -139,7 +139,7 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", onDocDown));
     >
       <div
         v-if="open"
-        class="absolute start-0 top-full z-50 mt-1.5 w-full min-w-52 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl shadow-stone-900/15"
+        class="absolute start-0 top-full z-50 mt-1.5 w-full min-w-52 overflow-hidden rounded-lg border border-stone-200 bg-white shadow-xl shadow-stone-900/10"
         @keydown="onKey"
       >
         <div class="border-b border-stone-100 p-2">
@@ -150,13 +150,13 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", onDocDown));
             inputmode="text"
             autocomplete="off"
             :placeholder="t('Type a time, e.g. 9:10')"
-            class="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs outline-none focus:border-stone-900 focus:bg-white"
+            class="w-full px-3"
             @keydown.enter.prevent="onTypedEnter"
           />
           <button
             v-if="typed && typedValue"
             type="button"
-            class="mt-1.5 flex w-full items-center justify-between rounded-xl bg-stone-900 px-3 py-2 text-xs font-bold text-white"
+            class="mt-1.5 flex w-full items-center justify-between rounded-md bg-rose-600 px-3 py-2 text-xs font-semibold text-white"
             @click="pick(typedValue)"
           >
             {{ t("Use {time}", { time: display(typedValue) }) }} <Check :size="14" />
@@ -169,8 +169,8 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", onDocDown));
             :key="o"
             role="option"
             :aria-selected="o === model"
-            class="flex min-h-10 cursor-pointer items-center gap-2 rounded-xl px-3 text-sm tabular-nums transition-colors max-md:min-h-11"
-            :class="o === model ? 'bg-stone-900 font-semibold text-white' : 'text-stone-700 hover:bg-stone-100'"
+            class="flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2.5 text-[13px] tabular-nums transition-colors max-md:min-h-11"
+            :class="o === model ? 'bg-rose-50 font-semibold text-rose-700' : 'text-stone-700 hover:bg-stone-100'"
             @click="pick(o)"
           >
             <span class="flex-1">{{ display(o) }}</span>

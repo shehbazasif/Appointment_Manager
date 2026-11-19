@@ -78,7 +78,7 @@ const cols = computed(() =>
               <Upload :size="14" /><span>{{ t("Choose file") }}</span>
               <input type="file" accept=".xlsx,.csv,text/csv" class="hidden" @change="onFile" />
             </label>
-            <button type="button" @click="downloadTemplate(kind)" class="inline-flex items-center gap-2 rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50">
+            <button type="button" @click="downloadTemplate(kind)" class="ui-btn ui-btn-secondary inline-flex items-center gap-2 rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50">
               <Download :size="14" /><span>{{ t("Download template") }}</span>
             </button>
             <span v-if="fileName" class="truncate text-xs text-stone-500">{{ fileName }}</span>
@@ -130,7 +130,7 @@ const cols = computed(() =>
       </div>
 
       <div class="flex justify-end gap-2 border-t border-stone-100 px-6 py-4">
-        <button type="button" @click="emit('close')" class="rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50">{{ result ? t("Close") : t("Cancel") }}</button>
+        <button type="button" @click="emit('close')" class="ui-btn ui-btn-secondary rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50">{{ result ? t("Close") : t("Cancel") }}</button>
         <button v-if="!result" type="button" :disabled="!validItems.length || isImporting" @click="runImport" class="rounded-xl bg-rose-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-40">
           {{ isImporting ? t("Importing…") : `Import ${validItems.length} ${label}` }}
         </button>

@@ -1,6 +1,7 @@
 import type { H3Event } from "h3";
 import { serverSupabaseUser } from "#supabase/server";
 import { getBearerToken, getUserClient } from "./supabase";
+import { isDeviceTrusted, trustDevice } from "./deviceTrust";
 
 type SupabaseClaims = {
   sub?: string;
@@ -106,6 +107,7 @@ export const requireAuthUser = async (event: H3Event) => {
  */
 export const requireTenant = async (event: H3Event) => {
   const authUser = await requireAuthUser(event);
+  requireTrustedDevice(event, authUser.id);
   const membership = await findMembership(event, authUser.id);
   if (!membership || !membership.business_id)
     throw createError({
@@ -114,6 +116,26 @@ export const requireTenant = async (event: H3Event) => {
       data: { code: "NO_BUSINESS" },
     });
   return toTenantContext(authUser, membership);
+};
+
+/**
+ * 2-step login for business users on the website: this browser must have
+ * confirmed an emailed code within the last 2 days of activity (see
+ * deviceTrust.ts). Each request keeps the trust alive. Requests from the
+ * Android app (Bearer token) are not checked yet.
+ */
+export const loginCodeRequired = (event: H3Event, userId: string) =>
+  !getBearerToken(event) && !isDeviceTrusted(event, userId);
+
+export const requireTrustedDevice = (event: H3Event, userId: string) => {
+  if (getBearerToken(event)) return;
+  if (!isDeviceTrusted(event, userId))
+    throw createError({
+      statusCode: 403,
+      statusMessage: "Please confirm the code we emailed you.",
+      data: { code: "LOGIN_CODE_REQUIRED" },
+    });
+  trustDevice(event, userId);
 };
 
 /** Same as requireTenant but returns null instead of throwing. */
@@ -157,6 +179,12 @@ export const requireSuperAdmin = async (event: H3Event) => {
   });
 };
 
+/** Features the platform admin can switch off per business (missing = allowed). */
+export const FEATURE_KEYS = ["tokens", "onLocation", "attendance", "import", "theme"] as const;
+export type FeatureKey = (typeof FEATURE_KEYS)[number];
+export const featureAllowed = (settings: Record<string, any> | null | undefined, key: FeatureKey) =>
+  (settings?.features_allowed ?? {})[key] !== false;
+
 /** Serializes a `businesses` row + optional `business_settings` row into the camelCase shape the UI expects. */
 export const serializeBusiness = (
   b: Record<string, any>,
@@ -182,9 +210,25 @@ export const serializeBusiness = (
       : null,
   status: b.status ?? "ACTIVE",
   bookingActive: settings?.online_booking_enabled ?? false,
-  onLocationEnabled: settings?.on_location_enabled ?? false,
+  // features the platform admin turned off are off, whatever the owner chose
+  onLocationEnabled: featureAllowed(settings, "onLocation") && (settings?.on_location_enabled ?? false),
   hidePricesInList: settings?.hide_prices_in_list ?? false,
+  showTokenToCustomer: settings?.show_token_to_customer ?? false,
+  slotStepMinutes: settings?.slot_step_minutes ?? 30,
+  bufferMinutes: settings?.buffer_minutes ?? 0,
   language: settings?.language ?? "en",
+  themeColor: featureAllowed(settings, "theme") ? (settings?.theme_color ?? null) : null,
+  businessType: settings?.business_type ?? "general",
+  tokensEnabled: settings?.tokens_enabled ?? true,
+  allowedFeatures: settings?.features_allowed ?? {},
+  /** What this business can actually use right now (admin access + owner switch). */
+  features: {
+    tokens: featureAllowed(settings, "tokens") && (settings?.tokens_enabled ?? true),
+    onLocation: featureAllowed(settings, "onLocation") && (settings?.on_location_enabled ?? false),
+    attendance: featureAllowed(settings, "attendance"),
+    import: featureAllowed(settings, "import"),
+    theme: featureAllowed(settings, "theme"),
+  },
   // Name-change security limiter (2 free changes, then a 14-day cooldown)
   nameChangeCount: b.name_change_count ?? 0,
   nameChangedAt: b.name_changed_at ?? null,

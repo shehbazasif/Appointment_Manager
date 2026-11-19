@@ -232,7 +232,7 @@ const updateStatus = async (id: string, status: string) => {
 
         <NuxtLink
           to="/dashboard/appointments"
-          class="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-3.5 py-2 text-xs font-bold text-white hover:bg-stone-800 transition"
+          class="ui-btn ui-btn-primary inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-3.5 py-2 text-xs font-bold text-white hover:bg-stone-800 transition"
         >
           <Plus :size="15" />
           <span>{{ t("New") }}</span>

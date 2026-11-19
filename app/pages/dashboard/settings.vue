@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from "vue";
+import type { BusinessType } from "~/utils/businessTypes";
 import {
   Building2,
   ExternalLink,
@@ -14,6 +15,13 @@ import {
   KeyRound,
   Smartphone,
   CalendarClock,
+  Palette,
+  RotateCcw,
+  Globe,
+  MapPin,
+  ChevronRight,
+  ChevronLeft,
+  LayoutTemplate,
 } from "lucide-vue-next";
 const { t, intl } = useT();
 
@@ -37,7 +45,13 @@ interface OrgSettings {
   bookingActive: boolean;
   onLocationEnabled?: boolean;
   hidePricesInList?: boolean;
+  showTokenToCustomer?: boolean;
+  tokensEnabled?: boolean;
+  businessType?: string;
+  slotStepMinutes?: number;
+  allowedFeatures?: Record<string, boolean>;
   language?: string;
+  themeColor?: string | null;
   nameChangeCount?: number;
   nameCooldownUntil?: string | null;
 }
@@ -70,7 +84,12 @@ const form = reactive({
   bookingActive: true,
   onLocationEnabled: false,
   hidePricesInList: false,
+  showTokenToCustomer: false,
+  tokensEnabled: true,
+  businessType: "general" as BusinessType,
+  slotStepMinutes: 30,
   language: "en",
+  themeColor: null as string | null,
 });
 
 const loadSettings = async () => {
@@ -92,7 +111,12 @@ const loadSettings = async () => {
     form.bookingActive = data.bookingActive;
     form.onLocationEnabled = data.onLocationEnabled ?? false;
     form.hidePricesInList = data.hidePricesInList ?? false;
+    form.showTokenToCustomer = data.showTokenToCustomer ?? false;
+    form.tokensEnabled = data.tokensEnabled ?? true;
+    form.businessType = (data.businessType ?? "general") as BusinessType;
+    form.slotStepMinutes = data.slotStepMinutes ?? 30;
     form.language = data.language ?? "en";
+    form.themeColor = data.themeColor ?? null;
   } catch (err: any) {
     errorMessage.value = err?.data?.statusMessage ?? t("Failed to load settings.");
   } finally {
@@ -154,7 +178,12 @@ const saveSettings = async () => {
         bookingActive: form.bookingActive,
         onLocationEnabled: form.onLocationEnabled,
         hidePricesInList: form.hidePricesInList,
+        showTokenToCustomer: form.showTokenToCustomer,
+        tokensEnabled: form.tokensEnabled,
+        businessType: form.businessType,
+        slotStepMinutes: form.slotStepMinutes,
         language: form.language,
+        themeColor: form.themeColor,
       },
     });
 
@@ -445,496 +474,490 @@ const confirmPhoneChange = async () => {
     phoneBusy.value = false;
   }
 };
+// --- Sections (desktop: side panel; phones: list -> one screen per section) --
+const SECTIONS = [
+  { id: "profile", title: "Business profile", sub: "Name, logo, contact details", icon: Building2 },
+  { id: "type", title: "Business type", sub: "A ready setup for your kind of business", icon: LayoutTemplate },
+  { id: "booking", title: "Booking page", sub: "Online booking, tokens, prices", icon: Globe },
+  { id: "region", title: "Location & language", sub: "Address, time zone, currency, language", icon: MapPin },
+  { id: "theme", title: "Theme", sub: "Your brand colour", icon: Palette },
+  { id: "security", title: "Account security", sub: "Login email and mobile number", icon: ShieldCheck },
+] as const;
+// Features the platform admin switched off are not shown at all
+const allowed = (k: string) => org.value?.allowedFeatures?.[k] !== false;
+const visibleSections = computed(() => SECTIONS.filter((s) => s.id !== "theme" || allowed("theme")));
+const typeNote = ref("");
+const applyType = () => {
+  const p = businessTypeOf(form.businessType).settings;
+  if (allowed("tokens")) {
+    form.tokensEnabled = p.tokensEnabled;
+    form.showTokenToCustomer = p.showTokenToCustomer;
+  }
+  if (allowed("onLocation")) form.onLocationEnabled = p.onLocationEnabled;
+  form.slotStepMinutes = p.slotStepMinutes;
+  typeNote.value = t("Recommended settings filled in. Press Save Changes to keep them.");
+};
+const route = useRoute();
+const router = useRouter();
+const section = computed(() => {
+  const q = String(route.query.section ?? "");
+  return visibleSections.value.some((s) => s.id === q) ? q : "";
+});
+const shown = computed(() => section.value || "profile");
+const current = computed(() => SECTIONS.find((s) => s.id === shown.value) ?? SECTIONS[0]);
+const openSection = (id: string) => {
+  const query = { ...route.query };
+  if (id) query.section = id;
+  else delete query.section;
+  // phones: going into a section is a new screen (Back returns to the list)
+  if (id && !section.value) router.push({ query });
+  else router.replace({ query });
+};
+const backToList = () => {
+  if (import.meta.client && window.history.state?.back) router.back();
+  else openSection("");
+};
 </script>
 
 <template>
-  <div class="space-y-7 pb-16 max-w-4xl">
+  <div class="space-y-5 pb-16">
     <!-- Header -->
-    <div class="page-head flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div class="ds-page-head">
       <div class="min-w-0">
-        <p class="text-xs font-bold uppercase tracking-wider text-rose-600">{{ t("Preferences & Profile") }}</p>
-        <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900">{{ t("Business Settings") }}</h1>
+        <h1 class="ds-page-title">{{ t("Settings") }}</h1>
+        <p class="ds-page-sub">{{ t("Your business profile, booking page, language, colours and login.") }}</p>
       </div>
-      <button
-        type="button"
-        :disabled="isSaving"
-        @click="saveSettings"
-        class="max-md:w-full max-md:justify-center max-md:min-h-11 inline-flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50 transition shadow-sm self-start sm:self-auto"
+    </div>
+
+    <div class="grid gap-5 lg:grid-cols-[232px_minmax(0,1fr)] lg:items-start">
+      <!-- Section menu: a side panel on desktop, its own screen on phones -->
+      <nav
+        :class="[section ? 'hidden lg:block' : 'block', 'lg:sticky lg:top-0']"
+        :aria-label="t('Settings')"
       >
-        <Save :size="15" />
-        <span>{{ isSaving ? t("Saving...") : t("Save Changes") }}</span>
-      </button>
-    </div>
-
-    <!-- Public Booking Link Display Card -->
-    <div class="rounded-3xl border border-rose-200/80 bg-gradient-to-tr from-rose-50/70 to-white p-6 shadow-sm space-y-4">
-      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <span class="text-[10px] font-bold uppercase tracking-wider text-rose-600">{{ t("Customer Booking Hub") }}</span>
-          <h2 class="font-display text-xl font-bold text-stone-900 mt-0.5">{{ t("Your Public Booking Page") }}</h2>
-          <p class="text-xs text-stone-600 mt-1">
-            {{ t("Share this URL on Instagram, Google Business, or WhatsApp to let clients book appointments 24/7.") }}
-          </p>
-        </div>
-
-        <!-- Online Booking Switch -->
-        <div class="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-2.5 shadow-2xs">
-          <span class="text-xs font-bold text-stone-800">{{ t("Online Booking") }}</span>
-          <input
-            type="checkbox"
-            id="bookingToggle"
-            v-model="form.bookingActive"
-            class="size-4.5 rounded border-stone-300 text-stone-900 focus:ring-stone-900"
-          />
-        </div>
-
-        <!-- On-location service switch -->
-        <div class="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-2.5 shadow-2xs">
-          <div>
-            <span class="block text-xs font-bold text-stone-800">{{ t("On-location service") }}</span>
-            <span class="block text-[10px] text-stone-500">{{ t("Customer shares location; staff are sent to them") }}</span>
-          </div>
-          <input
-            type="checkbox"
-            id="onLocationToggle"
-            v-model="form.onLocationEnabled"
-            class="size-4.5 rounded border-stone-300 text-stone-900 focus:ring-stone-900"
-          />
-        </div>
-
-        <!-- Booking page: hide prices on the service list -->
-        <label
-          for="hidePricesToggle"
-          class="flex cursor-pointer items-center gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-2.5 shadow-2xs"
-        >
-          <div>
-            <span class="block text-xs font-bold text-stone-800">{{ t("Hide prices on service list") }}</span>
-            <span class="block text-[10px] text-stone-500">{{ t("Price shows only after the customer picks a service") }}</span>
-          </div>
-          <input
-            type="checkbox"
-            id="hidePricesToggle"
-            v-model="form.hidePricesInList"
-            class="size-4.5 rounded border-stone-300 text-stone-900 focus:ring-stone-900"
-          />
-        </label>
-      </div>
-
-      <!-- URL Bar with Copy & Preview -->
-      <div class="flex flex-col sm:flex-row items-center gap-2 rounded-2xl border border-stone-200 bg-white p-2 shadow-2xs">
-        <div class="flex-1 px-3 py-1.5 font-mono text-xs text-stone-700 truncate w-full">
-          {{ bookingUrl }}
-        </div>
-        <div class="flex items-center gap-1.5 w-full sm:w-auto">
+        <!-- desktop -->
+        <div class="ds-card hidden p-2 lg:grid lg:gap-0.5">
           <button
+            v-for="s in visibleSections"
+            :key="s.id"
             type="button"
-            @click="copyLink"
-            class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2 text-xs font-bold text-stone-700 hover:bg-stone-100 transition"
+            :class="['ds-nav-item w-full text-start', shown === s.id ? 'is-active' : '']"
+            :aria-current="shown === s.id ? 'page' : undefined"
+            @click="openSection(s.id)"
           >
-            <Check v-if="copied" :size="14" class="text-emerald-600" />
-            <Copy v-else :size="14" class="text-stone-400" />
-            <span>{{ copied ? t("Copied!") : t("Copy Link") }}</span>
+            <component :is="s.icon" :size="18" />
+            <span class="truncate">{{ t(s.title) }}</span>
           </button>
-          <NuxtLink
-            :to="`/book/${form.slug}`"
-            target="_blank"
-            class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white hover:bg-stone-800 transition"
-          >
-            <ExternalLink :size="14" />
-            <span>{{ t("Open Page") }}</span>
-          </NuxtLink>
         </div>
-      </div>
-    </div>
-
-    <!-- Loading State -->
-    <div v-if="isLoading" class="space-y-4">
-      <div v-for="i in 3" :key="i" class="h-32 rounded-3xl bg-stone-200/60 animate-pulse"></div>
-    </div>
-
-    <template v-else>
-      <!-- Settings Form -->
-      <form @submit.prevent="saveSettings" class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm space-y-6">
-        <div class="border-b border-stone-100 pb-4">
-          <h2 class="font-display text-lg font-bold text-stone-900">{{ t("General Profile") }}</h2>
-          <p class="text-xs text-stone-500">{{ t("Business identification and contact information.") }}</p>
-        </div>
-
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Business Name") }}</label>
-            <input
-              v-model="form.name"
-              type="text"
-              required
-              class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
-            />
-            <p
-              class="mt-1.5 text-[11px] leading-relaxed flex items-start gap-1"
-              :class="nameLimit.cooling ? 'text-amber-700' : 'text-stone-500'"
-            >
-              <CalendarClock :size="12" class="mt-0.5 shrink-0" />
-              <span>{{ nameHint }}</span>
-            </p>
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("URL Slug") }}</label>
-            <input
-              v-model="form.slug"
-              type="text"
-              required
-              :placeholder="t('maria-beauty-studio')"
-              class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Business Email") }}</label>
-            <input
-              v-model="form.email"
-              type="email"
-              required
-              class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
-            />
-            <p class="mt-1.5 text-[11px] text-stone-500">
-              {{ t("Contact email shown to customers — change your login email under Account Security below.") }}
-            </p>
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Business Phone") }}</label>
-            <input
-              v-model="form.phone"
-              type="tel"
-              placeholder="+30 210..."
-              class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
-            />
-            <p class="mt-1.5 text-[11px] text-stone-500">
-              {{ t("Your account's mobile number can be changed under Account Security below.") }}
-            </p>
-          </div>
-
-          <div class="sm:col-span-2">
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Description") }}</label>
-            <textarea
-              v-model="form.description"
-              rows="3"
-              :placeholder="t('Tell customers what sets your studio apart...')"
-              class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
-            ></textarea>
-          </div>
-
-          <!-- Branding: logo upload with auto crop/resize + preview -->
-          <div class="sm:col-span-2 rounded-2xl border border-stone-200 bg-stone-50/50 p-4">
-            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <div class="relative shrink-0">
-                <img
-                  v-if="displayLogo"
-                  :src="displayLogo"
-                  :alt="t('Logo preview')"
-                  class="size-20 rounded-2xl object-cover border border-stone-200 bg-white shadow-sm"
-                />
-                <div
-                  v-else
-                  class="flex size-20 items-center justify-center rounded-2xl border border-dashed border-stone-300 bg-white text-stone-400"
-                >
-                  <Building2 :size="28" />
-                </div>
-                <span
-                  v-if="logoPending"
-                  class="absolute -top-1.5 -end-1.5 rounded-full bg-rose-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-sm"
-                >{{ t("New") }}</span>
-              </div>
-              <div class="flex-1 space-y-2 min-w-0">
-                <label class="block text-xs font-bold uppercase tracking-wider text-stone-600">{{ t("Business Logo") }}</label>
-                <p class="text-[11px] text-stone-500 leading-relaxed">
-                  {{ t("PNG or JPG. We automatically crop it to a square and resize it — check the preview, then press “Set image”. Shown in the dashboard header and booking page.") }}
-                </p>
-                <div class="flex flex-wrap items-center gap-2 pt-0.5">
-                  <input
-                    ref="fileInput"
-                    type="file"
-                    accept="image/png,image/jpeg"
-                    class="hidden"
-                    @change="onLogoFileChange"
-                  />
-                  <button
-                    type="button"
-                    :disabled="isUploadingLogo"
-                    @click="fileInput?.click()"
-                    class="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3.5 py-2 text-xs font-bold text-stone-700 hover:bg-stone-50 transition disabled:opacity-50"
-                  >
-                    <Loader2 v-if="isUploadingLogo" :size="14" class="animate-spin" />
-                    <ImagePlus v-else :size="14" />
-                    <span>{{ form.logoUrl ? t("Change logo") : t("Upload logo") }}</span>
-                  </button>
-                  <template v-if="logoPending">
-                    <button
-                      type="button"
-                      :disabled="isUploadingLogo"
-                      @click="applyLogo"
-                      class="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-rose-700 transition disabled:opacity-50"
-                    >
-                      <Check :size="14" />
-                      <span>{{ t("Set image") }}</span>
-                    </button>
-                    <button
-                      type="button"
-                      :disabled="isUploadingLogo"
-                      @click="cancelLogoPreview"
-                      class="text-xs font-bold text-stone-500 hover:text-stone-900 transition"
-                    >
-                      {{ t("Cancel") }}
-                    </button>
-                  </template>
-                  <button
-                    v-else-if="form.logoUrl"
-                    type="button"
-                    :disabled="isUploadingLogo"
-                    @click="removeLogo"
-                    class="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 transition disabled:opacity-50"
-                  >
-                    <Trash2 :size="14" />
-                    <span>{{ t("Remove") }}</span>
-                  </button>
-                </div>
-                <p v-if="logoError" class="text-[11px] font-semibold text-rose-600 flex items-center gap-1">
-                  <AlertCircle :size="12" />
-                  <span>{{ logoError }}</span>
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Location & Region -->
-        <div class="border-t border-stone-100 pt-6">
-          <h2 class="font-display text-lg font-bold text-stone-900">{{ t("Location & Localization") }}</h2>
-          <p class="text-xs text-stone-500">{{ t("Address, country, time zone and currency. Booking times follow this time zone; new services use this currency.") }}</p>
-        </div>
-
-        <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Street Address") }}</label>
-          <input
-            v-model="form.address"
-            type="text"
-            autocomplete="street-address"
-            :placeholder="t('Street, building, area')"
-            class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
-          />
-        </div>
-
-        <!-- Country, city, time zone + currency (searchable dropdowns) -->
-        <RegionFields
-          v-model:country="form.country"
-          v-model:city="form.city"
-          v-model:timezone="form.timezone"
-          v-model:currency="form.currency"
-          show-city
-        />
-
-        <!-- Language for the dashboard and the public booking page -->
-        <div>
-          <label for="business-language" class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Language") }}</label>
-          <AppSelect
-            id="business-language"
-            v-model="form.language"
-            class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white sm:max-w-xs"
-          >
-            <option v-for="l in LOCALES" :key="l.code" :value="l.code">{{ l.name }}</option>
-          </AppSelect>
-          <p class="mt-1 text-[11px] text-stone-500">
-            {{ t("Your team sees the dashboard in this language, and customers see your booking page in it. Each person can still pick their own language from the top bar.") }}
-          </p>
-        </div>
-
-        <!-- Feedback Alerts -->
-        <p
-          v-if="errorMessage"
-          class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-medium text-rose-700 flex items-center gap-2"
-        >
-          <AlertCircle :size="16" />
-          <span>{{ errorMessage }}</span>
-        </p>
-
-        <p
-          v-if="successMessage"
-          class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-medium text-emerald-700 flex items-center gap-2"
-        >
-          <Check :size="16" />
-          <span>{{ successMessage }}</span>
-        </p>
-
-        <div class="flex justify-end pt-4 border-t border-stone-100">
+        <!-- phones -->
+        <div class="ds-card divide-y divide-stone-200 overflow-hidden lg:hidden">
           <button
-            type="submit"
-            :disabled="isSaving"
-            class="rounded-xl bg-stone-900 px-6 py-2.5 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50 transition"
+            v-for="s in visibleSections"
+            :key="s.id"
+            type="button"
+            class="flex min-h-16 w-full items-center gap-3 px-4 py-3 text-start active:bg-stone-50"
+            @click="openSection(s.id)"
           >
-            {{ isSaving ? t("Saving...") : t("Save Settings") }}
+            <span class="grid size-10 shrink-0 place-items-center rounded-lg bg-rose-50 text-rose-700">
+              <component :is="s.icon" :size="20" />
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="block text-[15px] font-semibold text-stone-900">{{ t(s.title) }}</span>
+              <span class="block truncate text-[13px] text-stone-500">{{ t(s.sub) }}</span>
+            </span>
+            <ChevronRight :size="18" class="shrink-0 text-stone-400 rtl:rotate-180" />
           </button>
         </div>
-      </form>
+      </nav>
 
-      <!-- Account Security -->
-      <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm space-y-6">
-        <div class="border-b border-stone-100 pb-4">
-          <h2 class="font-display text-lg font-bold text-stone-900 flex items-center gap-2">
-            <ShieldCheck :size="18" class="text-rose-600" />
-            {{ t("Account Security") }}
-          </h2>
-          <p class="text-xs text-stone-500 mt-1">
-            {{ t("Your login email and mobile number. Every change must be confirmed with a 6-digit code sent to your current email address.") }}
-          </p>
+      <!-- Section content -->
+      <div :class="[section ? 'block' : 'hidden lg:block', 'min-w-0']">
+        <button
+          type="button"
+          class="mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-rose-700 lg:hidden"
+          @click="backToList"
+        >
+          <ChevronLeft :size="18" class="rtl:rotate-180" />
+          {{ t("All settings") }}
+        </button>
+
+        <div v-if="isLoading" class="ds-card space-y-3 p-6">
+          <div v-for="i in 4" :key="i" class="h-10 animate-pulse rounded-lg bg-stone-100"></div>
         </div>
 
-        <div class="grid gap-5 lg:grid-cols-2">
-          <!-- Login email -->
-          <div class="rounded-2xl border border-stone-200 bg-stone-50/50 p-4 space-y-3">
-            <div class="flex items-center gap-2">
-              <KeyRound :size="15" class="text-stone-400" />
-              <span class="text-xs font-bold uppercase tracking-wider text-stone-700">{{ t("Login Email") }}</span>
-            </div>
-            <p class="text-xs text-stone-600 break-all">
-              {{ t("Current:") }} <span class="font-semibold text-stone-900">{{ currentEmail || "—" }}</span>
-            </p>
-
-            <template v-if="emailStep === 'idle'">
-              <div class="flex flex-col sm:flex-row gap-2">
-                <input
-                  v-model="newEmail"
-                  type="email"
-                  :placeholder="t('New email address')"
-                  class="flex-1 rounded-xl border border-stone-200 bg-white p-2.5 text-xs outline-none focus:border-stone-900"
-                />
-                <button
-                  type="button"
-                  :disabled="emailBusy || !newEmail.trim()"
-                  @click="requestEmailChange"
-                  class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50 transition"
-                >
-                  <Loader2 v-if="emailBusy" :size="13" class="animate-spin" />
-                  <span>{{ t("Send code") }}</span>
-                </button>
-              </div>
-            </template>
-            <template v-else>
-              <p class="text-[11px] text-stone-500">
-                {{ t("Code sent to") }} <span class="font-semibold">{{ currentEmail }}</span>{{ t(". Enter it below to approve the change to") }}
-                <span class="font-semibold">{{ newEmail }}</span>.
-              </p>
-              <input
-                v-model="emailCode"
-                inputmode="numeric"
-                maxlength="6"
-                placeholder="••••••"
-                class="w-full rounded-xl border border-stone-200 bg-white p-2.5 text-center text-lg font-bold tracking-[0.4em] outline-none focus:border-stone-900"
-              />
-              <div class="flex gap-2">
-                <button
-                  type="button"
-                  :disabled="emailBusy || emailCode.trim().length !== 6"
-                  @click="confirmEmailChange"
-                  class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50 transition"
-                >
-                  <Loader2 v-if="emailBusy" :size="13" class="animate-spin" />
-                  <span>{{ t("Confirm change") }}</span>
-                </button>
-                <button
-                  type="button"
-                  :disabled="emailBusy"
-                  @click="emailStep = 'idle'; emailError = ''; emailNotice = ''"
-                  class="rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-xs font-bold text-stone-600 hover:bg-stone-50 transition"
-                >
-                  {{ t("Cancel") }}
-                </button>
-              </div>
-            </template>
-
-            <p v-if="emailError" class="text-[11px] font-semibold text-rose-600 flex items-start gap-1">
-              <AlertCircle :size="12" class="mt-0.5 shrink-0" />
-              <span>{{ emailError }}</span>
-            </p>
-            <p v-if="emailNotice" class="text-[11px] font-medium text-emerald-700 flex items-start gap-1">
-              <Check :size="12" class="mt-0.5 shrink-0" />
-              <span>{{ emailNotice }}</span>
-            </p>
+        <form v-else class="ds-card" @submit.prevent="saveSettings">
+          <!-- Section heading -->
+          <div class="border-b border-stone-200 px-5 py-4 sm:px-6">
+            <h2 class="ds-section-title">{{ t(current.title) }}</h2>
+            <p class="ds-section-sub">{{ t(current.sub) }}</p>
           </div>
 
-          <!-- Mobile number -->
-          <div class="rounded-2xl border border-stone-200 bg-stone-50/50 p-4 space-y-3">
-            <div class="flex items-center gap-2">
-              <Smartphone :size="15" class="text-stone-400" />
-              <span class="text-xs font-bold uppercase tracking-wider text-stone-700">{{ t("Account Mobile Number") }}</span>
-            </div>
-            <p class="text-xs text-stone-600 break-all">
-              {{ t("Current:") }} <span class="font-semibold text-stone-900">{{ accountPhone || "Not set" }}</span>
-            </p>
+          <div class="space-y-5 px-5 py-5 sm:px-6">
+            <!-- ============ Business profile ============ -->
+            <template v-if="shown === 'profile'">
+              <!-- Logo -->
+              <div class="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+                <div class="relative shrink-0">
+                  <img
+                    v-if="displayLogo"
+                    :src="displayLogo"
+                    :alt="t('Logo preview')"
+                    class="size-20 rounded-xl border border-stone-200 bg-white object-cover"
+                  />
+                  <div v-else class="flex size-20 items-center justify-center rounded-xl border border-dashed border-stone-300 bg-stone-50 text-stone-400">
+                    <Building2 :size="28" />
+                  </div>
+                  <span v-if="logoPending" class="ds-pill ds-pill--info absolute -end-2 -top-2 !h-5 !px-2">{{ t("New") }}</span>
+                </div>
+                <div class="min-w-0 flex-1 space-y-2">
+                  <div class="ds-label !mb-0">{{ t("Business Logo") }}</div>
+                  <p class="ds-help !mt-0">
+                    {{ t("PNG or JPG. We automatically crop it to a square and resize it — check the preview, then press “Set image”. Shown in the dashboard header and booking page.") }}
+                  </p>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <input ref="fileInput" type="file" accept="image/png,image/jpeg" class="hidden" @change="onLogoFileChange" />
+                    <button type="button" class="ui-btn ui-btn-secondary" :disabled="isUploadingLogo" @click="fileInput?.click()">
+                      <Loader2 v-if="isUploadingLogo" :size="16" class="animate-spin" />
+                      <ImagePlus v-else :size="16" />
+                      <span>{{ form.logoUrl ? t("Change logo") : t("Upload logo") }}</span>
+                    </button>
+                    <template v-if="logoPending">
+                      <button type="button" class="ui-btn ui-btn-primary" :disabled="isUploadingLogo" @click="applyLogo">
+                        <Check :size="16" />
+                        <span>{{ t("Set image") }}</span>
+                      </button>
+                      <button type="button" class="ui-btn ui-btn-ghost" :disabled="isUploadingLogo" @click="cancelLogoPreview">
+                        {{ t("Cancel") }}
+                      </button>
+                    </template>
+                    <button v-else-if="form.logoUrl" type="button" class="ui-btn ui-btn-ghost !text-red-700" :disabled="isUploadingLogo" @click="removeLogo">
+                      <Trash2 :size="16" />
+                      <span>{{ t("Remove") }}</span>
+                    </button>
+                  </div>
+                  <p v-if="logoError" class="flex items-center gap-1 text-xs font-semibold text-red-700">
+                    <AlertCircle :size="14" />
+                    <span>{{ logoError }}</span>
+                  </p>
+                </div>
+              </div>
 
-            <template v-if="phoneStep === 'idle'">
-              <div class="flex flex-col sm:flex-row gap-2">
-                <input
-                  v-model="newPhone"
-                  type="tel"
-                  placeholder="+30 69..."
-                  class="flex-1 rounded-xl border border-stone-200 bg-white p-2.5 text-xs outline-none focus:border-stone-900"
-                />
-                <button
-                  type="button"
-                  :disabled="phoneBusy || !newPhone.trim()"
-                  @click="requestPhoneChange"
-                  class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50 transition"
-                >
-                  <Loader2 v-if="phoneBusy" :size="13" class="animate-spin" />
-                  <span>{{ t("Send code") }}</span>
-                </button>
+              <div class="grid gap-4 border-t border-stone-200 pt-5 sm:grid-cols-2">
+                <div>
+                  <label for="s-name" class="ds-label">{{ t("Business Name") }}</label>
+                  <input id="s-name" v-model="form.name" type="text" required class="w-full px-3" />
+                  <p class="ds-help flex items-start gap-1" :class="nameLimit.cooling ? '!text-amber-700' : ''">
+                    <CalendarClock :size="14" class="shrink-0" />
+                    <span>{{ nameHint }}</span>
+                  </p>
+                </div>
+                <div>
+                  <label for="s-slug" class="ds-label">{{ t("URL Slug") }}</label>
+                  <input id="s-slug" v-model="form.slug" type="text" required :placeholder="t('maria-beauty-studio')" class="w-full px-3" />
+                  <p class="ds-help">{{ t("Your booking page address:") }} <bdi dir="ltr" class="font-medium text-stone-700">/book/{{ form.slug || "…" }}</bdi></p>
+                </div>
+                <div>
+                  <label for="s-email" class="ds-label">{{ t("Business Email") }}</label>
+                  <input id="s-email" v-model="form.email" type="email" required class="w-full px-3" />
+                  <p class="ds-help">{{ t("Shown to customers. Your login email is under Account security.") }}</p>
+                </div>
+                <div>
+                  <label for="s-phone" class="ds-label">{{ t("Business Phone") }}</label>
+                  <input id="s-phone" v-model="form.phone" type="tel" placeholder="+30 210..." class="w-full px-3" />
+                </div>
+                <div class="sm:col-span-2">
+                  <label for="s-desc" class="ds-label">{{ t("Description") }}</label>
+                  <textarea
+                    id="s-desc"
+                    v-model="form.description"
+                    rows="3"
+                    :placeholder="t('Tell customers what sets your studio apart...')"
+                    class="w-full px-3"
+                  ></textarea>
+                </div>
               </div>
             </template>
-            <template v-else>
-              <p class="text-[11px] text-stone-500">
-                {{ t("Code sent to") }} <span class="font-semibold">{{ currentEmail }}</span>{{ t(". Enter it below to approve the change to") }}
-                <span class="font-semibold">{{ newPhone }}</span>.
+
+            <!-- ============ Business type (template) ============ -->
+            <template v-if="shown === 'type'">
+              <p class="text-[13px] text-stone-600">
+                {{ t("Pick what fits your business. We suggest the right settings; you can still change each one later.") }}
               </p>
-              <input
-                v-model="phoneCode"
-                inputmode="numeric"
-                maxlength="6"
-                placeholder="••••••"
-                class="w-full rounded-xl border border-stone-200 bg-white p-2.5 text-center text-lg font-bold tracking-[0.4em] outline-none focus:border-stone-900"
-              />
-              <div class="flex gap-2">
+              <div class="grid gap-3 sm:grid-cols-2">
                 <button
+                  v-for="b in BUSINESS_TYPES"
+                  :key="b.id"
                   type="button"
-                  :disabled="phoneBusy || phoneCode.trim().length !== 6"
-                  @click="confirmPhoneChange"
-                  class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50 transition"
+                  class="rounded-lg border p-4 text-start transition"
+                  :class="form.businessType === b.id ? 'border-rose-600 bg-rose-50 ring-1 ring-rose-600' : 'border-stone-200 hover:border-stone-300'"
+                  :aria-pressed="form.businessType === b.id"
+                  @click="form.businessType = b.id; typeNote = ''"
                 >
-                  <Loader2 v-if="phoneBusy" :size="13" class="animate-spin" />
-                  <span>{{ t("Confirm change") }}</span>
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-[15px] font-semibold text-stone-900">{{ t(b.name) }}</span>
+                    <Check v-if="form.businessType === b.id" :size="18" class="text-rose-600" />
+                  </div>
+                  <p class="mt-1 text-[13px] text-stone-600">{{ t(b.description) }}</p>
+                  <ul class="mt-2 grid gap-0.5 text-xs text-stone-500">
+                    <li v-for="h in b.highlights" :key="h">• {{ t(h) }}</li>
+                  </ul>
                 </button>
-                <button
-                  type="button"
-                  :disabled="phoneBusy"
-                  @click="phoneStep = 'idle'; phoneError = ''; phoneNotice = ''"
-                  class="rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-xs font-bold text-stone-600 hover:bg-stone-50 transition"
-                >
-                  {{ t("Cancel") }}
+              </div>
+              <div class="flex flex-wrap items-center gap-3 rounded-lg border border-stone-200 bg-stone-50 p-3">
+                <button type="button" class="ui-btn ui-btn-secondary" @click="applyType">
+                  <RotateCcw :size="16" />
+                  <span>{{ t("Apply recommended settings") }}</span>
                 </button>
+                <span class="text-[13px]" :class="typeNote ? 'font-medium text-emerald-700' : 'text-stone-500'">
+                  {{ typeNote || t("Fills in tokens, location and booking times for this type. Nothing is saved until you press Save Changes.") }}
+                </span>
               </div>
             </template>
 
-            <p v-if="phoneError" class="text-[11px] font-semibold text-rose-600 flex items-start gap-1">
-              <AlertCircle :size="12" class="mt-0.5 shrink-0" />
-              <span>{{ phoneError }}</span>
-            </p>
-            <p v-if="phoneNotice" class="text-[11px] font-medium text-emerald-700 flex items-start gap-1">
-              <Check :size="12" class="mt-0.5 shrink-0" />
-              <span>{{ phoneNotice }}</span>
-            </p>
+            <!-- ============ Booking page ============ -->
+            <template v-else-if="shown === 'booking'">
+              <div class="rounded-xl border border-stone-200 bg-stone-50 p-3">
+                <div class="ds-label">{{ t("Your Public Booking Page") }}</div>
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <bdi dir="ltr" class="min-w-0 flex-1 truncate rounded-lg border border-stone-200 bg-white px-3 py-2 font-mono text-xs text-stone-700">{{ bookingUrl }}</bdi>
+                  <div class="flex gap-2">
+                    <button type="button" class="ui-btn ui-btn-secondary flex-1" @click="copyLink">
+                      <Check v-if="copied" :size="16" class="text-emerald-600" />
+                      <Copy v-else :size="16" />
+                      <span>{{ copied ? t("Copied!") : t("Copy Link") }}</span>
+                    </button>
+                    <NuxtLink :to="`/book/${form.slug}`" target="_blank" class="ui-btn ui-btn-secondary flex-1">
+                      <ExternalLink :size="16" />
+                      <span>{{ t("Open Page") }}</span>
+                    </NuxtLink>
+                  </div>
+                </div>
+                <p class="ds-help">{{ t("Share this URL on Instagram, Google Business, or WhatsApp to let clients book appointments 24/7.") }}</p>
+              </div>
+
+              <div class="grid gap-3">
+                <SettingToggle
+                  v-model="form.bookingActive"
+                  :title="t('Online Booking')"
+                  :description="t('Customers can book on your booking page. Turn off to pause new online bookings.')"
+                />
+                <template v-if="allowed('tokens')">
+                  <SettingToggle
+                    v-model="form.tokensEnabled"
+                    :title="t('Token system')"
+                    :description="t('Give every booking a queue number (01, 02…) with a printable ticket. Turn off if you do not use a queue.')"
+                  />
+                  <SettingToggle
+                    v-model="form.showTokenToCustomer"
+                    class="ms-6"
+                    :disabled="!form.tokensEnabled"
+                    :title="t('Show token to customer')"
+                    :description="form.tokensEnabled ? t('After booking, the customer sees their token number to screenshot') : t('Turn on the token system first.')"
+                  />
+                </template>
+                <SettingToggle
+                  v-model="form.hidePricesInList"
+                  :title="t('Hide prices on service list')"
+                  :description="t('Price shows only after the customer picks a service')"
+                />
+                <SettingToggle
+                  v-if="allowed('onLocation')"
+                  v-model="form.onLocationEnabled"
+                  :title="t('On-location service')"
+                  :description="t('Customer shares location; staff are sent to them')"
+                />
+              </div>
+              <p class="ds-help">
+                {{ t("Booking times and breaks are set on") }}
+                <NuxtLink to="/dashboard/hours" class="font-semibold text-rose-700 underline-offset-2 hover:underline">{{ t("Working Hours") }}</NuxtLink>.
+              </p>
+            </template>
+
+            <!-- ============ Location & language ============ -->
+            <template v-else-if="shown === 'region'">
+              <div>
+                <label for="s-address" class="ds-label">{{ t("Street Address") }}</label>
+                <input
+                  id="s-address"
+                  v-model="form.address"
+                  type="text"
+                  autocomplete="street-address"
+                  :placeholder="t('Street, building, area')"
+                  class="w-full px-3"
+                />
+              </div>
+              <RegionFields
+                v-model:country="form.country"
+                v-model:city="form.city"
+                v-model:timezone="form.timezone"
+                v-model:currency="form.currency"
+                show-city
+              />
+              <div class="border-t border-stone-200 pt-5">
+                <label for="business-language" class="ds-label">{{ t("Language") }}</label>
+                <AppSelect id="business-language" v-model="form.language" class="w-full sm:max-w-xs">
+                  <option v-for="l in LOCALES" :key="l.code" :value="l.code">{{ l.name }}</option>
+                </AppSelect>
+                <p class="ds-help">
+                  {{ t("Your team sees the dashboard in this language, and customers see your booking page in it. Each person can still pick their own language from the top bar.") }}
+                </p>
+              </div>
+            </template>
+
+            <!-- ============ Theme ============ -->
+            <template v-else-if="shown === 'theme'">
+              <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+                <button
+                  v-for="p in THEME_PRESETS"
+                  :key="p.id"
+                  type="button"
+                  class="flex items-center gap-2.5 rounded-xl border p-2.5 text-start transition"
+                  :class="(form.themeColor ?? null) === p.color ? 'border-rose-600 bg-rose-50 ring-1 ring-rose-600' : 'border-stone-200 hover:border-stone-300'"
+                  :aria-pressed="(form.themeColor ?? null) === p.color"
+                  @click="form.themeColor = p.color"
+                >
+                  <span class="grid size-8 shrink-0 place-items-center rounded-lg text-white" :style="{ backgroundColor: p.swatch }">
+                    <Check v-if="(form.themeColor ?? null) === p.color" :size="16" :stroke-width="3" />
+                  </span>
+                  <span class="min-w-0 truncate text-sm font-medium text-stone-800">{{ t(p.name) }}</span>
+                </button>
+              </div>
+              <div class="flex flex-wrap items-center gap-3 rounded-xl border border-stone-200 p-3">
+                <label class="flex items-center gap-3 text-sm font-medium text-stone-800">
+                  <input
+                    type="color"
+                    :value="form.themeColor ?? DEFAULT_BRAND"
+                    class="!h-10 !w-12 cursor-pointer !p-1"
+                    :aria-label="t('Custom colour')"
+                    @input="form.themeColor = ($event.target as HTMLInputElement).value"
+                  />
+                  {{ t("Custom colour") }}
+                  <span class="font-mono text-xs uppercase text-stone-500">{{ form.themeColor ?? t("Default") }}</span>
+                </label>
+                <button v-if="form.themeColor" type="button" class="ui-btn ui-btn-ghost ms-auto" @click="form.themeColor = null">
+                  <RotateCcw :size="16" /> {{ t("Reset to default") }}
+                </button>
+              </div>
+              <div class="brand-theme flex flex-wrap items-center gap-3 rounded-xl border border-stone-200 bg-stone-50 p-4" :style="{ '--brand': form.themeColor ?? DEFAULT_BRAND }">
+                <span class="text-xs font-medium text-stone-500">{{ t("Preview") }}</span>
+                <span class="inline-flex h-9 items-center rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white">{{ t("Book now") }}</span>
+                <span class="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">{{ t("Confirmed") }}</span>
+                <span class="text-sm font-semibold text-rose-600">{{ t("Share Booking Link") }}</span>
+              </div>
+            </template>
+
+            <!-- ============ Account security ============ -->
+            <template v-else-if="shown === 'security'">
+              <div class="grid gap-4 xl:grid-cols-2">
+                <!-- Login email -->
+                <div class="space-y-3 rounded-xl border border-stone-200 p-4">
+                  <div class="flex items-center gap-2 text-sm font-semibold text-stone-900">
+                    <KeyRound :size="16" class="text-stone-400" />
+                    {{ t("Login Email") }}
+                  </div>
+                  <p class="break-all text-sm text-stone-600">
+                    {{ t("Current:") }} <span class="font-semibold text-stone-900">{{ currentEmail || "—" }}</span>
+                  </p>
+                  <div v-if="emailStep === 'idle'" class="flex flex-col gap-2 sm:flex-row">
+                    <input v-model="newEmail" type="email" :placeholder="t('New email address')" class="min-w-0 flex-1 px-3" />
+                    <button type="button" class="ui-btn ui-btn-primary" :disabled="emailBusy || !newEmail.trim()" @click="requestEmailChange">
+                      <Loader2 v-if="emailBusy" :size="16" class="animate-spin" />
+                      <span>{{ t("Send code") }}</span>
+                    </button>
+                  </div>
+                  <template v-else>
+                    <p class="text-xs text-stone-500">
+                      {{ t("Code sent to") }} <span class="font-semibold">{{ currentEmail }}</span>{{ t(". Enter it below to approve the change to") }}
+                      <span class="font-semibold">{{ newEmail }}</span>.
+                    </p>
+                    <input v-model="emailCode" inputmode="numeric" maxlength="6" placeholder="••••••" class="w-full text-center text-lg font-bold tracking-[0.4em]" />
+                    <div class="flex gap-2">
+                      <button type="button" class="ui-btn ui-btn-primary flex-1" :disabled="emailBusy || emailCode.trim().length !== 6" @click="confirmEmailChange">
+                        <Loader2 v-if="emailBusy" :size="16" class="animate-spin" />
+                        <span>{{ t("Confirm change") }}</span>
+                      </button>
+                      <button type="button" class="ui-btn ui-btn-secondary" :disabled="emailBusy" @click="emailStep = 'idle'; emailError = ''; emailNotice = ''">
+                        {{ t("Cancel") }}
+                      </button>
+                    </div>
+                  </template>
+                  <p v-if="emailError" class="flex items-start gap-1 text-xs font-semibold text-red-700">
+                    <AlertCircle :size="14" class="shrink-0" />
+                    <span>{{ emailError }}</span>
+                  </p>
+                  <p v-if="emailNotice" class="flex items-start gap-1 text-xs font-medium text-emerald-700">
+                    <Check :size="14" class="shrink-0" />
+                    <span>{{ emailNotice }}</span>
+                  </p>
+                </div>
+
+                <!-- Mobile number -->
+                <div class="space-y-3 rounded-xl border border-stone-200 p-4">
+                  <div class="flex items-center gap-2 text-sm font-semibold text-stone-900">
+                    <Smartphone :size="16" class="text-stone-400" />
+                    {{ t("Account Mobile Number") }}
+                  </div>
+                  <p class="break-all text-sm text-stone-600">
+                    {{ t("Current:") }} <span class="font-semibold text-stone-900">{{ accountPhone || t("Not set") }}</span>
+                  </p>
+                  <div v-if="phoneStep === 'idle'" class="flex flex-col gap-2 sm:flex-row">
+                    <input v-model="newPhone" type="tel" placeholder="+30 69..." class="min-w-0 flex-1 px-3" />
+                    <button type="button" class="ui-btn ui-btn-primary" :disabled="phoneBusy || !newPhone.trim()" @click="requestPhoneChange">
+                      <Loader2 v-if="phoneBusy" :size="16" class="animate-spin" />
+                      <span>{{ t("Send code") }}</span>
+                    </button>
+                  </div>
+                  <template v-else>
+                    <p class="text-xs text-stone-500">
+                      {{ t("Code sent to") }} <span class="font-semibold">{{ currentEmail }}</span>{{ t(". Enter it below to approve the change to") }}
+                      <span class="font-semibold">{{ newPhone }}</span>.
+                    </p>
+                    <input v-model="phoneCode" inputmode="numeric" maxlength="6" placeholder="••••••" class="w-full text-center text-lg font-bold tracking-[0.4em]" />
+                    <div class="flex gap-2">
+                      <button type="button" class="ui-btn ui-btn-primary flex-1" :disabled="phoneBusy || phoneCode.trim().length !== 6" @click="confirmPhoneChange">
+                        <Loader2 v-if="phoneBusy" :size="16" class="animate-spin" />
+                        <span>{{ t("Confirm change") }}</span>
+                      </button>
+                      <button type="button" class="ui-btn ui-btn-secondary" :disabled="phoneBusy" @click="phoneStep = 'idle'; phoneError = ''; phoneNotice = ''">
+                        {{ t("Cancel") }}
+                      </button>
+                    </div>
+                  </template>
+                  <p v-if="phoneError" class="flex items-start gap-1 text-xs font-semibold text-red-700">
+                    <AlertCircle :size="14" class="shrink-0" />
+                    <span>{{ phoneError }}</span>
+                  </p>
+                  <p v-if="phoneNotice" class="flex items-start gap-1 text-xs font-medium text-emerald-700">
+                    <Check :size="14" class="shrink-0" />
+                    <span>{{ phoneNotice }}</span>
+                  </p>
+                </div>
+              </div>
+            </template>
           </div>
-        </div>
+
+          <!-- Save bar (not needed for account security: those save with codes) -->
+          <div
+            v-if="shown !== 'security'"
+            class="sticky bottom-0 flex flex-col gap-3 rounded-b-xl border-t border-stone-200 bg-white/95 px-5 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6"
+          >
+            <p v-if="errorMessage" class="flex items-center gap-2 text-sm font-medium text-red-700">
+              <AlertCircle :size="16" class="shrink-0" />
+              <span>{{ errorMessage }}</span>
+            </p>
+            <p v-else-if="successMessage" class="flex items-center gap-2 text-sm font-medium text-emerald-700">
+              <Check :size="16" class="shrink-0" />
+              <span>{{ successMessage }}</span>
+            </p>
+            <p v-else class="text-[13px] text-stone-500">{{ t("Changes in every section are saved together.") }}</p>
+            <button type="submit" class="ui-btn ui-btn-primary w-full sm:w-auto" :disabled="isSaving">
+              <Loader2 v-if="isSaving" :size="16" class="animate-spin" />
+              <Save v-else :size="16" />
+              <span>{{ isSaving ? t("Saving...") : t("Save Changes") }}</span>
+            </button>
+          </div>
+        </form>
       </div>
-    </template>
+    </div>
   </div>
 </template>

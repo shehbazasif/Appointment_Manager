@@ -41,8 +41,8 @@ export default defineNuxtConfig({
       login: "/login",
       callback: "/confirm",
       // Routes that require an authenticated Supabase session.
-      include: ["/dashboard", "/dashboard/**", "/admin", "/admin/**"],
-      exclude: ["/admin/login"],
+      include: ["/dashboard", "/dashboard/**"],
+      // /admin has its own separate login (app/composables/useAdminAuth.ts)
     },
   },
   primevue: {

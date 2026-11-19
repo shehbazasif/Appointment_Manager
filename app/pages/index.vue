@@ -4,7 +4,6 @@ import {
   PlayCircle,
   Check,
   MapPin,
-  MessageCircle,
   Navigation,
   Truck,
   CalendarCheck,
@@ -274,7 +273,7 @@ const teaserPlan = PLANS.find((p) => p.highlighted) ?? PLANS[0]!;
           </div>
           <div class="float-a ml-6 rounded-3xl border border-white/10 bg-emerald-500/10 p-5 sm:ml-12" style="animation-delay: -2s">
             <div class="flex items-center gap-3">
-              <span class="grid size-11 place-items-center rounded-2xl bg-emerald-500/20 text-emerald-300"><MessageCircle :size="20" /></span>
+              <span class="grid size-11 place-items-center rounded-2xl bg-emerald-500/20 text-emerald-300"><WhatsAppIcon :size="22" mono /></span>
               <div>
                 <p class="font-semibold text-white">WhatsApp to driver</p>
                 <p class="text-sm text-stone-400">"New job 14:30 · tap for map"</p>

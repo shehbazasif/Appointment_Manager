@@ -34,7 +34,9 @@ interface PublicBusinessData {
     bookingActive: boolean;
     onLocationEnabled?: boolean;
     hidePricesInList?: boolean;
+    showTokenToCustomer?: boolean;
     language?: string;
+    themeColor?: string | null;
   };
   services: Array<{
     id: string;
@@ -60,6 +62,7 @@ interface AvailableSlot {
 }
 
 const businessData = ref<PublicBusinessData | null>(null);
+useBrandTheme(() => businessData.value?.business.themeColor);
 const isLoading = ref(true);
 const pageError = ref("");
 
@@ -146,6 +149,10 @@ const captureLocation = () => {
 const isBooking = ref(false);
 const bookingError = ref("");
 const confirmedBooking = ref<any>(null);
+// show the token ticket only when the business turned the option on
+const showTokenTicket = computed(
+  () => !!businessData.value?.business.showTokenToCustomer && !!confirmedBooking.value?.appointment?.tokenNumber,
+);
 
 // Load business and active services
 const loadBusiness = async () => {
@@ -308,7 +315,7 @@ const shareViaWhatsApp = () => {
 </script>
 
 <template>
-  <div class="min-h-screen min-h-dvh overflow-x-hidden bg-[#faf9f6] text-[#24262d] flex flex-col justify-between antialiased">
+  <div class="min-h-screen min-h-dvh overflow-x-hidden bg-[#f5f7fa] text-[#111827] flex flex-col justify-between antialiased">
     <!-- Clean Public Header -->
     <header class="border-b border-stone-200 bg-white/90 backdrop-blur-md sticky top-0 z-30 px-5 py-3.5" style="padding-top: calc(0.875rem + env(safe-area-inset-top, 0px))">
       <div class="max-w-4xl mx-auto flex items-center justify-between">
@@ -351,7 +358,7 @@ const shareViaWhatsApp = () => {
         </p>
         <NuxtLink
           to="/"
-          class="inline-block rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white shadow-sm"
+          class="ui-btn ui-btn-primary inline-block rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white shadow-sm"
         >
           {{ t("Return Home") }}
         </NuxtLink>
@@ -655,7 +662,7 @@ const shareViaWhatsApp = () => {
             <button
               type="submit"
               :disabled="isBooking"
-              class="w-full rounded-xl bg-stone-900 py-3.5 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50 transition shadow-sm"
+              class="ui-btn ui-btn-primary w-full rounded-xl bg-stone-900 py-3.5 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50 transition shadow-sm"
             >
               {{ isBooking ? t("Confirming Booking...") : `Confirm ${selectedSlot?.time} Appointment` }}
             </button>
@@ -664,56 +671,37 @@ const shareViaWhatsApp = () => {
 
         <!-- STEP 4: Success / Confirmation Screen -->
         <section v-else-if="step === 4" class="max-w-md mx-auto text-center py-10 space-y-6">
-          <div class="grid size-16 place-items-center rounded-3xl bg-emerald-100 text-emerald-700 mx-auto shadow-sm">
-            <Check :size="32" />
-          </div>
+          <!-- Token setting ON: only the token ticket (made to be screenshotted) -->
+          <BookingTicket
+            v-if="showTokenTicket"
+            :kicker="t('Your token')"
+            :business-name="businessData?.business.name ?? ''"
+            :token="formatToken(confirmedBooking.appointment.tokenNumber)"
+            :date-label="formatDateDisplay(selectedDate)"
+            :time="selectedSlot?.time ?? ''"
+            :rows="[
+              { label: t('Patient'), value: customerForm.fullName },
+              ...(selectedService ? [{ label: t('Service'), value: selectedService.name }] : []),
+            ]"
+            :note="t('Please arrive 20–25 minutes before your appointment time.')"
+            :footer="t('Take a screenshot of this token and show it at the reception.')"
+          />
 
-          <div class="space-y-2">
-            <span class="text-xs font-bold uppercase tracking-wider text-emerald-600">{{ t("Booking Confirmed") }}</span>
-            <h1 class="font-display text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl">
-              {{ t("See you soon!") }}
-            </h1>
-            <p class="text-xs text-stone-500 leading-relaxed max-w-sm mx-auto">
-              {{ t("Your appointment has been registered.") }}
-              <template v-if="customerForm.email.trim()">{{ t("We've sent a confirmation email to") }} <strong>{{ customerForm.email }}</strong>.</template>
-              <template v-else>{{ t("Please keep the date and time below.") }}</template>
-            </p>
-          </div>
-
-          <!-- Confirmation Card -->
-          <div class="rounded-3xl border border-stone-200 bg-white p-6 text-start shadow-sm space-y-3">
-            <div class="flex items-center justify-between border-b border-stone-100 pb-3">
-              <div>
-                <span class="text-[10px] text-stone-400 uppercase tracking-wider">{{ t("Business") }}</span>
-                <h3 class="font-bold text-stone-900 text-base">{{ businessData.business.name }}</h3>
-              </div>
-              <div class="text-end">
-                <span class="text-[10px] text-stone-400 uppercase tracking-wider">{{ t("Price") }}</span>
-                <span class="block font-bold text-stone-900 text-sm">
-                  {{ formatMoney(selectedService?.priceCents, selectedService?.currency) }}
-                </span>
-              </div>
-            </div>
-
-            <div class="space-y-2 text-xs">
-              <div class="flex items-center justify-between">
-                <span class="text-stone-500">{{ t("Service") }}</span>
-                <span class="font-bold text-stone-900">{{ selectedService?.name }}</span>
-              </div>
-              <div class="flex items-center justify-between">
-                <span class="text-stone-500">{{ t("Date & Time") }}</span>
-                <span class="font-bold text-stone-900">{{ t("{date} at {time}", { date: formatDateDisplay(selectedDate), time: selectedSlot?.time ?? "" }) }}</span>
-              </div>
-              <div class="flex items-center justify-between">
-                <span class="text-stone-500">{{ t("Client") }}</span>
-                <span class="font-bold text-stone-900">{{ customerForm.fullName }}</span>
-              </div>
-              <div v-if="businessData.business.city" class="flex items-center justify-between">
-                <span class="text-stone-500">{{ t("Location") }}</span>
-                <span class="font-bold text-stone-900">{{ businessData.business.city }}, {{ businessData.business.country }}</span>
-              </div>
-            </div>
-          </div>
+          <!-- Token setting OFF: the normal confirmation, in the same ticket style -->
+          <BookingTicket
+            v-else
+            :kicker="t('Booking Confirmed')"
+            :business-name="businessData?.business.name ?? ''"
+            :date-label="formatDateDisplay(selectedDate)"
+            :time="selectedSlot?.time ?? ''"
+            :rows="[
+              { label: t('Client'), value: customerForm.fullName },
+              ...(selectedService ? [{ label: t('Service'), value: selectedService.name }] : []),
+              ...(selectedService ? [{ label: t('Price'), value: formatMoney(selectedService.priceCents, selectedService.currency) }] : []),
+              ...(businessData?.business.city ? [{ label: t('Location'), value: [businessData.business.city, businessData.business.country].filter(Boolean).join(', ') }] : []),
+            ]"
+            :footer="customerForm.email.trim() ? `${t('We\'ve sent a confirmation email to')} ${customerForm.email.trim()}.` : t('Please keep the date and time below.')"
+          />
 
           <div class="pt-4 flex flex-col gap-2">
             <button

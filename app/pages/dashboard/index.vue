@@ -20,8 +20,10 @@ import {
   Phone,
   Mail,
   Calendar as CalendarIcon,
+  Printer,
 } from "lucide-vue-next";
 const { t, intl } = useT();
+const { features } = useFeatures();
 
 definePageMeta({
   layout: "dashboard",
@@ -36,6 +38,7 @@ interface AppointmentDetail {
     source: string;
     notes?: string | null;
     fieldStatus?: string | null;
+    tokenNumber?: number | null;
   };
   customer: {
     id: string;
@@ -230,6 +233,12 @@ const getStatusBadge = (status: string) => {
       return "bg-stone-50 text-stone-600 border-stone-200";
   }
 };
+// Stat strip at the top of the page
+const statCards = computed(() => [
+  { to: "/dashboard/appointments?range=today", label: t("Today's total"), value: summary.value?.totalToday ?? 0, sub: t("appointments"), icon: CalendarCheck },
+  { to: "/dashboard/appointments?range=upcoming", label: t("Upcoming"), value: upcomingCountLabel.value, sub: t("scheduled"), icon: Clock },
+  { to: "/dashboard/customers", label: t("Total clients"), value: summary.value?.totalCustomers ?? 0, sub: t("customers"), icon: Users },
+]);
 </script>
 
 <template>
@@ -252,14 +261,14 @@ const getStatusBadge = (status: string) => {
         <button
           type="button"
           @click="loadDashboard"
-          class="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
+          class="ui-btn ui-btn-secondary inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition shadow-2xs"
         >
           <RefreshCw :size="14" class="sm:hidden" />
           <span>{{ t("Refresh Data") }}</span>
         </button>
         <NuxtLink
           to="/dashboard/appointments?new=1"
-          class="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm"
+          class="ui-btn ui-btn-primary inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm"
         >
           <CalendarCheck :size="15" />
           <span>{{ t("New Appointment") }}</span>
@@ -299,7 +308,7 @@ const getStatusBadge = (status: string) => {
         <button
           type="button"
           @click="loadDashboard"
-          class="tap inline-flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm"
+          class="ui-btn ui-btn-primary tap inline-flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition shadow-sm"
         >
           <span>{{ t("Retry") }}</span>
           <ArrowRight :size="14" />
@@ -346,6 +355,26 @@ const getStatusBadge = (status: string) => {
         </NuxtLink>
       </div>
 
+      <!-- Stat strip (design system: StatCard row) -->
+      <div class="ds-card grid grid-cols-3 divide-x divide-stone-200 overflow-hidden rtl:divide-x-reverse">
+        <NuxtLink
+          v-for="st in statCards"
+          :key="st.to"
+          :to="st.to"
+          class="group grid gap-1.5 p-3 transition hover:bg-stone-50 sm:p-5"
+        >
+          <span class="flex items-center gap-2 text-xs font-medium text-stone-500 sm:text-[13px]">
+            <component :is="st.icon" :size="16" class="hidden text-stone-400 sm:block" />
+            <span class="truncate">{{ st.label }}</span>
+            <ChevronRight :size="16" class="ms-auto shrink-0 text-stone-300 transition group-hover:text-stone-500 rtl:rotate-180" />
+          </span>
+          <span class="flex items-baseline gap-1.5">
+            <span class="text-2xl font-semibold tabular-nums tracking-tight text-stone-900 sm:text-[34px] sm:leading-10">{{ st.value }}</span>
+            <span class="hidden text-[13px] text-stone-500 sm:inline">{{ st.sub }}</span>
+          </span>
+        </NuxtLink>
+      </div>
+
       <!-- 1. Today's Schedule -->
       <section
         class="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm space-y-4 sm:p-6 sm:space-y-5"
@@ -363,7 +392,7 @@ const getStatusBadge = (status: string) => {
           </div>
           <NuxtLink
             to="/dashboard/appointments"
-            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-stone-800 transition"
+            class="ui-btn ui-btn-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-stone-800 transition"
           >
             <span>{{ t("See all appointments") }}</span>
             <ArrowRight :size="16" />
@@ -384,7 +413,7 @@ const getStatusBadge = (status: string) => {
           </p>
           <NuxtLink
             to="/dashboard/appointments?new=1"
-            class="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-stone-900 px-4 py-2 text-xs font-semibold text-white"
+            class="ui-btn ui-btn-primary mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-stone-900 px-4 py-2 text-xs font-semibold text-white"
           >
             {{ t("Create Appointment") }}
           </NuxtLink>
@@ -402,6 +431,11 @@ const getStatusBadge = (status: string) => {
               <div
                 class="shrink-0 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-center min-w-18"
               >
+                <span
+                  v-if="features.tokens && item.appointment.tokenNumber"
+                  class="mb-1 block rounded-md bg-stone-900 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white"
+                  :title="t('Token number')"
+                >#{{ formatToken(item.appointment.tokenNumber) }}</span>
                 <span class="font-display text-sm font-bold text-stone-900">{{
                   formatTime(item.appointment.startAt)
                 }}</span>
@@ -541,6 +575,16 @@ const getStatusBadge = (status: string) => {
               </template>
 
               <button
+                v-if="features.tokens && item.appointment.tokenNumber"
+                type="button"
+                @click="printToken(item.appointment.id)"
+                class="tap inline-flex items-center justify-center rounded-lg p-1.5 text-stone-500 hover:bg-stone-100 hover:text-stone-900"
+                :title="t('Print token')"
+                :aria-label="t('Print token')"
+              >
+                <Printer :size="17" />
+              </button>
+              <button
                 v-if="
                   item.appointment.status !== 'CANCELLED' &&
                   item.appointment.status !== 'COMPLETED'
@@ -636,84 +680,6 @@ const getStatusBadge = (status: string) => {
           </div>
         </div>
       </section>
-
-      <!-- 3. Small stat cards (whole card is a link) -->
-      <div class="grid grid-cols-3 gap-3 sm:gap-4">
-        <NuxtLink
-          to="/dashboard/appointments?range=today"
-          class="group flex min-h-24 flex-col justify-between rounded-2xl border border-stone-200/90 bg-white p-3 shadow-sm transition hover:border-stone-400 active:bg-stone-50 sm:p-5"
-        >
-          <div class="flex items-center justify-between gap-1">
-            <span
-              class="text-[10px] font-bold uppercase tracking-wider text-stone-500 sm:text-xs"
-              >{{ t("Today's total") }}</span
-            >
-            <ChevronRight
-              :size="16"
-              class="shrink-0 text-stone-400 transition group-hover:translate-x-0.5"
-            />
-          </div>
-          <div class="mt-2 flex items-baseline gap-1.5">
-            <span
-              class="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl"
-              >{{ summary.totalToday }}</span
-            >
-            <span class="hidden text-xs text-stone-500 font-medium sm:inline"
-              >{{ t("appointments") }}</span
-            >
-          </div>
-        </NuxtLink>
-
-        <NuxtLink
-          to="/dashboard/appointments?range=upcoming"
-          class="group flex min-h-24 flex-col justify-between rounded-2xl border border-stone-200/90 bg-white p-3 shadow-sm transition hover:border-stone-400 active:bg-stone-50 sm:p-5"
-        >
-          <div class="flex items-center justify-between gap-1">
-            <span
-              class="text-[10px] font-bold uppercase tracking-wider text-stone-500 sm:text-xs"
-              >{{ t("Upcoming") }}</span
-            >
-            <ChevronRight
-              :size="16"
-              class="shrink-0 text-stone-400 transition group-hover:translate-x-0.5"
-            />
-          </div>
-          <div class="mt-2 flex items-baseline gap-1.5">
-            <span
-              class="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl"
-              >{{ upcomingCountLabel }}</span
-            >
-            <span class="hidden text-xs text-stone-500 font-medium sm:inline"
-              >{{ t("scheduled") }}</span
-            >
-          </div>
-        </NuxtLink>
-
-        <NuxtLink
-          to="/dashboard/customers"
-          class="group flex min-h-24 flex-col justify-between rounded-2xl border border-stone-200/90 bg-white p-3 shadow-sm transition hover:border-stone-400 active:bg-stone-50 sm:p-5"
-        >
-          <div class="flex items-center justify-between gap-1">
-            <span
-              class="text-[10px] font-bold uppercase tracking-wider text-stone-500 sm:text-xs"
-              >{{ t("Total clients") }}</span
-            >
-            <ChevronRight
-              :size="16"
-              class="shrink-0 text-stone-400 transition group-hover:translate-x-0.5"
-            />
-          </div>
-          <div class="mt-2 flex items-baseline gap-1.5">
-            <span
-              class="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl"
-              >{{ summary.totalCustomers }}</span
-            >
-            <span class="hidden text-xs text-stone-500 font-medium sm:inline"
-              >{{ t("customers") }}</span
-            >
-          </div>
-        </NuxtLink>
-      </div>
 
       <!-- 4. Team & menu shortcuts -->
       <section
@@ -826,7 +792,7 @@ const getStatusBadge = (status: string) => {
           <button
             type="button"
             @click="assigningAppointment = null"
-            class="rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+            class="ui-btn ui-btn-secondary rounded-xl border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
           >
             {{ t("Cancel") }}
           </button>
@@ -834,7 +800,7 @@ const getStatusBadge = (status: string) => {
             type="button"
             :disabled="isAssigning"
             @click="saveStaffAssignment"
-            class="rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
+            class="ui-btn ui-btn-primary rounded-xl bg-stone-900 px-5 py-2 text-xs font-bold text-white hover:bg-stone-800 disabled:opacity-50"
           >
             {{ isAssigning ? t("Saving...") : t("Confirm Assignment") }}
           </button>

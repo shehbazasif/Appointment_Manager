@@ -4,6 +4,9 @@ import { ScanLine, QrCode, CalendarClock, Clock, Camera, Download, Save, CheckCi
 import jsQR from "jsqr";
 import QRCode from "qrcode";
 const { t, intl } = useT();
+// Feature switched off by the platform admin: leave this page
+const { features } = useFeatures();
+watch(() => features.value.attendance, (on) => { if (!on) navigateTo("/dashboard", { replace: true }); }, { immediate: true });
 
 definePageMeta({ layout: "dashboard" });
 
@@ -279,7 +282,7 @@ const hasStaff = computed(() => staffList.value.length > 0);
         <span>{{ scanMsg.text }}</span>
       </div>
       <div v-if="camError" class="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{{ camError }}</div>
-      <button v-if="scanning" type="button" @click="stopScan" class="tap inline-flex w-full items-center justify-center gap-2 rounded-xl border border-stone-200 px-5 py-3 text-sm font-bold text-stone-700 hover:bg-stone-50 sm:w-auto">
+      <button v-if="scanning" type="button" @click="stopScan" class="ui-btn ui-btn-secondary tap inline-flex w-full items-center justify-center gap-2 rounded-xl border border-stone-200 px-5 py-3 text-sm font-bold text-stone-700 hover:bg-stone-50 sm:w-auto">
         <Camera :size="18" /><span>{{ t("Stop camera") }}</span>
       </button>
     </section>
@@ -323,8 +326,8 @@ const hasStaff = computed(() => staffList.value.length > 0);
         </button>
         <div v-if="openId === s.id && edits[s.id]" class="space-y-2 border-t border-stone-100 px-5 py-4">
           <div v-for="d in edits[s.id]" :key="d.dayOfWeek" class="flex flex-wrap items-center gap-3">
-            <label class="flex w-32 items-center gap-2 text-sm font-semibold text-stone-800">
-              <input type="checkbox" :checked="!d.isOff" @change="d.isOff = !($event.target as HTMLInputElement).checked" class="size-4 accent-rose-600" />
+            <label class="flex w-40 items-center gap-2.5 text-sm font-semibold text-stone-800">
+              <AppSwitch :model-value="!d.isOff" :label="t(dayNames[d.dayOfWeek]!)" @update:model-value="(v) => (d.isOff = !v)" />
               {{ t(dayNames[d.dayOfWeek]!) }}
             </label>
             <template v-if="!d.isOff">
@@ -335,9 +338,9 @@ const hasStaff = computed(() => staffList.value.length > 0);
             <span v-else class="text-xs text-stone-400">{{ t("Day off") }}</span>
           </div>
           <div class="flex flex-wrap gap-2 pt-3">
-            <button type="button" @click="saveSchedule(s.id)" :disabled="savingId === s.id" class="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50"><Save :size="14" /><span>{{ savingId === s.id ? t("Saving…") : t("Save duty hours") }}</span></button>
-            <button type="button" @click="copyFirst(s.id)" class="rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50">{{ t("Copy first day's hours to all") }}</button>
-            <button v-if="custom[s.id]" type="button" @click="saveSchedule(s.id, true)" class="rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50">{{ t("Use business hours") }}</button>
+            <button type="button" @click="saveSchedule(s.id)" :disabled="savingId === s.id" class="ui-btn ui-btn-primary inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50"><Save :size="14" /><span>{{ savingId === s.id ? t("Saving…") : t("Save duty hours") }}</span></button>
+            <button type="button" @click="copyFirst(s.id)" class="ui-btn ui-btn-secondary rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50">{{ t("Copy first day's hours to all") }}</button>
+            <button v-if="custom[s.id]" type="button" @click="saveSchedule(s.id, true)" class="ui-btn ui-btn-secondary rounded-xl border border-stone-200 px-4 py-2.5 text-xs font-bold text-stone-700 hover:bg-stone-50">{{ t("Use business hours") }}</button>
           </div>
         </div>
       </div>

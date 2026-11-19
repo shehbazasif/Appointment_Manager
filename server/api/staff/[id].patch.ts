@@ -44,14 +44,17 @@ export default defineEventHandler(async (event) => {
 
   if (input.serviceIds !== undefined) {
     // Replace all service assignments
-    await sb.from("staff_services").delete().eq("staff_id", id);
+    const { error: delError } = await sb.from("staff_services").delete().eq("staff_id", id);
+    if (delError) throw createError({ statusCode: 500, statusMessage: delError.message });
     if (input.serviceIds.length > 0) {
-      await sb.from("staff_services").insert(
+      const { error: insError } = await sb.from("staff_services").insert(
         input.serviceIds.map((serviceId) => ({
+          business_id: businessId,
           staff_id: id,
           service_id: serviceId,
         })),
       );
+      if (insError) throw createError({ statusCode: 500, statusMessage: `Services could not be assigned: ${insError.message}` });
     }
   }
 

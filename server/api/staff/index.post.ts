@@ -30,13 +30,15 @@ export default defineEventHandler(async (event) => {
   if (error) throw createError({ statusCode: 500, statusMessage: error.message });
 
   if (input.serviceIds && input.serviceIds.length > 0) {
-    await sb.from("staff_services").upsert(
+    const { error: svcError } = await sb.from("staff_services").upsert(
       input.serviceIds.map((serviceId) => ({
+        business_id: businessId,
         staff_id: member.id,
         service_id: serviceId,
       })),
       { onConflict: "staff_id,service_id" },
     );
+    if (svcError) throw createError({ statusCode: 500, statusMessage: `Staff saved, but services could not be assigned: ${svcError.message}` });
   }
 
   setResponseStatus(event, 201);

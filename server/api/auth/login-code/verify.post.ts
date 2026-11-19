@@ -2,7 +2,7 @@ import { z } from "zod";
 import { requireAuthUser } from "../../../utils/auth";
 import { getUserClient } from "../../../utils/supabase";
 import { consumeVerificationCode } from "../../../services/verification";
-import { trustDevice } from "../../../utils/deviceTrust";
+import { appSupportsLoginCode, trustDevice } from "../../../utils/deviceTrust";
 
 const bodySchema = z.object({ code: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code.") });
 
@@ -17,6 +17,7 @@ export default defineEventHandler(async (event) => {
   const payload = await consumeVerificationCode(sb, { userId: authUser.id, kind: "LOGIN", code });
   if (!payload)
     throw createError({ statusCode: 400, statusMessage: "Wrong or expired code. Check the latest email or send a new code." });
-  trustDevice(event, authUser.id);
-  return { ok: true };
+  const token = trustDevice(event, authUser.id);
+  // the Android app stores this itself (the website uses the httpOnly cookie only)
+  return appSupportsLoginCode(event) ? { ok: true, deviceToken: token } : { ok: true };
 });

@@ -15,7 +15,8 @@ export default defineEventHandler((event) => {
   const done = handleCors(event, {
     origin: APP_ORIGINS,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Authorization", "Content-Type"],
+    allowHeaders: ["Authorization", "Content-Type", "X-Device-Trust", "X-App-Login-Code"],
+    exposeHeaders: ["X-Device-Trust"],
     maxAge: "86400",
     preflight: { statusCode: 204 },
   });

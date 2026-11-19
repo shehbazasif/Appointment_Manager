@@ -615,7 +615,7 @@ const sourceLabel = (src: string) => (src === "ONLINE" ? t("Online") : src === "
         <h1 class="ds-page-title">{{ t("Appointments") }}</h1>
         <p class="ds-page-sub">{{ t("Every booking in one place. Check people in, print tokens and reschedule.") }}</p>
       </div>
-      <div class="flex w-full items-center gap-2 sm:w-auto">
+      <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
         <NuxtLink to="/dashboard/calendar" class="ui-btn ui-btn-secondary flex-1 sm:flex-none">
           <Calendar :size="16" />
           <span>{{ t("Calendar View") }}</span>
@@ -929,7 +929,7 @@ const sourceLabel = (src: string) => (src === "ONLINE" ? t("Online") : src === "
         </div>
 
         <!-- Phones / tablets: booking cards -->
-        <div class="grid gap-3 p-3 sm:grid-cols-2 lg:hidden">
+        <div class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:hidden">
           <p class="px-1 text-xs font-semibold text-stone-500 sm:col-span-2">
             {{ filteredAppointments.length === 1 ? t("1 booking") : t("{n} bookings", { n: filteredAppointments.length }) }}
           </p>

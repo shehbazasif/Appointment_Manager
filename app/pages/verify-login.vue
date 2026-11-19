@@ -53,7 +53,13 @@ const verify = async () => {
   verifying.value = true;
   error.value = "";
   try {
-    await $fetch("/api/auth/login-code/verify", { method: "POST", body: { code: code.value.trim() } });
+    const r = await $fetch<{ deviceToken?: string }>("/api/auth/login-code/verify", { method: "POST", body: { code: code.value.trim() } });
+    // Android app only: it keeps the trusted-device value itself (no cookies there)
+    if (r?.deviceToken) {
+      try {
+        localStorage.setItem("rv_device_trust", r.deviceToken);
+      } catch {}
+    }
     try {
       sessionStorage.removeItem("rv_login_code_sent");
     } catch {}

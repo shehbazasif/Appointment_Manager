@@ -1,7 +1,7 @@
 import type { H3Event } from "h3";
 import { serverSupabaseUser } from "#supabase/server";
 import { getBearerToken, getUserClient } from "./supabase";
-import { isDeviceTrusted, trustDevice } from "./deviceTrust";
+import { appSupportsLoginCode, isDeviceTrusted, trustDevice } from "./deviceTrust";
 
 type SupabaseClaims = {
   sub?: string;
@@ -121,14 +121,17 @@ export const requireTenant = async (event: H3Event) => {
 /**
  * 2-step login for business users on the website: this browser must have
  * confirmed an emailed code within the last 2 days of activity (see
- * deviceTrust.ts). Each request keeps the trust alive. Requests from the
- * Android app (Bearer token) are not checked yet.
+ * deviceTrust.ts). Each request keeps the trust alive. The Android app
+ * (Bearer token) is checked too once its build supports the code screen
+ * (it sends x-app-login-code: 1); older installed versions are not.
  */
+const codeCheckApplies = (event: H3Event) => !getBearerToken(event) || appSupportsLoginCode(event);
+
 export const loginCodeRequired = (event: H3Event, userId: string) =>
-  !getBearerToken(event) && !isDeviceTrusted(event, userId);
+  codeCheckApplies(event) && !isDeviceTrusted(event, userId);
 
 export const requireTrustedDevice = (event: H3Event, userId: string) => {
-  if (getBearerToken(event)) return;
+  if (!codeCheckApplies(event)) return;
   if (!isDeviceTrusted(event, userId))
     throw createError({
       statusCode: 403,

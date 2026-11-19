@@ -324,7 +324,7 @@ const table = useDataTable("services_table_cols", [
         <h1 class="ds-page-title">{{ t("Services") }}</h1>
         <p class="ds-page-sub">{{ t("What customers can book, how long it takes and what it costs.") }}</p>
       </div>
-      <div class="flex w-full items-center gap-2 sm:w-auto">
+      <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
         <button type="button" class="ui-btn ui-btn-secondary flex-1 sm:flex-none" :aria-expanded="showCategories" @click="showCategories = !showCategories">
           <Tag :size="16" />
           <span>{{ t("Categories") }}</span>
@@ -499,7 +499,7 @@ const table = useDataTable("services_table_cols", [
         </div>
 
         <!-- Phones / tablets: cards -->
-        <div class="grid gap-3 p-3 sm:grid-cols-2 lg:hidden">
+        <div class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:hidden">
           <article
             v-for="s in filteredServices"
             :key="s.id"

@@ -260,7 +260,7 @@ const formatShortDate = (iso: string) =>
         <h1 class="ds-page-title">{{ t("Customers") }}</h1>
         <p class="ds-page-sub">{{ t("Everyone who has booked with you. Open a customer to see their visits.") }}</p>
       </div>
-      <div class="flex w-full items-center gap-2 sm:w-auto">
+      <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
         <button v-if="features.import" type="button" class="ui-btn ui-btn-secondary flex-1 sm:flex-none" @click="showImport = true">
           <Upload :size="16" />
           <span>{{ t("Import Excel") }}</span>
@@ -381,7 +381,7 @@ const formatShortDate = (iso: string) =>
         </div>
 
         <!-- Phones / tablets: cards -->
-        <div class="grid gap-3 p-3 sm:grid-cols-2 lg:hidden">
+        <div class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:hidden">
           <p class="px-1 text-xs font-semibold text-stone-500 sm:col-span-2">
             {{ filteredCustomers.length === 1 ? t("1 client") : t("{n} clients", { n: filteredCustomers.length }) }}
           </p>
@@ -407,13 +407,14 @@ const formatShortDate = (iso: string) =>
                 <Phone :size="16" class="shrink-0" />
                 <span class="truncate"><bdi dir="ltr">{{ c.phone }}</bdi></span>
               </a>
-              <button type="button" class="ui-btn ui-btn-secondary" @click="openMessage(c)">
+              <!-- phones: icon only, so the row always fits -->
+              <button type="button" class="ui-btn ui-btn-secondary shrink-0" :aria-label="t('Message')" :title="t('Message')" @click="openMessage(c)">
                 <MessageSquare :size="16" />
-                <span>{{ t("Message") }}</span>
+                <span class="hidden sm:inline">{{ t("Message") }}</span>
               </button>
-              <button type="button" class="ui-btn ui-btn-secondary" @click="openEdit(c)">
+              <button type="button" class="ui-btn ui-btn-secondary shrink-0" :aria-label="t('Edit')" :title="t('Edit')" @click="openEdit(c)">
                 <Edit2 :size="16" />
-                <span>{{ t("Edit") }}</span>
+                <span class="hidden sm:inline">{{ t("Edit") }}</span>
               </button>
             </div>
           </article>

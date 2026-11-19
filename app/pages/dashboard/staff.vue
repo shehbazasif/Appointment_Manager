@@ -356,7 +356,7 @@ const table = useDataTable("staff_table_cols", [
         <h1 class="ds-page-title">{{ t("Staff") }}</h1>
         <p class="ds-page-sub">{{ t("Your team, what they do and when they work. Switch someone off to stop new bookings for them.") }}</p>
       </div>
-      <div class="flex w-full items-center gap-2 sm:w-auto">
+      <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
         <button v-if="features.import" type="button" class="ui-btn ui-btn-secondary flex-1 sm:flex-none" @click="showImport = true">
           <Upload :size="16" />
           <span>{{ t("Import Excel") }}</span>
@@ -525,7 +525,7 @@ const table = useDataTable("staff_table_cols", [
         </div>
 
         <!-- Phones / tablets: cards -->
-        <div class="grid gap-3 p-3 sm:grid-cols-2 lg:hidden">
+        <div class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:hidden">
           <article
             v-for="member in filteredStaff"
             :key="member.id"

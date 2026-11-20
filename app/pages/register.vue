@@ -182,7 +182,8 @@ const register = async () => {
       </div>
 
       <!-- Registration Form -->
-      <form class="mt-7 space-y-4" novalidate @submit.prevent="register">
+      <div class="mt-7"><GoogleSignInButton /></div>
+      <form class="space-y-4" novalidate @submit.prevent="register">
         <!-- Name Fields Row -->
         <div class="grid gap-4 sm:grid-cols-2">
           <!-- First Name -->

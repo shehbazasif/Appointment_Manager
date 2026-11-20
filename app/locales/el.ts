@@ -773,6 +773,21 @@ const dict: Record<string, string> = {
   "Use a different account": "Άλλος λογαριασμός",
   "Enter the 6-digit code.": "Εισαγάγετε τον κωδικό 6 ψηφίων.",
   "Wrong or expired code.": "Λάθος ή ληγμένος κωδικός.",
-  "Could not send the code. Try again in a minute.": "Ο κωδικός δεν στάλθηκε. Δοκιμάστε ξανά σε ένα λεπτό."
+  "Could not send the code. Try again in a minute.": "Ο κωδικός δεν στάλθηκε. Δοκιμάστε ξανά σε ένα λεπτό.",
+  "Welcome": "Καλώς ήρθατε",
+  "Welcome!": "Καλώς ήρθατε!",
+  "Welcome, {name}!": "Καλώς ήρθατε, {name}!",
+  "Two quick questions and your booking page is ready.": "Δύο γρήγορες ερωτήσεις και η σελίδα κρατήσεων είναι έτοιμη.",
+  "Business name": "Όνομα επιχείρησης",
+  "e.g. Little Stars Children Clinic": "π.χ. Παιδιατρείο Αστεράκια",
+  "Customers see this on your booking page. You can change it later.": "Οι πελάτες το βλέπουν στη σελίδα κρατήσεων. Μπορείτε να το αλλάξετε αργότερα.",
+  "What kind of business is it?": "Τι είδους επιχείρηση είναι;",
+  "Create my business": "Δημιουργία επιχείρησης",
+  "Enter your business name.": "Εισαγάγετε το όνομα της επιχείρησης.",
+  "Could not create your business. Please try again.": "Η επιχείρηση δεν δημιουργήθηκε. Δοκιμάστε ξανά.",
+  "Signed in as {email}.": "Συνδεδεμένος ως {email}.",
+  "Confirm the code we emailed you to open your business.": "Επιβεβαιώστε τον κωδικό που σας στείλαμε για να ανοίξει η επιχείρησή σας.",
+  "Enter code": "Εισαγωγή κωδικού",
+  "Could not reach the server. Check your internet connection.": "Δεν ήταν δυνατή η σύνδεση με τον διακομιστή. Ελέγξτε τη σύνδεσή σας."
 };
 export default dict;

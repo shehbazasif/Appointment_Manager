@@ -9,7 +9,7 @@ useLocaleHead();
 useHead({ title: () => t("Confirm it's you") });
 useBrandTheme(() => null);
 
-const { user, signOut } = useSupabaseAuth();
+const { supabase, signOut } = useSupabaseAuth();
 const code = ref("");
 const sentTo = ref("");
 const sending = ref(false);
@@ -78,7 +78,10 @@ const useOtherAccount = async () => {
 };
 
 onMounted(async () => {
-  if (!user.value) return navigateTo("/login");
+  // In the Android app the sign-in is restored a moment after start: read the
+  // saved session itself instead of the not-yet-filled user value.
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) return navigateTo("/login", { replace: true });
   // already trusted? go straight in
   try {
     const me = await $fetch<{ loginCodeRequired?: boolean }>("/api/me");

@@ -123,20 +123,35 @@ const isActive = (to: string) =>
   route.path === to || (to !== "/dashboard" && route.path.startsWith(to));
 const isMoreActive = computed(() => moreItems.some((i) => isActive(i.to)));
 
+// 2-step login: the emailed code is still needed (also after going Back)
+const needsLoginCode = ref(false);
+// /api/me could not be reached (no internet, server down) — not "no business"
+const meLoadFailed = ref(false);
+watch(
+  () => route.fullPath,
+  () => {
+    if (needsLoginCode.value) navigateTo("/verify-login", { replace: true });
+  },
+);
 const loadMe = async () => {
   try {
     const res = await $fetch<MeResponse & { loginCodeRequired?: boolean }>("/api/me");
     // 2-step login: confirm the emailed code first (new device / 2 days away)
     if (res.loginCodeRequired) {
+      needsLoginCode.value = true;
       await navigateTo("/verify-login", { replace: true });
       return;
     }
+    needsLoginCode.value = false;
+    meLoadFailed.value = false;
     me.value = res;
     // show the dashboard in the business language (unless this person picked one)
     await applyLocale(me.value?.organization?.language);
   } catch (error: any) {
     if (error?.statusCode === 401) {
       await navigateTo("/login", { replace: true });
+    } else {
+      meLoadFailed.value = true;
     }
   } finally {
     isLoading.value = false;
@@ -150,13 +165,16 @@ const isPlatformAdminLogin = computed(() => (user.value as any)?.app_metadata?.p
 const ensureWorkspace = async () => {
   if (!me.value) await loadMe();
   if (me.value?.organization) return;
+  if (meLoadFailed.value || needsLoginCode.value) return; // never create a business on a failed check
   if (isPlatformAdminLogin.value) return;
   if (!me.value) return; // not loaded (e.g. sent to the login-code page)
   try {
     await $fetch("/api/auth/bootstrap", { method: "POST", body: {} });
     await loadMe();
-  } catch {
-    // Banner offers a manual retry
+  } catch (e: any) {
+    // Signed up with Google: no business name yet -> ask for it
+    if (e?.data?.data?.code === "MISSING_BUSINESS_DETAILS") await navigateTo("/welcome", { replace: true });
+    // otherwise the banner offers a manual retry
   }
 };
 
@@ -385,6 +403,24 @@ provide("refreshBusinessProfile", loadMe);
           <NuxtLink to="/admin" class="ui-btn ui-btn-sm ui-btn-secondary">Admin panel</NuxtLink>
           <button type="button" class="ui-btn ui-btn-sm ui-btn-primary" @click="handleSignOut">Sign out</button>
         </span>
+      </div>
+
+      <!-- Code from the email still needed -->
+      <div
+        v-else-if="needsLoginCode"
+        class="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] text-amber-900"
+      >
+        <span>{{ t("Confirm the code we emailed you to open your business.") }}</span>
+        <NuxtLink to="/verify-login" class="ui-btn ui-btn-sm ui-btn-primary">{{ t("Enter code") }}</NuxtLink>
+      </div>
+
+      <!-- Could not reach the server -->
+      <div
+        v-else-if="meLoadFailed"
+        class="flex flex-wrap items-center justify-between gap-2 border-b border-red-200 bg-red-50 px-4 py-2.5 text-[13px] text-red-800"
+      >
+        <span>{{ t("Could not reach the server. Check your internet connection.") }}</span>
+        <button type="button" class="ui-btn ui-btn-sm ui-btn-secondary" @click="loadMe">{{ t("Retry") }}</button>
       </div>
 
       <!-- Workspace pending banner -->

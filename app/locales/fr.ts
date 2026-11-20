@@ -773,6 +773,21 @@ const dict: Record<string, string> = {
   "Use a different account": "Utiliser un autre compte",
   "Enter the 6-digit code.": "Saisissez le code à 6 chiffres.",
   "Wrong or expired code.": "Code incorrect ou expiré.",
-  "Could not send the code. Try again in a minute.": "Impossible d'envoyer le code. Réessayez dans une minute."
+  "Could not send the code. Try again in a minute.": "Impossible d'envoyer le code. Réessayez dans une minute.",
+  "Welcome": "Bienvenue",
+  "Welcome!": "Bienvenue !",
+  "Welcome, {name}!": "Bienvenue, {name} !",
+  "Two quick questions and your booking page is ready.": "Deux petites questions et votre page de réservation est prête.",
+  "Business name": "Nom de l'entreprise",
+  "e.g. Little Stars Children Clinic": "ex. Clinique pédiatrique Petites Étoiles",
+  "Customers see this on your booking page. You can change it later.": "Les clients le voient sur votre page de réservation. Modifiable plus tard.",
+  "What kind of business is it?": "Quel type d'activité ?",
+  "Create my business": "Créer mon entreprise",
+  "Enter your business name.": "Saisissez le nom de votre entreprise.",
+  "Could not create your business. Please try again.": "Impossible de créer votre entreprise. Réessayez.",
+  "Signed in as {email}.": "Connecté en tant que {email}.",
+  "Confirm the code we emailed you to open your business.": "Confirmez le code reçu par e-mail pour ouvrir votre entreprise.",
+  "Enter code": "Saisir le code",
+  "Could not reach the server. Check your internet connection.": "Impossible de joindre le serveur. Vérifiez votre connexion."
 };
 export default dict;

@@ -54,7 +54,8 @@ const login = async () => {
         Sign in with the email and password you registered with.
       </p>
 
-      <form class="mt-7 space-y-4" @submit.prevent="login">
+      <div class="mt-7"><GoogleSignInButton /></div>
+      <form class="space-y-4" @submit.prevent="login">
         <div class="space-y-1.5">
           <label
             for="email"
@@ -84,13 +85,21 @@ const login = async () => {
             required
             class="w-full rounded-xl border border-stone-300 bg-stone-50/50 px-3.5 py-2.5 pr-10"
           />
-          <button
-            type="button"
-            class="text-xs font-semibold text-stone-500 hover:text-stone-900"
-            @click="showPassword = !showPassword"
-          >
-            {{ showPassword ? "Hide password" : "Show password" }}
-          </button>
+          <div class="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              class="text-xs font-semibold text-stone-500 hover:text-stone-900"
+              @click="showPassword = !showPassword"
+            >
+              {{ showPassword ? "Hide password" : "Show password" }}
+            </button>
+            <NuxtLink
+              :to="{ path: '/forgot-password', query: form.email ? { email: form.email.trim() } : {} }"
+              class="text-xs font-semibold text-rose-600 hover:underline"
+            >
+              Forgot password?
+            </NuxtLink>
+          </div>
         </div>
         <p
           v-if="errorMessage"

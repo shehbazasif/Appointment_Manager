@@ -773,6 +773,21 @@ const dict: Record<string, string> = {
   "Use a different account": "استخدام حساب آخر",
   "Enter the 6-digit code.": "أدخل الرمز المكوّن من 6 أرقام.",
   "Wrong or expired code.": "رمز خاطئ أو منتهي الصلاحية.",
-  "Could not send the code. Try again in a minute.": "تعذّر إرسال الرمز. حاول مجددًا بعد دقيقة."
+  "Could not send the code. Try again in a minute.": "تعذّر إرسال الرمز. حاول مجددًا بعد دقيقة.",
+  "Welcome": "مرحبًا",
+  "Welcome!": "مرحبًا!",
+  "Welcome, {name}!": "مرحبًا، {name}!",
+  "Two quick questions and your booking page is ready.": "سؤالان سريعان وتصبح صفحة الحجز جاهزة.",
+  "Business name": "اسم النشاط",
+  "e.g. Little Stars Children Clinic": "مثال: عيادة النجوم الصغيرة للأطفال",
+  "Customers see this on your booking page. You can change it later.": "يراه العملاء في صفحة الحجز. يمكنك تغييره لاحقًا.",
+  "What kind of business is it?": "ما نوع نشاطك؟",
+  "Create my business": "إنشاء نشاطي",
+  "Enter your business name.": "أدخل اسم نشاطك.",
+  "Could not create your business. Please try again.": "تعذّر إنشاء نشاطك. حاول مرة أخرى.",
+  "Signed in as {email}.": "تم تسجيل الدخول باسم {email}.",
+  "Confirm the code we emailed you to open your business.": "أكّد الرمز الذي أرسلناه إلى بريدك لفتح نشاطك.",
+  "Enter code": "إدخال الرمز",
+  "Could not reach the server. Check your internet connection.": "تعذّر الوصول إلى الخادم. تحقق من اتصال الإنترنت."
 };
 export default dict;

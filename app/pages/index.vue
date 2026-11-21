@@ -21,6 +21,7 @@ usePageSeo({
   path: "/",
   description: BRAND.description,
 });
+useSiteJsonLd();
 
 const homeFeatures = SITE_FEATURES.slice(0, 6);
 

@@ -16,6 +16,10 @@ export default defineNuxtConfig({
     "@nuxtjs/supabase",
   ],
   css: ["~/assets/css/tailwind.css"],
+  // Dot-folders are not scanned as routes, so the MCP Server Card is registered here
+  serverHandlers: [
+    { route: "/.well-known/mcp/server-card.json", handler: "~~/server/handlers/mcp-server-card.ts" },
+  ],
   nitro: {
     // Automatic appointment reminder emails — runs the worker every 5 minutes
     // (server/tasks/notifications/reminders.ts). No external cron needed.

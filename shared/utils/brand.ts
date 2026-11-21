@@ -17,6 +17,12 @@ export const BRAND = {
   email: "info@rantevou.feroferto.com",
   /** Where the company is based (footer line). */
   basedIn: "Athens, Greece",
+  /**
+   * Official profiles of the company (LinkedIn, Facebook, Instagram, Google
+   * Business, app stores…). Used as schema.org `sameAs` so search engines and
+   * AI agents can confirm they are the same company. Full https:// links only.
+   */
+  sameAs: [] as readonly string[],
 } as const;
 
 /** "Page name · Rantevou" style titles. */

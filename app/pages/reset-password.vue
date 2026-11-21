@@ -34,14 +34,30 @@ const strongEnough = computed(() => rules.value.every((r) => r.ok));
 
 onMounted(async () => {
   const url = window.location.href;
-  // PKCE links carry ?code=… ; supabase-js may already have used it
-  if (url.includes("code=")) await supabase.auth.exchangeCodeForSession(url).catch(() => null);
+  const params = new URL(url).searchParams;
+  const tokenHash = params.get("token_hash");
+  if (tokenHash) {
+    // Link from our email template: works in ANY browser or phone (e.g. the
+    // Gmail app), because it does not need anything saved when the reset was asked.
+    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
+    if (error) {
+      state.value = "invalid";
+      window.history.replaceState(null, "", "/reset-password");
+      return;
+    }
+  } else if (url.includes("code=")) {
+    // older style link: only works in the same browser that asked for the reset
+    await supabase.auth.exchangeCodeForSession(url).catch(() => null);
+  }
   if (/error_code=|error=/.test(url)) {
     state.value = "invalid";
     return;
   }
   const { data } = await supabase.auth.getSession();
-  state.value = data.session && (fromEmailLink || recoveryEvent) ? "ready" : "invalid";
+  // from the email link: link parameters, Supabase's recovery event, or a
+  // session that was opened by a reset link in the last hour
+  const fromReset = fromEmailLink || recoveryEvent || isRecoveryLogin(data.session?.access_token);
+  state.value = data.session && fromReset ? "ready" : "invalid";
   // remove the one-time code from the address bar
   window.history.replaceState(null, "", "/reset-password");
 });

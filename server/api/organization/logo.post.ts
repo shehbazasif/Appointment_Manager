@@ -1,5 +1,6 @@
 import { requireTenant, serializeBusiness } from "../../utils/auth";
 import { getUserClient } from "../../utils/supabase";
+import { syncBranchesFromHead } from "../../utils/branchSync";
 
 const MAX_BYTES = 2 * 1024 * 1024; // must match the bucket's file_size_limit
 
@@ -11,6 +12,8 @@ const MAX_BYTES = 2 * 1024 * 1024; // must match the bucket's file_size_limit
  */
 export default defineEventHandler(async (event) => {
   const tenant = await requireTenant(event);
+  if ((tenant.business as any).parent_business_id)
+    throw createError({ statusCode: 403, statusMessage: "A branch uses the head office logo." });
   const sb = await getUserClient(event);
 
   const form = await readMultipartFormData(event);
@@ -78,5 +81,6 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  await syncBranchesFromHead(sb, tenant.businessId).catch(() => null);
   return serializeBusiness(updated, tenant.settings);
 });

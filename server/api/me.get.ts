@@ -46,5 +46,9 @@ export default defineEventHandler(async (event) => {
     user: { id: authUser.id, email: authUser.email, firstName, lastName },
     organization: tenant ? serializeBusiness(tenant.business, tenant.settings) : null,
     role: tenant?.role ?? null,
+    // Branches: a head-office member can open its branches; a branch member cannot
+    isHeadOffice: tenant ? !(tenant.homeBusiness as any).parent_business_id : false,
+    viewingBranch: tenant?.viewingBranch ?? false,
+    homeBusiness: tenant ? { id: tenant.homeBusiness.id, name: (tenant.homeBusiness as any).name } : null,
   };
 });

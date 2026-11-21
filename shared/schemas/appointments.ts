@@ -1,12 +1,23 @@
 import { z } from "zod";
 
 /** One-time customer location (on-location businesses). */
-export const appointmentLocationSchema = z.object({
-  lat: z.number().min(-90).max(90),
-  lng: z.number().min(-180).max(180),
-  accuracy: z.number().min(0).max(100000).optional().nullable(),
-  note: z.string().trim().max(300).optional().nullable(),
-});
+export const appointmentLocationSchema = z
+  .object({
+    // coordinates when they can be read from the link (or GPS)
+    lat: z.number().min(-90).max(90).optional().nullable(),
+    lng: z.number().min(-180).max(180).optional().nullable(),
+    accuracy: z.number().min(0).max(100000).optional().nullable(),
+    note: z.string().trim().max(300).optional().nullable(),
+    // the Google Maps link exactly as the customer sent it (WhatsApp short links too)
+    url: z
+      .string()
+      .trim()
+      .max(1000)
+      .regex(/^https?:\/\//i, "The location link must start with http:// or https://")
+      .optional()
+      .nullable(),
+  })
+  .refine((l) => (l.lat != null && l.lng != null) || !!l.url || !!l.note, "Add a Google Maps link or an address.");
 
 export const appointmentSchema = z.object({
   customerId: z.string().uuid(),
@@ -17,6 +28,14 @@ export const appointmentSchema = z.object({
   source: z.enum(["ONLINE", "MANUAL"]).default("MANUAL"),
   // On-location businesses: where the staff member has to go
   location: appointmentLocationSchema.optional().nullable(),
+  // Manual bookings: pet name, several services (with how many pets each), agreed price
+  petName: z.string().trim().max(120).optional().nullable(),
+  items: z
+    .array(z.object({ serviceId: z.string().uuid(), qty: z.number().int().min(1).max(20) }))
+    .min(1)
+    .max(10)
+    .optional(),
+  price: z.number().min(0).max(1000000).optional().nullable(),
 });
 
 export const updateAppointmentSchema = z.object({

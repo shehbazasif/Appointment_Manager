@@ -152,7 +152,8 @@ const loadSchedules = async () => {
     $fetch<StaffRow[]>("/api/staff"),
     $fetch<{ staffId: string; dayOfWeek: number; isOff: boolean; startTime: string; endTime: string }[]>("/api/staff-schedules").catch(() => []),
   ]);
-  staffList.value = staff.filter((s) => s.active);
+  // head-office drivers shown in a branch keep their attendance at the head office
+  staffList.value = staff.filter((s) => s.active && !(s as any).shared);
   for (const s of staffList.value) {
     const mine = rows.filter((r) => r.staffId === s.id);
     custom.value[s.id] = mine.length > 0;

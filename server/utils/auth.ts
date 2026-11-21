@@ -1,4 +1,5 @@
 import type { H3Event } from "h3";
+import { getHeader } from "h3";
 import { serverSupabaseUser } from "#supabase/server";
 import { getBearerToken, getUserClient } from "./supabase";
 import { appSupportsLoginCode, isDeviceTrusted, trustDevice } from "./deviceTrust";
@@ -22,9 +23,20 @@ export type TenantContext = AuthUser & {
   role: string;
   business: Record<string, unknown> & { id: string };
   settings: Record<string, any> | null;
+  /** The business the person is a member of (head office or a branch). */
+  homeBusiness: Record<string, unknown> & { id: string };
+  /** True when a head-office member is working inside one of its branches. */
+  viewingBranch: boolean;
 };
 
-const findMembership = async (event: H3Event, userId: string) => {
+/**
+ * Head-office members can work inside a branch: the app sends the branch id
+ * in this header. It is only honoured when that business really is a branch
+ * of the member's own business (the database enforces the same rule).
+ */
+export const BRANCH_HEADER = "x-branch-id";
+
+const findMembership = async (event: H3Event, userId: string, opts: { ignoreBranch?: boolean } = {}) => {
   try {
     const sb = await getUserClient(event);
     const { data, error } = await sb
@@ -40,13 +52,29 @@ const findMembership = async (event: H3Event, userId: string) => {
       return null;
     }
     if (!data) return null;
+    const home = data.business;
+    let business = home;
+    let viewingBranch = false;
+    const wanted = opts.ignoreBranch ? "" : String(getHeader(event, BRANCH_HEADER) ?? "").trim();
+    if (wanted && wanted !== data.business_id && /^[0-9a-f-]{36}$/i.test(wanted)) {
+      const { data: branch } = await sb
+        .from("businesses")
+        .select("*")
+        .eq("id", wanted)
+        .eq("parent_business_id", data.business_id)
+        .maybeSingle();
+      if (branch) {
+        business = branch;
+        viewingBranch = true;
+      }
+    }
     // Booking on/off lives in business_settings.online_booking_enabled, not on businesses
     const { data: settings } = await sb
       .from("business_settings")
       .select("*")
-      .eq("business_id", data.business_id)
+      .eq("business_id", business.id)
       .maybeSingle();
-    return { ...data, settings: settings ?? null };
+    return { ...data, business_id: business.id, business, home, viewingBranch, settings: settings ?? null };
   } catch (err: any) {
     console.warn("findMembership exception:", err?.message);
     return null;
@@ -63,7 +91,24 @@ const toTenantContext = (
   role: membership.role ?? "OWNER",
   business: (membership.business ?? {}) as TenantContext["business"],
   settings: (membership as any).settings ?? null,
+  homeBusiness: ((membership as any).home ?? membership.business ?? {}) as TenantContext["business"],
+  viewingBranch: !!(membership as any).viewingBranch,
 });
+
+/**
+ * The person's own business must be a head office (not a branch). Used by the
+ * head-office screens (branch list, branch overview, add branch).
+ */
+export const requireHeadOffice = async (event: H3Event) => {
+  const authUser = await requireAuthUser(event);
+  requireTrustedDevice(event, authUser.id);
+  const membership = await findMembership(event, authUser.id, { ignoreBranch: true });
+  if (!membership?.business_id)
+    throw createError({ statusCode: 403, statusMessage: "No active business found for this account." });
+  if ((membership.business as any)?.parent_business_id)
+    throw createError({ statusCode: 403, statusMessage: "Only the head office can do this." });
+  return toTenantContext(authUser, membership);
+};
 
 /** Verified token claims: Bearer token (Android app) or session cookies (website). */
 const getClaims = async (event: H3Event) => {
@@ -212,6 +257,8 @@ export const serializeBusiness = (
       ? `${b.logo_url}${b.logo_url.includes("?") ? "&" : "?"}v=${encodeURIComponent(String(b.updated_at ?? ""))}`
       : null,
   status: b.status ?? "ACTIVE",
+  /** A branch follows its head office: profile, type and booking switches are locked. */
+  isBranch: !!b.parent_business_id,
   bookingActive: settings?.online_booking_enabled ?? false,
   // features the platform admin turned off are off, whatever the owner chose
   onLocationEnabled: featureAllowed(settings, "onLocation") && (settings?.on_location_enabled ?? false),

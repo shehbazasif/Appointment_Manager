@@ -577,3 +577,7 @@ html.ui .dash-main thead { background: var(--ui-surface-muted); }
 .ds-section-sub { margin-top: 2px; font-size: 13px; line-height: 18px; color: var(--ui-ink-muted, #4b5563); }
 .ds-label { display: block; margin-bottom: 6px; font-size: 13px; line-height: 18px; font-weight: 500; color: var(--ui-ink, #111827); }
 .ds-help { margin-top: 6px; font-size: 12px; line-height: 16px; color: var(--ui-ink-muted, #4b5563); }
+
+/* Popups (m-sheet) always sit above the phone bottom tab bar (z-50),
+   so their buttons (e.g. "Assign") are never hidden behind it. */
+.m-sheet { z-index: 70 !important; }

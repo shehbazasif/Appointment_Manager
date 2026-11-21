@@ -2,9 +2,10 @@ import { readValidatedBody } from "h3";
 import { updateAppointmentSchema } from "#shared/schemas/appointments";
 import { requireTenant } from "../../utils/auth";
 import { getUserClient } from "../../utils/supabase";
+import { staffBusyError, staffOwners } from "../../utils/sharedStaff";
 
 export default defineEventHandler(async (event) => {
-  const { businessId, userId, settings } = await requireTenant(event);
+  const { businessId, userId, settings, business } = await requireTenant(event);
   const id = getRouterParam(event, "id");
   if (!id)
     throw createError({ statusCode: 400, statusMessage: "Appointment id is required." });
@@ -67,9 +68,10 @@ export default defineEventHandler(async (event) => {
       .from("staff")
       .select("id")
       .eq("id", targetStaffId)
-      .eq("business_id", businessId)
+      // own staff, or the head office's (drivers are shared with branches)
+      .in("business_id", staffOwners(businessId, business))
       .eq("status", "ACTIVE")
-      .single();
+      .maybeSingle();
 
     if (!staffMember)
       throw createError({
@@ -81,20 +83,14 @@ export default defineEventHandler(async (event) => {
     const { data: overlap } = await sb
       .from("appointments")
       .select("id")
-      .eq("business_id", businessId)
       .eq("staff_id", targetStaffId)
       .neq("id", id)
-      .not("status", "in", '("CANCELLED","NO_SHOW")')
+      .not("status", "in", '("CANCELLED","NO_SHOW","cancelled","no_show")')
       .lt("start_at", endAt.toISOString())
       .gt("end_at", startAt.toISOString())
-      .maybeSingle();
+      .limit(1);
 
-    if (overlap)
-      throw createError({
-        statusCode: 409,
-        statusMessage:
-          "That staff member has a conflicting appointment at this time.",
-      });
+    if (overlap?.length) throw staffBusyError();
   }
 
   if (input.notes !== undefined) updateData.notes = input.notes;
@@ -106,6 +102,7 @@ export default defineEventHandler(async (event) => {
     updateData.location_lng = loc?.lng ?? null;
     updateData.location_accuracy_m = loc?.accuracy ?? null;
     updateData.location_note = loc?.note || null;
+    updateData.location_url = loc?.url || null;
     updateData.location_captured_at = loc ? new Date().toISOString() : null;
   }
 
@@ -129,6 +126,7 @@ export default defineEventHandler(async (event) => {
     .select()
     .single();
 
+  if (error && /STAFF_BUSY/.test(error.message ?? "")) throw staffBusyError();
   if (error) throw createError({ statusCode: 500, statusMessage: error.message });
 
   if (statusChanged && input.status) {

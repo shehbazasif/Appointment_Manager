@@ -49,6 +49,9 @@ interface AppointmentDetail {
     notes?: string | null;
     fieldStatus?: string | null;
     tokenNumber?: number | null;
+    petName?: string | null;
+    items?: { serviceId: string; name: string; qty: number; price: number }[] | null;
+    price?: number | null;
     tokenDate?: string | null;
     location?: { lat: number; lng: number; accuracy?: number | null; note?: string | null } | null;
   };
@@ -100,7 +103,7 @@ interface CustomerItem {
   email?: string | null;
 }
 
-type LocationValue = { lat: number; lng: number; accuracy?: number | null; note?: string | null };
+type LocationValue = { lat?: number | null; lng?: number | null; accuracy?: number | null; note?: string | null; url?: string | null };
 const appointments = ref<AppointmentDetail[]>([]);
 const services = ref<ServiceItem[]>([]);
 const staffList = ref<StaffItem[]>([]);
@@ -117,7 +120,10 @@ const FIELD_STATUSES = [
 const fieldLabel = (v?: string | null) => t(FIELD_STATUSES.find((f) => f.value === v)?.label ?? "Not assigned");
 const mapsUrl = (item: AppointmentDetail) => {
   const l = item.appointment.location;
-  return l ? `https://www.google.com/maps?q=${l.lat},${l.lng}` : "";
+  if (!l) return "";
+  // the link the customer sent (WhatsApp) wins; else coordinates
+  if (l.url) return l.url;
+  return l.lat != null && l.lng != null ? `https://www.google.com/maps?q=${l.lat},${l.lng}` : "";
 };
 const whatsappUrl = (item: AppointmentDetail) => {
   const phone = (item.staff?.phone ?? "").replace(/\D/g, "");
@@ -128,7 +134,9 @@ const whatsappUrl = (item: AppointmentDetail) => {
     ``,
     `${t("Customer")}: ${item.customer.firstName} ${item.customer.lastName === "Customer" ? "" : item.customer.lastName}`.trim(),
     `${t("Phone")}: ${item.customer.phone}`,
-    `${t("Service")}: ${item.service.name}`,
+    `${t("Service")}: ${bookingServices(item)}`,
+    item.appointment.petName ? `${t("Pet")}: ${item.appointment.petName}` : "",
+    `${t("Price")}: ${bookingPrice(item)}`,
     `${t("When")}: ${formatDate(a.startAt)} ${formatTime(a.startAt)}`,
     a.location ? `${t("Location")}: ${mapsUrl(item)}` : "",
     a.location?.note ? `${t("Landmark")}: ${a.location.note}` : "",
@@ -196,8 +204,12 @@ const activeAppointment = ref<AppointmentDetail | null>(null);
 // Forms
 const createForm = reactive({
   customerId: "",
-  newCustomerFirstName: "",
-  newCustomerLastName: "",
+  newCustomerName: "",
+  petName: "",
+  // chosen services: one line per service, with how many pets
+  lines: [] as { serviceId: string; qty: number }[],
+  // agreed price typed by hand ("" = add up the services)
+  price: "",
   newCustomerPhone: "",
   newCustomerEmail: "",
   serviceId: "",
@@ -357,12 +369,42 @@ const updateStatus = async (id: string, status: string) => {
   }
 };
 
+// New customer: if the phone belongs to a customer we already have, use them
+const digits = (v: string) => v.replace(/\D/g, "");
+const phoneMatch = computed(() => {
+  const d = digits(createForm.newCustomerPhone);
+  if (d.length < 6) return null;
+  return customers.value.find((c) => digits(c.phone) === d || (d.length >= 8 && digits(c.phone).endsWith(d.slice(-8)))) ?? null;
+});
+
+// Services in one booking + price
+const chosenItems = computed(() => {
+  const qty = new Map<string, number>();
+  for (const l of createForm.lines) if (l.serviceId && l.qty > 0) qty.set(l.serviceId, Math.min(20, (qty.get(l.serviceId) ?? 0) + l.qty));
+  return services.value.filter((s) => qty.has(s.id)).map((s) => ({ service: s, qty: qty.get(s.id)! }));
+});
+const autoPriceCents = computed(() => chosenItems.value.reduce((m, i) => m + i.service.priceCents * i.qty, 0));
+const priceCurrency = computed(() => chosenItems.value[0]?.service.currency ?? services.value[0]?.currency ?? null);
+const stepQty = (i: number, d: number) => {
+  const l = createForm.lines[i];
+  if (l) l.qty = Math.max(1, Math.min(20, l.qty + d));
+};
+// another service in the same booking (rare): the next one not chosen yet
+const addLine = () => {
+  const used = new Set(createForm.lines.map((l) => l.serviceId));
+  createForm.lines.push({ serviceId: services.value.find((s) => !used.has(s.id))?.id ?? services.value[0]?.id ?? "", qty: 1 });
+};
+const removeLine = (i: number) => createForm.lines.splice(i, 1);
+
 const openCreateModal = () => {
   formError.value = "";
-  createForm.customerId = customers.value[0]?.id ?? "";
-  createForm.isNewCustomer = false;
-  createForm.newCustomerFirstName = "";
-  createForm.newCustomerLastName = "";
+  createForm.customerId = "";
+  // a phone call usually means a new customer: start with the new-customer fields
+  createForm.isNewCustomer = true;
+  createForm.newCustomerName = "";
+  createForm.petName = "";
+  createForm.lines = services.value[0] ? [{ serviceId: services.value[0].id, qty: 1 }] : [];
+  createForm.price = "";
   createForm.newCustomerPhone = "";
   createForm.newCustomerEmail = "";
   createForm.notes = "";
@@ -380,30 +422,55 @@ const handleCreateAppointment = async () => {
     let customerId = createForm.customerId;
 
     if (createForm.isNewCustomer) {
-      if (!createForm.newCustomerFirstName.trim() || !createForm.newCustomerPhone.trim()) {
-        formError.value = t("First name and phone number are required for new customer.");
+      const phone = createForm.newCustomerPhone.trim();
+      if (!phone) {
+        formError.value = t("Enter the customer's phone number.");
         isSubmitting.value = false;
         return;
       }
-      const newCust = await $fetch<CustomerItem>("/api/customers", {
-        method: "POST",
-        body: {
-          firstName: createForm.newCustomerFirstName.trim(),
-          lastName: createForm.newCustomerLastName.trim() || "Customer",
-          phone: createForm.newCustomerPhone.trim(),
-          email: createForm.newCustomerEmail.trim() || null,
-        },
-      });
-      customerId = newCust.id;
+      if (phoneMatch.value) {
+        // same phone as a customer we already have: book for them, no duplicate
+        customerId = phoneMatch.value.id;
+      } else {
+        const [first, ...rest] = createForm.newCustomerName.trim().split(/\s+/).filter(Boolean);
+        const newCust = await $fetch<CustomerItem>("/api/customers", {
+          method: "POST",
+          body: {
+            firstName: first || phone,
+            lastName: rest.join(" ") || "Customer",
+            phone,
+            email: createForm.newCustomerEmail.trim() || null,
+          },
+        });
+        customerId = newCust.id;
+      }
+    } else if (!customerId) {
+      formError.value = t("Choose the client.");
+      isSubmitting.value = false;
+      return;
     }
 
     const startAt = new Date(`${createForm.date}T${createForm.time}:00`);
 
+    if (!chosenItems.value.length) {
+      formError.value = t("Choose at least one service.");
+      isSubmitting.value = false;
+      return;
+    }
+    const typedPrice = createForm.price.trim() === "" ? null : Number(createForm.price.replace(",", "."));
+    if (typedPrice !== null && (!Number.isFinite(typedPrice) || typedPrice < 0)) {
+      formError.value = t("Enter a valid price.");
+      isSubmitting.value = false;
+      return;
+    }
     await $fetch("/api/appointments", {
       method: "POST",
       body: {
         customerId,
-        serviceId: createForm.serviceId,
+        serviceId: chosenItems.value[0]!.service.id,
+        items: chosenItems.value.map((i) => ({ serviceId: i.service.id, qty: i.qty })),
+        petName: createForm.petName.trim() || null,
+        price: typedPrice,
         staffId: createForm.staffId || null,
         startAt: startAt.toISOString(),
         notes: createForm.notes.trim() || null,
@@ -798,11 +865,11 @@ const sourceLabel = (src: string) => (src === "ONLINE" ? t("Online") : src === "
                 <td v-if="visibleCols.service">
                   <div class="flex max-w-[13rem] items-center gap-2">
                     <span class="size-2 shrink-0 rounded-full" :style="{ backgroundColor: item.service.accent || '#94a3b8' }"></span>
-                    <span class="truncate text-stone-800" :title="item.service.name">{{ item.service.name }}</span>
+                    <span class="truncate text-stone-800" :title="bookingLabel(item)">{{ bookingLabel(item) }}</span>
                   </div>
                 </td>
                 <td v-if="visibleCols.duration" class="num">{{ t("{n} min", { n: item.service.durationMinutes }) }}</td>
-                <td v-if="visibleCols.price" class="num text-end text-stone-800">{{ formatMoney(item.service.priceCents, item.service.currency) }}</td>
+                <td v-if="visibleCols.price" class="num text-end text-stone-800">{{ bookingPrice(item) }}</td>
                 <td v-if="visibleCols.staff">
                   <span v-if="item.staff" class="text-stone-800">{{ item.staff.name }}</span>
                   <button
@@ -975,9 +1042,9 @@ const sourceLabel = (src: string) => (src === "ONLINE" ? t("Online") : src === "
             <div class="mt-3 flex items-center justify-between gap-3 rounded-lg bg-stone-50 px-3 py-2 text-sm">
               <span class="flex min-w-0 items-center gap-2">
                 <span class="size-2 shrink-0 rounded-full" :style="{ backgroundColor: item.service.accent || '#94a3b8' }"></span>
-                <span class="truncate text-stone-800">{{ item.service.name }}</span>
+                <span class="truncate text-stone-800">{{ bookingLabel(item) }}</span>
               </span>
-              <span class="shrink-0 font-semibold tabular-nums text-stone-900">{{ formatMoney(item.service.priceCents, item.service.currency) }}</span>
+              <span class="shrink-0 font-semibold tabular-nums text-stone-900">{{ bookingPrice(item) }}</span>
             </div>
 
             <div class="mt-2 flex items-center justify-between gap-2 text-sm">
@@ -1090,143 +1157,123 @@ const sourceLabel = (src: string) => (src === "ONLINE" ? t("Online") : src === "
       v-if="showCreateModal"
       class="m-sheet fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs overflow-y-auto"
     >
-      <div class="m-sheet-panel w-full max-w-lg rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl space-y-5 my-8">
+      <div class="m-sheet-panel w-full max-w-lg rounded-2xl border border-stone-200 bg-white p-5 shadow-2xl space-y-4 my-6">
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
-          <div>
-            <h3 class="font-display text-xl font-bold text-stone-900">{{ t("New Appointment") }}</h3>
-            <p class="text-xs text-stone-500">{{ t("Book an appointment manually into your schedule.") }}</p>
-          </div>
+          <h3 class="font-display text-lg font-bold text-stone-900">{{ t("New Appointment") }}</h3>
           <button type="button" @click="showCreateModal = false" class="m-sheet-close rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
             <X :size="18" />
           </button>
         </div>
 
-        <form @submit.prevent="handleCreateAppointment" class="space-y-4">
-          <!-- Customer Selection Mode -->
+        <form @submit.prevent="handleCreateAppointment" class="space-y-3.5">
+          <!-- Client: new by default (phone call), existing as an option -->
           <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <label class="text-xs font-bold uppercase tracking-wider text-stone-600">{{ t("Client Information") }}</label>
-              <button
-                type="button"
-                @click="createForm.isNewCustomer = !createForm.isNewCustomer"
-                class="text-xs font-semibold text-rose-600 hover:underline"
-              >
-                {{ createForm.isNewCustomer ? t("Select existing client") : t("+ Add new client") }}
+            <div class="flex items-center justify-between gap-2">
+              <span class="ds-label !mb-0">{{ createForm.isNewCustomer ? t("Customer") : t("Existing client") }}</span>
+              <button type="button" class="text-[13px] font-semibold text-rose-700 hover:underline" @click="createForm.isNewCustomer = !createForm.isNewCustomer">
+                {{ createForm.isNewCustomer ? t("Select existing client") : t("New customer") }}
               </button>
             </div>
 
-            <!-- Existing Customer Select -->
-            <AppSelect
-              v-if="!createForm.isNewCustomer"
-              v-model="createForm.customerId"
-              required
-              class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-sm outline-none focus:border-stone-900 focus:bg-white"
-            >
+            <AppSelect v-if="!createForm.isNewCustomer" v-model="createForm.customerId" class="w-full">
+              <option value="" disabled>{{ t("Choose the client") }}</option>
               <option v-for="c in customers" :key="c.id" :value="c.id">
-                {{ c.firstName }} {{ c.lastName }} ({{ c.phone }})
+                {{ c.firstName }} {{ c.lastName === "Customer" ? "" : c.lastName }} ({{ c.phone }})
               </option>
             </AppSelect>
 
-            <!-- New Customer Fields -->
-            <div v-else class="grid gap-2.5 rounded-2xl border border-stone-200 bg-stone-50/60 p-3.5">
-              <div class="grid grid-cols-2 gap-2">
-                <input
-                  v-model="createForm.newCustomerFirstName"
-                  type="text"
-                  :placeholder="t('First name')"
-                  required
-                  class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs outline-none focus:border-stone-900"
-                />
-                <input
-                  v-model="createForm.newCustomerLastName"
-                  type="text"
-                  :placeholder="t('Last name')"
-                  class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs outline-none focus:border-stone-900"
-                />
-              </div>
-              <div class="grid grid-cols-2 gap-2">
-                <input
-                  v-model="createForm.newCustomerPhone"
-                  type="tel"
-                  :placeholder="t('Phone number')"
-                  required
-                  class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs outline-none focus:border-stone-900"
-                />
-                <input
-                  v-model="createForm.newCustomerEmail"
-                  type="email"
-                  :placeholder="t('Email (optional)')"
-                  class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs outline-none focus:border-stone-900"
-                />
-              </div>
+            <div v-else class="grid grid-cols-2 gap-2">
+              <input v-model="createForm.newCustomerPhone" type="tel" inputmode="tel" required :placeholder="t('Phone number')" class="w-full min-w-0 px-3" />
+              <input v-model="createForm.newCustomerName" type="text" autocomplete="off" :placeholder="t('Name (optional)')" class="w-full min-w-0 px-3" />
+              <input v-model="createForm.petName" type="text" maxlength="120" autocomplete="off" :placeholder="t('Pet name (optional)')" class="w-full min-w-0 px-3" />
+              <input v-model="createForm.newCustomerEmail" type="email" :placeholder="t('Email (optional)')" class="w-full min-w-0 px-3" />
+              <p v-if="phoneMatch" class="col-span-2 rounded-md bg-emerald-50 px-3 py-2 text-[13px] text-emerald-800">
+                {{ t("Existing client: {name}. The booking will be added to them.", { name: `${phoneMatch.firstName} ${phoneMatch.lastName === "Customer" ? "" : phoneMatch.lastName}`.trim() }) }}
+              </p>
             </div>
           </div>
 
-          <!-- Service Selection -->
+          <!-- Service (dropdown) + how many pets; rarely a second service -->
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Service") }}</label>
-            <AppSelect
-              v-model="createForm.serviceId"
-              required
-              class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-sm outline-none focus:border-stone-900 focus:bg-white"
+            <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2">
+              <span class="ds-label !mb-0">{{ t("Service") }}</span>
+              <span class="w-[6.5rem] text-center text-xs text-stone-500">{{ t("Number of pets") }}</span>
+              <template v-for="(line, i) in createForm.lines" :key="i">
+                <div class="flex min-w-0 items-center gap-1">
+                  <div class="min-w-0 flex-1">
+                    <AppSelect v-model="line.serviceId" class="w-full">
+                      <option v-for="svc in services" :key="svc.id" :value="svc.id">
+                        {{ svc.name }} · {{ formatMoney(svc.priceCents, svc.currency) }}
+                      </option>
+                    </AppSelect>
+                  </div>
+                  <button
+                    v-if="createForm.lines.length > 1"
+                    type="button"
+                    class="ui-btn ui-btn-ghost ui-btn-icon ui-btn-sm shrink-0 !text-stone-500"
+                    :aria-label="t('Remove')"
+                    @click="removeLine(i)"
+                  >
+                    <X :size="16" />
+                  </button>
+                </div>
+                <div class="flex w-[6.5rem] items-center justify-center gap-1" :aria-label="t('Number of pets')">
+                  <button type="button" class="ui-btn ui-btn-secondary ui-btn-icon ui-btn-sm" :aria-label="t('Less')" :disabled="line.qty <= 1" @click="stepQty(i, -1)">−</button>
+                  <span class="w-6 text-center text-sm font-semibold tabular-nums">{{ line.qty }}</span>
+                  <button type="button" class="ui-btn ui-btn-secondary ui-btn-icon ui-btn-sm" :aria-label="t('More')" @click="stepQty(i, 1)">+</button>
+                </div>
+              </template>
+            </div>
+            <button
+              v-if="services.length > createForm.lines.length"
+              type="button"
+              class="mt-1.5 text-[13px] font-semibold text-rose-700 hover:underline"
+              @click="addLine"
             >
-              <option v-for="s in services" :key="s.id" :value="s.id">
-                {{ s.name }} ({{ s.durationMinutes }}m) — {{ formatMoney(s.priceCents, s.currency) }}
-              </option>
-            </AppSelect>
+              + {{ t("Add another service") }}
+            </button>
           </div>
 
-          <!-- Staff Assignment -->
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">
-              {{ t("Assign Staff Member (Optional)") }}
-            </label>
-            <AppSelect
-              v-model="createForm.staffId"
-              class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-sm outline-none focus:border-stone-900 focus:bg-white"
-            >
-              <option value="">{{ t("Leave Unassigned (Assign later)") }}</option>
-              <option v-for="member in staffList" :key="member.id" :value="member.id">
-                {{ member.name }} ({{ member.role }})
-              </option>
-            </AppSelect>
+          <!-- Price + staff -->
+          <div class="grid grid-cols-2 gap-2">
+            <div class="min-w-0">
+              <label for="create-price" class="ds-label">{{ t("Price") }}</label>
+              <input
+                id="create-price"
+                v-model="createForm.price"
+                type="text"
+                inputmode="decimal"
+                :placeholder="formatMoney(autoPriceCents, priceCurrency)"
+                :title="t('Empty = {price} (the services added up). Type another amount if you agreed a different price.', { price: formatMoney(autoPriceCents, priceCurrency) })"
+                class="w-full px-3"
+              />
+            </div>
+            <div class="min-w-0">
+              <label class="ds-label">{{ t("Staff") }}</label>
+              <AppSelect v-model="createForm.staffId" class="w-full">
+                <option value="">{{ t("Assign later") }}</option>
+                <option v-for="member in staffList" :key="member.id" :value="member.id">
+                  {{ member.name }}
+                </option>
+              </AppSelect>
+            </div>
           </div>
 
           <!-- Date & Time -->
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Date") }}</label>
-              <input
-                v-model="createForm.date"
-                type="date"
-                required
-                class="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2.5 text-xs outline-none focus:border-stone-900 focus:bg-white"
-              />
+          <div class="grid grid-cols-2 gap-2">
+            <div class="min-w-0">
+              <label class="ds-label">{{ t("Date") }}</label>
+              <input v-model="createForm.date" type="date" required class="w-full px-3" />
             </div>
-            <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Time") }}</label>
-              <input
-                v-model="createForm.time"
-                type="time"
-                required
-                class="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2.5 text-xs outline-none focus:border-stone-900 focus:bg-white"
-              />
+            <div class="min-w-0">
+              <label class="ds-label">{{ t("Time") }}</label>
+              <input v-model="createForm.time" type="time" required class="w-full px-3" />
             </div>
           </div>
 
           <!-- On-location: where the staff member has to go -->
           <LocationInput v-if="onLocation" v-model="createForm.location" />
 
-          <!-- Notes -->
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">{{ t("Notes (Optional)") }}</label>
-            <textarea
-              v-model="createForm.notes"
-              rows="2"
-              :placeholder="t('Special instructions or requests...')"
-              class="w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs outline-none focus:border-stone-900 focus:bg-white"
-            ></textarea>
-          </div>
 
           <!-- Error Alert -->
           <p v-if="formError" class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 font-medium">

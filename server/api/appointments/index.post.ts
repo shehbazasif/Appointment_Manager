@@ -3,26 +3,35 @@ import { appointmentSchema } from "#shared/schemas/appointments";
 import { requireTenant } from "../../utils/auth";
 import { getUserClient } from "../../utils/supabase";
 import { queueAppointmentNotifications } from "../../services/notifications";
+import { staffBusyError, staffOwners } from "../../utils/sharedStaff";
 
 export default defineEventHandler(async (event) => {
   const { businessId, userId, business, settings } = await requireTenant(event);
   const input = await readValidatedBody(event, appointmentSchema.parse);
   const sb = await getUserClient(event);
 
-  // Validate service
-  const { data: service } = await sb
+  // Services: one, or several (each with how many pets) — all from this business
+  const wanted = input.items?.length ? input.items : [{ serviceId: input.serviceId, qty: 1 }];
+  const { data: found } = await sb
     .from("services")
     .select("*")
-    .eq("id", input.serviceId)
-    .eq("business_id", businessId)
-    .single();
-
-  if (!service)
+    .in("id", [...new Set(wanted.map((w) => w.serviceId))])
+    .eq("business_id", businessId);
+  const byId = new Map((found ?? []).map((s: any) => [s.id, s]));
+  if (wanted.some((w) => !byId.has(w.serviceId)))
     throw createError({ statusCode: 404, statusMessage: "Service not found or inactive." });
+  const service = byId.get(wanted[0]!.serviceId) as any;
+  const items = wanted.map((w) => {
+    const s = byId.get(w.serviceId) as any;
+    return { serviceId: s.id, name: s.name, qty: w.qty, price: Number(s.price ?? 0), durationMinutes: s.duration_minutes ?? 0 };
+  });
+  const totalMinutes = Math.max(5, items.reduce((m, i) => m + i.durationMinutes * i.qty, 0));
+  // the agreed price; when not typed, the services' prices added up
+  const price = input.price ?? (input.items?.length ? items.reduce((m, i) => m + i.price * i.qty, 0) : null);
 
   const startAt =
     input.startAt instanceof Date ? input.startAt : new Date(input.startAt);
-  const endAt = new Date(startAt.getTime() + service.duration_minutes * 60000);
+  const endAt = new Date(startAt.getTime() + totalMinutes * 60000);
 
   // Validate staff assignment if provided
   if (input.staffId) {
@@ -30,9 +39,10 @@ export default defineEventHandler(async (event) => {
       .from("staff")
       .select("id")
       .eq("id", input.staffId)
-      .eq("business_id", businessId)
+      // own staff, or the head office's (drivers are shared with branches)
+      .in("business_id", staffOwners(businessId, business))
       .eq("status", "ACTIVE")
-      .single();
+      .maybeSingle();
 
     if (!staffMember)
       throw createError({
@@ -41,22 +51,18 @@ export default defineEventHandler(async (event) => {
           "Assigned staff member is not active or not in this business.",
       });
 
-    // Check overlap
+    // Check overlap (anywhere this person works; the database checks again
+    // across every branch, including ones this account cannot see)
     const { data: overlap } = await sb
       .from("appointments")
       .select("id")
-      .eq("business_id", businessId)
       .eq("staff_id", input.staffId)
-      .not("status", "in", '("CANCELLED","NO_SHOW")')
+      .not("status", "in", '("CANCELLED","NO_SHOW","cancelled","no_show")')
       .lt("start_at", endAt.toISOString())
       .gt("end_at", startAt.toISOString())
-      .maybeSingle();
+      .limit(1);
 
-    if (overlap)
-      throw createError({
-        statusCode: 409,
-        statusMessage: "That staff member is already booked for this time.",
-      });
+    if (overlap?.length) throw staffBusyError();
   }
 
   // Insert appointment
@@ -66,7 +72,10 @@ export default defineEventHandler(async (event) => {
       business_id: businessId,
       customer_id: input.customerId,
       staff_id: input.staffId ?? null,
-      service_id: input.serviceId,
+      service_id: service.id,
+      pet_name: input.petName || null,
+      items: input.items?.length ? items.map(({ durationMinutes, ...i }) => i) : null,
+      price,
       start_at: startAt.toISOString(),
       end_at: endAt.toISOString(),
       status: "CONFIRMED",
@@ -75,10 +84,11 @@ export default defineEventHandler(async (event) => {
       created_by: userId,
       ...(input.location
         ? {
-            location_lat: input.location.lat,
-            location_lng: input.location.lng,
+            location_lat: input.location.lat ?? null,
+            location_lng: input.location.lng ?? null,
             location_accuracy_m: input.location.accuracy ?? null,
             location_note: input.location.note || null,
+            location_url: input.location.url || null,
             location_captured_at: new Date().toISOString(),
           }
         : {}),
@@ -90,6 +100,7 @@ export default defineEventHandler(async (event) => {
     .select()
     .single();
 
+  if (apptError && /STAFF_BUSY/.test(apptError.message ?? "")) throw staffBusyError();
   if (apptError) throw createError({ statusCode: 500, statusMessage: apptError.message });
 
   // Insert status history (appointment_history: action/new_status/changed_by)

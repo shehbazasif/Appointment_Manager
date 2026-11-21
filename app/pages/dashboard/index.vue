@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, inject, type Ref } from "vue";
 import {
   CalendarCheck,
   ChevronRight,
@@ -24,6 +24,9 @@ import {
 } from "lucide-vue-next";
 const { t, intl } = useT();
 const { features } = useFeatures();
+// head office (not inside a branch): show every branch's numbers on Home
+const businessProfile = inject<Ref<any> | null>("businessProfile", null);
+const showBranches = computed(() => !!businessProfile?.value?.isHeadOffice && !businessProfile?.value?.viewingBranch);
 
 definePageMeta({
   layout: "dashboard",
@@ -39,6 +42,9 @@ interface AppointmentDetail {
     notes?: string | null;
     fieldStatus?: string | null;
     tokenNumber?: number | null;
+    petName?: string | null;
+    items?: { serviceId: string; name: string; qty: number; price: number }[] | null;
+    price?: number | null;
   };
   customer: {
     id: string;
@@ -276,6 +282,11 @@ const statCards = computed(() => [
       </div>
     </div>
 
+    <!-- Head office: all branches -->
+    <BranchesOverview v-if="showBranches" />
+
+    <!-- the rest of Home is for a single business; the head office sees only its branches -->
+    <template v-if="!showBranches">
     <!-- Loading State -->
     <div v-if="isLoading" class="space-y-4">
       <div class="h-48 rounded-3xl bg-stone-200/60 animate-pulse"></div>
@@ -478,8 +489,8 @@ const statCards = computed(() => [
                   class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500"
                 >
                   <span
-                    >{{ item.service.name }} ·
-                    {{ formatMoney(item.service.priceCents, item.service.currency) }}</span
+                    >{{ bookingLabel(item) }} ·
+                    {{ bookingPrice(item) }}</span
                   >
                   <span class="hidden text-stone-300 sm:inline">·</span>
                   <a
@@ -667,14 +678,14 @@ const statCards = computed(() => [
               {{ item.customer.firstName }} {{ item.customer.lastName }}
             </div>
             <div class="text-xs text-stone-500">
-              {{ item.service.name }} ({{ item.service.durationMinutes }}m)
+              {{ bookingLabel(item) }}
             </div>
             <div
               class="text-[11px] text-stone-600 pt-2 border-t border-stone-200/60 flex items-center justify-between"
             >
               <span>{{ item.staff ? item.staff.name : t("Unassigned") }}</span>
               <span class="font-semibold"
-                >{{ formatMoney(item.service.priceCents, item.service.currency) }}</span
+                >{{ bookingPrice(item) }}</span
               >
             </div>
           </div>
@@ -733,6 +744,7 @@ const statCards = computed(() => [
             </span>
           </NuxtLink>
           <NuxtLink
+            v-if="businessProfile?.organization?.bookingActive"
             to="/dashboard/managebookinglink"
             class="flex min-h-14 items-center gap-3 rounded-2xl border border-stone-200 bg-stone-50/60 p-3 transition hover:border-stone-400 hover:bg-white"
           >
@@ -749,6 +761,8 @@ const statCards = computed(() => [
           </NuxtLink>
         </div>
       </section>
+    </template>
+
     </template>
 
     <!-- Staff Assignment Modal -->

@@ -11,17 +11,23 @@ export const mapAppointmentRow = (row: any) => ({
     status: row.status,
     source: row.booking_source,
     notes: row.notes,
+    petName: row.pet_name ?? null,
+    // several services in one booking: [{ serviceId, name, qty, price }]
+    items: Array.isArray(row.items) ? row.items : null,
+    // agreed price (major units) — null means "the service's price"
+    price: row.price != null ? Number(row.price) : null,
     fieldStatus: row.field_status ?? null,
     // queue token for the day of the appointment (null until the SQL update is run)
     tokenNumber: row.token_number ?? null,
     tokenDate: row.token_date ?? null,
     location:
-      row.location_lat != null && row.location_lng != null
+      (row.location_lat != null && row.location_lng != null) || row.location_url || row.location_note
         ? {
-            lat: row.location_lat,
-            lng: row.location_lng,
+            lat: row.location_lat ?? null,
+            lng: row.location_lng ?? null,
             accuracy: row.location_accuracy_m ?? null,
             note: row.location_note ?? null,
+            url: row.location_url ?? null,
           }
         : null,
     createdAt: row.created_at,

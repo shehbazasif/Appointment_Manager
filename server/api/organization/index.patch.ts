@@ -2,6 +2,7 @@ import { readValidatedBody } from "h3";
 import { organizationSettingsSchema } from "#shared/schemas/business";
 import { requireTenant, serializeBusiness } from "../../utils/auth";
 import { getUserClient } from "../../utils/supabase";
+import { BRANCH_LOCKED_INPUT, syncBranchesFromHead } from "../../utils/branchSync";
 
 const mapSettingsToColumns = (input: Record<string, unknown>) => {
   const updates: Record<string, unknown> = {};
@@ -22,9 +23,17 @@ const mapSettingsToColumns = (input: Record<string, unknown>) => {
 };
 
 export default defineEventHandler(async (event) => {
-  const { businessId, settings } = await requireTenant(event);
-  const input = await readValidatedBody(event, organizationSettingsSchema.parse);
+  const { businessId, settings, business, viewingBranch } = await requireTenant(event);
+  const input: Record<string, any> = { ...(await readValidatedBody(event, organizationSettingsSchema.parse)) };
   const sb = await getUserClient(event);
+
+  // A branch follows its head office: its profile, business type and booking
+  // switches cannot be changed here. Only the head office may rename a branch.
+  const isBranch = !!(business as any).parent_business_id;
+  if (isBranch) {
+    for (const k of BRANCH_LOCKED_INPUT) delete input[k];
+    if (!viewingBranch) delete input.name;
+  }
 
   const updates = mapSettingsToColumns(input);
   const hasBusinessUpdates = Object.keys(updates).length > 0;
@@ -44,8 +53,12 @@ export default defineEventHandler(async (event) => {
     input.timezone !== undefined ||
     input.currency !== undefined;
 
-  if (!hasBusinessUpdates && !hasSettingsUpdates)
-    throw createError({ statusCode: 400, statusMessage: "No fields to update." });
+  if (!hasBusinessUpdates && !hasSettingsUpdates) {
+    if (!isBranch) throw createError({ statusCode: 400, statusMessage: "No fields to update." });
+    // a branch saved only locked fields: nothing to change
+    const { data: current } = await sb.from("businesses").select("*").eq("id", businessId).single();
+    return serializeBusiness(current ?? business, settings);
+  }
 
   // --- Business name change limiter --------------------------------------
   // 2 free changes; afterwards a change is only allowed once 14 days have
@@ -156,6 +169,7 @@ export default defineEventHandler(async (event) => {
       .maybeSingle();
     if (!business)
       throw createError({ statusCode: 404, statusMessage: "Business profile not found." });
+    if (!isBranch) await syncBranchesFromHead(sb, businessId).catch(() => null);
     return serializeBusiness(business, freshSettings);
   }
 
@@ -184,5 +198,6 @@ export default defineEventHandler(async (event) => {
     .eq("business_id", businessId)
     .maybeSingle();
 
+  if (!isBranch) await syncBranchesFromHead(sb, businessId).catch(() => null);
   return serializeBusiness(updated, freshSettings ?? settings);
 });

@@ -22,6 +22,7 @@ import {
   ChevronRight,
   ChevronLeft,
   LayoutTemplate,
+  UsersRound,
 } from "lucide-vue-next";
 const { t, intl } = useT();
 
@@ -54,6 +55,7 @@ interface OrgSettings {
   themeColor?: string | null;
   nameChangeCount?: number;
   nameCooldownUntil?: string | null;
+  isBranch?: boolean;
 }
 
 const { user, refreshUser } = useSupabaseAuth();
@@ -481,11 +483,20 @@ const SECTIONS = [
   { id: "booking", title: "Booking page", sub: "Online booking, tokens, prices", icon: Globe },
   { id: "region", title: "Location & language", sub: "Address, time zone, currency, language", icon: MapPin },
   { id: "theme", title: "Theme", sub: "Your brand colour", icon: Palette },
+  { id: "team", title: "Team", sub: "Who can sign in, invite by email", icon: UsersRound },
   { id: "security", title: "Account security", sub: "Login email and mobile number", icon: ShieldCheck },
 ] as const;
 // Features the platform admin switched off are not shown at all
 const allowed = (k: string) => org.value?.allowedFeatures?.[k] !== false;
-const visibleSections = computed(() => SECTIONS.filter((s) => s.id !== "theme" || allowed("theme")));
+// A branch follows its head office: no business type, booking page or team here
+const businessProfile = inject<Ref<any> | null>("businessProfile", null);
+const isBranch = computed(() => !!org.value?.isBranch);
+/** head office working inside a branch (may rename it) */
+const headInBranch = computed(() => isBranch.value && !!businessProfile?.value?.viewingBranch);
+const BRANCH_HIDDEN = ["type", "booking", "team"];
+const visibleSections = computed(() =>
+  SECTIONS.filter((s) => (s.id !== "theme" || allowed("theme")) && !(isBranch.value && BRANCH_HIDDEN.includes(s.id))),
+);
 const typeNote = ref("");
 const applyType = () => {
   const p = businessTypeOf(form.businessType).settings;
@@ -595,6 +606,10 @@ const backToList = () => {
           <div class="space-y-5 px-5 py-5 sm:px-6">
             <!-- ============ Business profile ============ -->
             <template v-if="shown === 'profile'">
+              <p v-if="isBranch" class="flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 p-3 text-[13px] text-sky-900">
+                <Building2 :size="16" class="mt-0.5 shrink-0" />
+                <span>{{ t("This is a branch. Its logo and contact details come from the head office and are changed there.") }}</span>
+              </p>
               <!-- Logo -->
               <div class="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
                 <div class="relative shrink-0">
@@ -609,7 +624,11 @@ const backToList = () => {
                   </div>
                   <span v-if="logoPending" class="ds-pill ds-pill--info absolute -end-2 -top-2 !h-5 !px-2">{{ t("New") }}</span>
                 </div>
-                <div class="min-w-0 flex-1 space-y-2">
+                <div v-if="isBranch" class="min-w-0 flex-1">
+                  <div class="ds-label !mb-0">{{ t("Business Logo") }}</div>
+                  <p class="ds-help !mt-0">{{ t("Same as the head office.") }}</p>
+                </div>
+                <div v-else class="min-w-0 flex-1 space-y-2">
                   <div class="ds-label !mb-0">{{ t("Business Logo") }}</div>
                   <p class="ds-help !mt-0">
                     {{ t("PNG or JPG. We automatically crop it to a square and resize it — check the preview, then press “Set image”. Shown in the dashboard header and booking page.") }}
@@ -645,25 +664,25 @@ const backToList = () => {
               <div class="grid gap-4 border-t border-stone-200 pt-5 sm:grid-cols-2">
                 <div>
                   <label for="s-name" class="ds-label">{{ t("Business Name") }}</label>
-                  <input id="s-name" v-model="form.name" type="text" required class="w-full px-3" />
-                  <p class="ds-help flex items-start gap-1" :class="nameLimit.cooling ? '!text-amber-700' : ''">
+                  <input id="s-name" v-model="form.name" type="text" required :disabled="isBranch && !headInBranch" class="w-full px-3" />
+                  <p v-if="!isBranch" class="ds-help flex items-start gap-1" :class="nameLimit.cooling ? '!text-amber-700' : ''">
                     <CalendarClock :size="14" class="shrink-0" />
                     <span>{{ nameHint }}</span>
                   </p>
                 </div>
-                <div>
+                <div v-if="!isBranch">
                   <label for="s-slug" class="ds-label">{{ t("URL Slug") }}</label>
                   <input id="s-slug" v-model="form.slug" type="text" required :placeholder="t('maria-beauty-studio')" class="w-full px-3" />
                   <p class="ds-help">{{ t("Your booking page address:") }} <bdi dir="ltr" class="font-medium text-stone-700">/book/{{ form.slug || "…" }}</bdi></p>
                 </div>
                 <div>
                   <label for="s-email" class="ds-label">{{ t("Business Email") }}</label>
-                  <input id="s-email" v-model="form.email" type="email" required class="w-full px-3" />
-                  <p class="ds-help">{{ t("Shown to customers. Your login email is under Account security.") }}</p>
+                  <input id="s-email" v-model="form.email" type="email" required :disabled="isBranch" class="w-full px-3" />
+                  <p v-if="!isBranch" class="ds-help">{{ t("Shown to customers. Your login email is under Account security.") }}</p>
                 </div>
                 <div>
                   <label for="s-phone" class="ds-label">{{ t("Business Phone") }}</label>
-                  <input id="s-phone" v-model="form.phone" type="tel" placeholder="+30 210..." class="w-full px-3" />
+                  <input id="s-phone" v-model="form.phone" type="tel" placeholder="+30 210..." :disabled="isBranch" class="w-full px-3" />
                 </div>
                 <div class="sm:col-span-2">
                   <label for="s-desc" class="ds-label">{{ t("Description") }}</label>
@@ -671,6 +690,7 @@ const backToList = () => {
                     id="s-desc"
                     v-model="form.description"
                     rows="3"
+                    :disabled="isBranch"
                     :placeholder="t('Tell customers what sets your studio apart...')"
                     class="w-full px-3"
                   ></textarea>
@@ -846,6 +866,9 @@ const backToList = () => {
               </div>
             </template>
 
+            <!-- ============ Team ============ -->
+            <TeamPanel v-else-if="shown === 'team'" />
+
             <!-- ============ Account security ============ -->
             <template v-else-if="shown === 'security'">
               <div class="grid gap-4 xl:grid-cols-2">
@@ -938,7 +961,7 @@ const backToList = () => {
 
           <!-- Save bar (not needed for account security: those save with codes) -->
           <div
-            v-if="shown !== 'security'"
+            v-if="shown !== 'security' && shown !== 'team' && !(shown === 'profile' && isBranch && !headInBranch)"
             class="sticky bottom-0 flex flex-col gap-3 rounded-b-xl border-t border-stone-200 bg-white/95 px-5 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6"
           >
             <p v-if="errorMessage" class="flex items-center gap-2 text-sm font-medium text-red-700">

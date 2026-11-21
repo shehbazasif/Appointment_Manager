@@ -35,6 +35,8 @@ interface StaffMember {
   role: string;
   active: boolean;
   serviceIds: string[];
+  /** head-office driver shown in a branch: assign only, edit at the head office */
+  shared?: boolean;
 }
 
 interface ServiceItem {
@@ -446,7 +448,7 @@ const table = useDataTable("staff_table_cols", [
                     <span class="ds-avatar">{{ initialsOf(member.name.split(' ')[0], member.name.split(' ')[1]) }}</span>
                     <div class="min-w-0">
                       <div class="is-strong max-w-[14rem] truncate">{{ member.name }}</div>
-                      <div class="text-xs text-stone-500">{{ member.role }}</div>
+                      <div class="text-xs text-stone-500">{{ member.role }}<span v-if="member.shared" class="ds-tag ms-1.5">{{ t("Head office") }}</span></div>
                     </div>
                   </div>
                 </td>
@@ -470,6 +472,7 @@ const table = useDataTable("staff_table_cols", [
                     type="button"
                     class="flex max-w-[16rem] flex-wrap items-center gap-1 text-start"
                     :title="serviceNames(member).join(', ')"
+                    :disabled="member.shared"
                     @click="openServicesAssign(member)"
                   >
                     <template v-if="serviceNames(member).length">
@@ -481,7 +484,7 @@ const table = useDataTable("staff_table_cols", [
                 </td>
                 <td>
                   <div class="flex items-center gap-2">
-                    <AppSwitch :model-value="member.active" :label="t('Active (available for bookings)')" @update:model-value="toggleActive(member)" />
+                    <AppSwitch v-if="!member.shared" :model-value="member.active" :label="t('Active (available for bookings)')" @update:model-value="toggleActive(member)" />
                     <span class="text-xs" :class="member.active ? 'text-emerald-700' : 'text-stone-500'">{{ member.active ? t("Active") : t("Inactive") }}</span>
                   </div>
                 </td>
@@ -506,10 +509,10 @@ const table = useDataTable("staff_table_cols", [
                     >
                       <Phone :size="14" />
                     </a>
-                    <button type="button" class="ui-btn ui-btn-sm ui-btn-soft" @click="openSchedule(member)">
+                    <button v-if="!member.shared" type="button" class="ui-btn ui-btn-sm ui-btn-soft" @click="openSchedule(member)">
                       <Calendar :size="14" /> {{ t("Schedule") }}
                     </button>
-                    <RowActionMenu :label="t('More actions')">
+                    <RowActionMenu v-if="!member.shared" :label="t('More actions')">
                       <button type="button" class="ds-menu-item" role="menuitem" @click="openEdit(member)">
                         <Edit2 :size="16" /> {{ t("Edit Staff") }}
                       </button>
@@ -535,9 +538,9 @@ const table = useDataTable("staff_table_cols", [
               <span class="ds-avatar !size-11 !text-sm">{{ initialsOf(member.name.split(' ')[0], member.name.split(' ')[1]) }}</span>
               <div class="min-w-0 flex-1">
                 <div class="truncate text-base font-semibold text-stone-900">{{ member.name }}</div>
-                <div class="text-[13px] text-stone-500">{{ member.role }}</div>
+                <div class="text-[13px] text-stone-500">{{ member.role }}<span v-if="member.shared" class="ds-tag ms-1.5">{{ t("Head office") }}</span></div>
               </div>
-              <AppSwitch :model-value="member.active" :label="t('Active (available for bookings)')" @update:model-value="toggleActive(member)" />
+              <AppSwitch v-if="!member.shared" :model-value="member.active" :label="t('Active (available for bookings)')" @update:model-value="toggleActive(member)" />
             </div>
             <div class="mt-3 grid gap-1.5 text-[13px] text-stone-600">
               <div class="flex items-center gap-2">
@@ -553,10 +556,10 @@ const table = useDataTable("staff_table_cols", [
             <div class="mt-3 flex gap-2 border-t border-stone-100 pt-3">
               <a v-if="member.phone" :href="telHref(member.phone)" class="ui-btn ui-btn-secondary ui-btn-icon" :aria-label="t('Call')"><Phone :size="16" /></a>
               <a v-if="member.phone" :href="waHref(member.phone)" :target="waTarget" rel="noopener" class="ui-btn ui-btn-secondary ui-btn-icon" :aria-label="t('WhatsApp')"><WhatsAppIcon :size="18" /></a>
-              <button type="button" class="ui-btn ui-btn-soft flex-1" @click="openSchedule(member)">
+              <button v-if="!member.shared" type="button" class="ui-btn ui-btn-soft flex-1" @click="openSchedule(member)">
                 <Calendar :size="16" /> {{ t("Schedule") }}
               </button>
-              <RowActionMenu :label="t('More actions')" size="md">
+              <RowActionMenu v-if="!member.shared" :label="t('More actions')" size="md">
                 <button type="button" class="ds-menu-item" @click="openEdit(member)">
                   <Edit2 :size="16" /> {{ t("Edit Staff") }}
                 </button>

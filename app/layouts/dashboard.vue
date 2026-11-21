@@ -28,6 +28,7 @@ type MeResponse = {
     name: string;
     slug: string;
     bookingActive: boolean;
+    isBranch?: boolean;
     logoUrl?: string | null;
     city?: string;
     currency?: string;
@@ -35,6 +36,9 @@ type MeResponse = {
     themeColor?: string | null;
   } | null;
   role: string | null;
+  isHeadOffice?: boolean;
+  viewingBranch?: boolean;
+  homeBusiness?: { id: string; name: string } | null;
 };
 
 const route = useRoute();
@@ -77,6 +81,8 @@ const allNavItems = navGroups.flatMap((g) => g.items);
 // Pages a business has no access to (admin switched the feature off) are hidden
 const FEATURE_PAGES: Record<string, string> = { "/dashboard/attendance": "attendance" };
 const navVisible = (item: { to: string }) => {
+  // no online booking: no booking link to share
+  if (item.to === "/dashboard/managebookinglink" && !me.value?.organization?.bookingActive) return false;
   const key = FEATURE_PAGES[item.to];
   return !key || me.value?.organization?.features?.[key as "attendance"] !== false;
 };
@@ -123,6 +129,21 @@ const isActive = (to: string) =>
   route.path === to || (to !== "/dashboard" && route.path.startsWith(to));
 const isMoreActive = computed(() => moreItems.some((i) => isActive(i.to)));
 
+// Branches (head office only): list for the "Working in" switcher
+const branchList = ref<{ id: string; name: string }[]>([]);
+const loadBranches = async () => {
+  try {
+    const r = await $fetch<{ head: { id: string; name: string }; branches: { id: string; name: string }[] }>("/api/branches");
+    branchList.value = [r.head, ...r.branches];
+  } catch {
+    branchList.value = [];
+  }
+};
+const switchTo = (id: string) => {
+  if (!me.value?.homeBusiness) return;
+  openBranch(id === me.value.homeBusiness.id ? null : id, route.path);
+};
+
 // 2-step login: the emailed code is still needed (also after going Back)
 const needsLoginCode = ref(false);
 // /api/me could not be reached (no internet, server down) — not "no business"
@@ -145,6 +166,9 @@ const loadMe = async () => {
     needsLoginCode.value = false;
     meLoadFailed.value = false;
     me.value = res;
+    // a branch choice the server did not accept is forgotten
+    if (!res.viewingBranch && getSelectedBranch()) clearSelectedBranch();
+    if (res.isHeadOffice) loadBranches();
     // show the dashboard in the business language (unless this person picked one)
     await applyLocale(me.value?.organization?.language);
   } catch (error: any) {
@@ -166,6 +190,21 @@ const ensureWorkspace = async () => {
   if (!me.value) await loadMe();
   if (me.value?.organization) return;
   if (meLoadFailed.value || needsLoginCode.value) return; // never create a business on a failed check
+  // invited team member (signed up from an invitation): join that business
+  const inviteToken = (user.value as any)?.user_metadata?.invite_token;
+  if (inviteToken) {
+    try {
+      await $fetch("/api/team/accept", { method: "POST", body: { token: inviteToken } });
+      await loadMe();
+      if (me.value?.organization) return;
+    } catch {
+      // invitation no longer valid: fall through
+    }
+    if ((user.value as any)?.user_metadata?.invited) {
+      await navigateTo("/join?token=" + encodeURIComponent(inviteToken), { replace: true });
+      return;
+    }
+  }
   if (isPlatformAdminLogin.value) return;
   if (!me.value) return; // not loaded (e.g. sent to the login-code page)
   try {
@@ -281,7 +320,11 @@ provide("refreshBusinessProfile", loadMe);
         </span>
         <span class="min-w-0">
           <span class="block truncate text-[15px] font-bold leading-5 text-stone-900">{{ me?.organization?.name ?? BRAND.name }}</span>
-          <span class="flex items-center gap-1.5 text-xs text-stone-500">
+          <span v-if="me?.organization?.isBranch" class="flex items-center gap-1.5 text-xs text-stone-500">
+            <span class="size-1.5 rounded-full bg-sky-500"></span>
+            {{ t("Branch") }}
+          </span>
+          <span v-else class="flex items-center gap-1.5 text-xs text-stone-500">
             <span :class="['size-1.5 rounded-full', me?.organization?.bookingActive ? 'bg-emerald-500' : 'bg-amber-500']"></span>
             {{ me?.organization?.bookingActive ? t("Booking is live") : t("Booking paused") }}
           </span>
@@ -364,7 +407,7 @@ provide("refreshBusinessProfile", loadMe);
         </div>
 
         <div class="flex shrink-0 items-center gap-2">
-          <template v-if="me?.organization?.slug">
+          <template v-if="me?.organization?.slug && me.organization.bookingActive">
             <button
               type="button"
               class="ui-btn ui-btn-secondary"
@@ -392,6 +435,28 @@ provide("refreshBusinessProfile", loadMe);
           <LanguageSwitcher compact :business-language="me?.organization?.language ?? null" />
         </div>
       </header>
+
+      <!-- Head office: which branch you are working in (branches never see this) -->
+      <div
+        v-if="me?.isHeadOffice && branchList.length > 1"
+        :class="[
+          'flex flex-wrap items-center gap-x-3 gap-y-2 border-b px-4 py-2 text-[13px] lg:px-6',
+          me.viewingBranch ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-stone-200 bg-white text-stone-600',
+        ]"
+      >
+        <span class="font-medium">{{ t("Working in") }}</span>
+        <AppSelect :model-value="me.organization?.id" class="w-full max-w-xs sm:w-72" @update:model-value="switchTo">
+          <option v-for="b in branchList" :key="b.id" :value="b.id">{{ b.name }}</option>
+        </AppSelect>
+        <button
+          v-if="me.viewingBranch && me.homeBusiness"
+          type="button"
+          class="ui-btn ui-btn-sm ui-btn-secondary"
+          @click="openBranch(null)"
+        >
+          {{ t("Back to head office") }}
+        </button>
+      </div>
 
       <!-- Signed in with the platform admin account (it has no business) -->
       <div
@@ -468,12 +533,12 @@ provide("refreshBusinessProfile", loadMe);
           </NuxtLink>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-2">
-          <button type="button" class="ui-btn ui-btn-secondary w-full" @click="copyBookingLink">
+          <button v-if="me?.organization?.bookingActive" type="button" class="ui-btn ui-btn-secondary w-full" @click="copyBookingLink">
             <Check v-if="copied" :size="16" class="text-emerald-600" />
             <Copy v-else :size="16" />
             <span>{{ copied ? t("Copied!") : t("Copy booking link") }}</span>
           </button>
-          <button type="button" class="ui-btn ui-btn-secondary w-full !text-red-700" @click="handleSignOut">
+          <button type="button" :class="['ui-btn ui-btn-secondary w-full !text-red-700', me?.organization?.bookingActive ? '' : 'col-span-2']" @click="handleSignOut">
             <LogOut :size="16" />
             <span>{{ t("Sign out") }}</span>
           </button>

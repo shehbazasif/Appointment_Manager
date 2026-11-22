@@ -17,6 +17,8 @@ export const BRAND = {
   email: "info@rantevou.feroferto.com",
   /** Where the company is based (footer line). */
   basedIn: "Athens, Greece",
+  /** Public company phone in international format, e.g. "+30 210 123 4567" ("" = not shown). */
+  telephone: "",
   /**
    * Official profiles of the company (LinkedIn, Facebook, Instagram, Google
    * Business, app stores…). Used as schema.org `sameAs` so search engines and

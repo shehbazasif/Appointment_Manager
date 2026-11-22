@@ -31,6 +31,13 @@ export function useSupabaseAuth() {
   const signOut = async () => {
     await supabase.auth.signOut();
     user.value = null;
+    // forget the 2-step login code state of this account
+    if (import.meta.client) {
+      try {
+        sessionStorage.removeItem("rv_login_code");
+      } catch {}
+      (window as any).__rvLoginCodeAutoSent = undefined;
+    }
   };
 
   return { supabase, user, refreshUser, requireUser, signOut };

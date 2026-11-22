@@ -17,6 +17,17 @@ const verifying = ref(false);
 const error = ref("");
 const cooldown = ref(0);
 let timer: ReturnType<typeof setInterval> | null = null;
+/** who is signing in: the "code already sent" memory belongs to this account only */
+const userId = ref("");
+const MEMO = "rv_login_code";
+const readMemo = (): { uid: string; at: number; to: string } | null => {
+  try {
+    const m = JSON.parse(sessionStorage.getItem(MEMO) ?? "null");
+    return m && m.uid === userId.value ? m : null;
+  } catch {
+    return null;
+  }
+};
 
 const startCooldown = (s = 60) => {
   cooldown.value = s;
@@ -34,8 +45,7 @@ const sendCode = async () => {
     const r = await $fetch<{ sentTo: string }>("/api/auth/login-code/request", { method: "POST" });
     sentTo.value = r.sentTo;
     try {
-      sessionStorage.setItem("rv_login_code_sent", String(Date.now()));
-      sessionStorage.setItem("rv_login_code_to", r.sentTo);
+      sessionStorage.setItem(MEMO, JSON.stringify({ uid: userId.value, at: Date.now(), to: r.sentTo }));
     } catch {}
     startCooldown();
   } catch (e: any) {
@@ -61,7 +71,7 @@ const verify = async () => {
       } catch {}
     }
     try {
-      sessionStorage.removeItem("rv_login_code_sent");
+      sessionStorage.removeItem(MEMO);
     } catch {}
     await navigateTo("/dashboard", { replace: true });
   } catch (e: any) {
@@ -82,21 +92,22 @@ onMounted(async () => {
   // saved session itself instead of the not-yet-filled user value.
   const { data } = await supabase.auth.getSession();
   if (!data.session) return navigateTo("/login", { replace: true });
+  userId.value = data.session.user.id;
   // already trusted? go straight in
   try {
     const me = await $fetch<{ loginCodeRequired?: boolean }>("/api/me");
     if (!me.loginCodeRequired) return navigateTo("/dashboard", { replace: true });
   } catch {}
-  // don't send a new code on every refresh: reuse one sent in the last minute
-  let recent = 0;
-  try {
-    recent = Date.now() - Number(sessionStorage.getItem("rv_login_code_sent") ?? 0);
-    sentTo.value = sessionStorage.getItem("rv_login_code_to") ?? "";
-  } catch {}
-  if (recent < 60_000 && sentTo.value) startCooldown(Math.ceil((60_000 - recent) / 1000));
-  else if (!(window as any).__rvLoginCodeAutoSent) {
-    // only one automatic email per page load (the page can mount twice)
-    (window as any).__rvLoginCodeAutoSent = true;
+  // don't send a new code on every refresh: reuse one sent to THIS account
+  // in the last minute (another account signed in before has its own code)
+  const memo = readMemo();
+  const recent = memo ? Date.now() - memo.at : Infinity;
+  if (memo && recent < 60_000) {
+    sentTo.value = memo.to;
+    startCooldown(Math.ceil((60_000 - recent) / 1000));
+  } else if ((window as any).__rvLoginCodeAutoSent !== userId.value) {
+    // only one automatic email per account per page load (the page can mount twice)
+    (window as any).__rvLoginCodeAutoSent = userId.value;
     await sendCode();
   }
 });

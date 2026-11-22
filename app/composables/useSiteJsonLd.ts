@@ -20,9 +20,10 @@ export function useSiteJsonLd() {
       logo: { "@type": "ImageObject", url: `${origin}/icon-512.png`, width: 512, height: 512 },
       description: BRAND.description,
       email: BRAND.email,
+      ...(BRAND.telephone ? { telephone: BRAND.telephone } : {}),
       address: { "@type": "PostalAddress", addressLocality: city, addressCountry: country },
       contactPoint: [
-        { "@type": "ContactPoint", contactType: "customer support", email: BRAND.email, url: `${origin}/contactus`, availableLanguage: ["en", "el", "ar", "fr", "it"] },
+        { "@type": "ContactPoint", contactType: "customer support", email: BRAND.email, ...(BRAND.telephone ? { telephone: BRAND.telephone } : {}), url: `${origin}/contactus`, availableLanguage: ["en", "el", "ar", "fr", "it"] },
       ],
       ...(sameAs.length ? { sameAs } : {}),
     },

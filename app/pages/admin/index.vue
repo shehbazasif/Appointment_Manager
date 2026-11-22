@@ -19,13 +19,18 @@ import {
   ScanLine,
   Upload,
   Palette,
+  Network,
 } from "lucide-vue-next";
 import { BUSINESS_TYPES, businessTypeOf } from "~/utils/businessTypes";
 
 definePageMeta({ layout: "admin" });
 useHead({ title: "Platform admin" });
 
-type FeatureKey = "tokens" | "onLocation" | "attendance" | "import" | "theme";
+type FeatureKey = "tokens" | "onLocation" | "attendance" | "import" | "theme" | "branches";
+/** Features a business only gets when the admin switches them on. */
+const OFF_BY_DEFAULT: FeatureKey[] = ["branches"];
+const isAllowed = (a: Partial<Record<FeatureKey, boolean>> | undefined, k: FeatureKey) =>
+  OFF_BY_DEFAULT.includes(k) ? a?.[k] === true : a?.[k] !== false;
 
 interface Stats {
   totalOrganizations: number;
@@ -73,6 +78,7 @@ const FEATURES: { key: FeatureKey; title: string; description: string; icon: any
   { key: "attendance", title: "Staff attendance", description: "QR check-in and staff working days.", icon: ScanLine },
   { key: "import", title: "Excel import", description: "Import customers and staff from a spreadsheet.", icon: Upload },
   { key: "theme", title: "Theme colour", description: "Own brand colour on the dashboard and booking page.", icon: Palette },
+  { key: "branches", title: "Branches", description: "Head office with several branches: branch switcher, branch overview, team per branch, shared drivers. Off for new businesses.", icon: Network },
 ];
 
 const { init, adminFetch, isAdminUser, mfaStep } = useAdminAuth();
@@ -134,7 +140,8 @@ const fmtDateTime = (iso?: string | null) =>
     ? new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })
     : "—";
 const restrictedCount = (b: { allowedFeatures: Partial<Record<FeatureKey, boolean>> }) =>
-  Object.values(b.allowedFeatures ?? {}).filter((v) => v === false).length;
+  // switched-off features (extras that are off by default do not count)
+  Object.entries(b.allowedFeatures ?? {}).filter(([k, v]) => v === false && !OFF_BY_DEFAULT.includes(k as FeatureKey)).length;
 
 // ---- Detail drawer ----
 const open = ref<BusinessDetail | null>(null);
@@ -148,13 +155,13 @@ const draft = reactive({
   status: "ACTIVE",
   bookingActive: true,
   businessType: "general",
-  allowed: { tokens: true, onLocation: true, attendance: true, import: true, theme: true } as Record<FeatureKey, boolean>,
+  allowed: { tokens: true, onLocation: true, attendance: true, import: true, theme: true, branches: false } as Record<FeatureKey, boolean>,
 });
 const fillDraft = (d: BusinessDetail) => {
   draft.status = d.status;
   draft.bookingActive = d.bookingActive;
   draft.businessType = d.businessType;
-  for (const f of FEATURES) draft.allowed[f.key] = d.allowedFeatures?.[f.key] !== false;
+  for (const f of FEATURES) draft.allowed[f.key] = isAllowed(d.allowedFeatures, f.key);
 };
 const isDirty = computed(() => {
   const d = open.value;
@@ -164,7 +171,7 @@ const isDirty = computed(() => {
     draft.status !== d.status ||
     draft.bookingActive !== d.bookingActive ||
     draft.businessType !== d.businessType ||
-    FEATURES.some((f) => draft.allowed[f.key] !== (d.allowedFeatures?.[f.key] !== false))
+    FEATURES.some((f) => draft.allowed[f.key] !== isAllowed(d.allowedFeatures, f.key))
   );
 });
 

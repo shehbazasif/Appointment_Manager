@@ -1,4 +1,4 @@
-import { getTenantContext, loginCodeRequired, requireAuthUser, serializeBusiness } from "../utils/auth";
+import { featureAllowed, getTenantContext, loginCodeRequired, requireAuthUser, serializeBusiness } from "../utils/auth";
 import { trustDevice } from "../utils/deviceTrust";
 import { getUserClient } from "../utils/supabase";
 
@@ -47,7 +47,10 @@ export default defineEventHandler(async (event) => {
     organization: tenant ? serializeBusiness(tenant.business, tenant.settings) : null,
     role: tenant?.role ?? null,
     // Branches: a head-office member can open its branches; a branch member cannot
-    isHeadOffice: tenant ? !(tenant.homeBusiness as any).parent_business_id : false,
+    // (only when the platform admin switched branches on for this business)
+    isHeadOffice: tenant
+      ? !(tenant.homeBusiness as any).parent_business_id && (tenant.viewingBranch || featureAllowed(tenant.settings, "branches"))
+      : false,
     viewingBranch: tenant?.viewingBranch ?? false,
     homeBusiness: tenant ? { id: tenant.homeBusiness.id, name: (tenant.homeBusiness as any).name } : null,
   };

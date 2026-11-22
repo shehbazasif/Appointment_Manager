@@ -57,7 +57,14 @@ const findMembership = async (event: H3Event, userId: string, opts: { ignoreBran
     let viewingBranch = false;
     const wanted = opts.ignoreBranch ? "" : String(getHeader(event, BRANCH_HEADER) ?? "").trim();
     if (wanted && wanted !== data.business_id && /^[0-9a-f-]{36}$/i.test(wanted)) {
-      const { data: branch } = await sb
+      const { data: homeSettings } = await sb
+        .from("business_settings")
+        .select("features_allowed")
+        .eq("business_id", data.business_id)
+        .maybeSingle();
+      const { data: branch } = !featureAllowed(homeSettings, "branches")
+        ? { data: null }
+        : await sb
         .from("businesses")
         .select("*")
         .eq("id", wanted)
@@ -107,6 +114,8 @@ export const requireHeadOffice = async (event: H3Event) => {
     throw createError({ statusCode: 403, statusMessage: "No active business found for this account." });
   if ((membership.business as any)?.parent_business_id)
     throw createError({ statusCode: 403, statusMessage: "Only the head office can do this." });
+  if (!featureAllowed((membership as any).settings, "branches"))
+    throw createError({ statusCode: 403, statusMessage: "Branches are not switched on for this business." });
   return toTenantContext(authUser, membership);
 };
 
@@ -228,10 +237,14 @@ export const requireSuperAdmin = async (event: H3Event) => {
 };
 
 /** Features the platform admin can switch off per business (missing = allowed). */
-export const FEATURE_KEYS = ["tokens", "onLocation", "attendance", "import", "theme"] as const;
+export const FEATURE_KEYS = ["tokens", "onLocation", "attendance", "import", "theme", "branches"] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
-export const featureAllowed = (settings: Record<string, any> | null | undefined, key: FeatureKey) =>
-  (settings?.features_allowed ?? {})[key] !== false;
+/** Features that stay off until the platform admin switches them on. */
+const OFF_BY_DEFAULT: readonly FeatureKey[] = ["branches"];
+export const featureAllowed = (settings: Record<string, any> | null | undefined, key: FeatureKey) => {
+  const v = (settings?.features_allowed ?? {})[key];
+  return OFF_BY_DEFAULT.includes(key) ? v === true : v !== false;
+};
 
 /** Serializes a `businesses` row + optional `business_settings` row into the camelCase shape the UI expects. */
 export const serializeBusiness = (
@@ -278,6 +291,7 @@ export const serializeBusiness = (
     attendance: featureAllowed(settings, "attendance"),
     import: featureAllowed(settings, "import"),
     theme: featureAllowed(settings, "theme"),
+    branches: featureAllowed(settings, "branches"),
   },
   // Name-change security limiter (2 free changes, then a 14-day cooldown)
   nameChangeCount: b.name_change_count ?? 0,

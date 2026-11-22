@@ -1,6 +1,6 @@
 import { computed, inject, type Ref } from "vue";
 
-export type FeatureKey = "tokens" | "onLocation" | "attendance" | "import" | "theme";
+export type FeatureKey = "tokens" | "onLocation" | "attendance" | "import" | "theme" | "branches";
 
 /**
  * What the current business can use (admin access + the owner's own switch).
@@ -17,6 +17,7 @@ export function useFeatures() {
       attendance: f?.attendance ?? true,
       import: f?.import ?? true,
       theme: f?.theme ?? true,
+      branches: f?.branches ?? false,
     };
   });
   const allowed = computed<Record<FeatureKey, boolean>>(() => {
@@ -27,6 +28,8 @@ export function useFeatures() {
       attendance: a.attendance !== false,
       import: a.import !== false,
       theme: a.theme !== false,
+      // off unless the admin switched it on
+      branches: a.branches === true,
     };
   });
   return { features, allowed };

@@ -83,15 +83,17 @@ const verify = async () => {
 };
 
 const useOtherAccount = async () => {
+  const invite = getPendingInvite();
   await signOut();
-  await navigateTo("/login");
+  // accepting an invitation: back to it (it offers "sign in" for the invited email)
+  await navigateTo(invite ? inviteUrl(invite) : "/login");
 };
 
 onMounted(async () => {
   // In the Android app the sign-in is restored a moment after start: read the
   // saved session itself instead of the not-yet-filled user value.
   const { data } = await supabase.auth.getSession();
-  if (!data.session) return navigateTo("/login", { replace: true });
+  if (!data.session) return navigateTo(getPendingInvite() ? inviteUrl(getPendingInvite()!) : "/login", { replace: true });
   userId.value = data.session.user.id;
   // already trusted? go straight in
   try {

@@ -27,6 +27,8 @@ export type TenantContext = AuthUser & {
   homeBusiness: Record<string, unknown> & { id: string };
   /** True when a head-office member is working inside one of its branches. */
   viewingBranch: boolean;
+  /** Every business this person is a member of (for the business switcher). */
+  memberships: { id: string; name: string; role: string; isBranch: boolean }[];
 };
 
 /**
@@ -35,23 +37,38 @@ export type TenantContext = AuthUser & {
  * of the member's own business (the database enforces the same rule).
  */
 export const BRANCH_HEADER = "x-branch-id";
+/**
+ * One account can belong to several businesses (its own, and e.g. a branch
+ * of another company it was invited to). The app sends the chosen one in
+ * this header; it is only used when the person really is a member of it.
+ */
+export const BUSINESS_HEADER = "x-business-id";
 
 const findMembership = async (event: H3Event, userId: string, opts: { ignoreBranch?: boolean } = {}) => {
   try {
     const sb = await getUserClient(event);
-    const { data, error } = await sb
+    const { data: rows, error } = await sb
       .from("business_members")
       .select("*, business:businesses(*)")
       .eq("user_id", userId)
       .eq("status", "ACTIVE")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("created_at", { ascending: false });
     if (error) {
       console.warn("findMembership query error:", error.message);
       return null;
     }
-    if (!data) return null;
+    if (!rows?.length) return null;
+    // the business chosen in the app (only one of the person's own), else the newest
+    const chosen = String(getHeader(event, BUSINESS_HEADER) ?? "").trim();
+    const data = (rows as any[]).find((r) => r.business_id === chosen && r.business) ?? (rows as any[]).find((r) => r.business) ?? rows[0]!;
+    const memberships = (rows as any[])
+      .filter((r) => r.business)
+      .map((r) => ({
+        id: r.business_id as string,
+        name: String(r.business?.name ?? ""),
+        role: String(r.role ?? "").toUpperCase(),
+        isBranch: !!r.business?.parent_business_id,
+      }));
     const home = data.business;
     let business = home;
     let viewingBranch = false;
@@ -81,7 +98,7 @@ const findMembership = async (event: H3Event, userId: string, opts: { ignoreBran
       .select("*")
       .eq("business_id", business.id)
       .maybeSingle();
-    return { ...data, business_id: business.id, business, home, viewingBranch, settings: settings ?? null };
+    return { ...data, business_id: business.id, business, home, viewingBranch, memberships, settings: settings ?? null };
   } catch (err: any) {
     console.warn("findMembership exception:", err?.message);
     return null;
@@ -100,6 +117,7 @@ const toTenantContext = (
   settings: (membership as any).settings ?? null,
   homeBusiness: ((membership as any).home ?? membership.business ?? {}) as TenantContext["business"],
   viewingBranch: !!(membership as any).viewingBranch,
+  memberships: (membership as any).memberships ?? [],
 });
 
 /**

@@ -39,9 +39,11 @@ onMounted(async () => {
   try {
     preview.value = await $fetch("/api/team/preview", { query: { token: token.value } });
     if (!preview.value?.valid) {
+      setPendingInvite(null);
       state.value = "invalid";
       return;
     }
+    setPendingInvite({ token: token.value, business: preview.value.businessName, email: preview.value.email });
   } catch {
     state.value = "invalid";
     return;
@@ -62,11 +64,13 @@ const join = async () => {
   busy.value = true;
   error.value = "";
   try {
-    await $fetch("/api/team/accept", { method: "POST", body: { token: token.value, name: name.value.trim() || undefined } });
-    // work in the invited business (not an old branch choice)
-    try {
-      localStorage.removeItem("rv_branch");
-    } catch {}
+    const r = await $fetch<{ businessId?: string }>("/api/team/accept", {
+      method: "POST",
+      body: { token: token.value, name: name.value.trim() || undefined },
+    });
+    // open the invited business (the person may also have a business of their own)
+    rememberBusiness(r?.businessId ?? null);
+    setPendingInvite(null);
     await navigateTo("/dashboard", { replace: true });
   } catch (e: any) {
     error.value = e?.data?.statusMessage ?? t("Could not join. Please try again.");
@@ -124,7 +128,14 @@ const signIn = async () => {
 
 const switchAccount = async () => {
   await signOut();
+  // this tab is still accepting the invitation
+  if (preview.value) setPendingInvite({ token: token.value, business: preview.value.businessName, email: preview.value.email });
   await decide();
+  // the invited email already has an account: go straight to "sign in"
+  if (preview.value?.hasAccount) {
+    mode.value = "signin";
+    accountReady.value = true;
+  }
 };
 </script>
 

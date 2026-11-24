@@ -26,3 +26,36 @@ export function clearSelectedBranch() {
     localStorage.removeItem(KEY);
   } catch {}
 }
+
+/**
+ * One account can belong to several businesses (its own and, say, a branch of
+ * another company). Which one is open is kept on this device; the server only
+ * accepts a business the person is a member of.
+ */
+const BUSINESS_KEY = "rv_business";
+
+export function getSelectedBusiness(): string | null {
+  try {
+    return localStorage.getItem(BUSINESS_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Open another of my businesses (starts outside any branch). */
+export function openBusiness(businessId: string, to = "/dashboard") {
+  try {
+    localStorage.setItem(BUSINESS_KEY, businessId);
+    localStorage.removeItem(KEY);
+  } catch {}
+  window.location.href = to;
+}
+
+/** Remember a business without reloading (e.g. right after joining it). */
+export function rememberBusiness(businessId: string | null) {
+  try {
+    if (businessId) localStorage.setItem(BUSINESS_KEY, businessId);
+    else localStorage.removeItem(BUSINESS_KEY);
+    localStorage.removeItem(KEY);
+  } catch {}
+}

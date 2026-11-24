@@ -53,5 +53,7 @@ export default defineEventHandler(async (event) => {
       : false,
     viewingBranch: tenant?.viewingBranch ?? false,
     homeBusiness: tenant ? { id: tenant.homeBusiness.id, name: (tenant.homeBusiness as any).name } : null,
+    // every business this account can open (business switcher)
+    businesses: tenant?.memberships ?? [],
   };
 });

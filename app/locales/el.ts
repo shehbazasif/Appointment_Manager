@@ -885,6 +885,19 @@ const dict: Record<string, string> = {
   "Your account is ready. Sign in with the password you chose to open {business}.": "Ο λογαριασμός σας είναι έτοιμος. Συνδεθείτε με τον κωδικό που επιλέξατε για να ανοίξετε το {business}.",
   "Forgot password?": "Ξεχάσατε τον κωδικό;",
   "Add another service": "Προσθήκη άλλης υπηρεσίας",
-  "Assign later": "Ανάθεση αργότερα"
+  "Assign later": "Ανάθεση αργότερα",
+  "Branches": "Υποκαταστήματα",
+  "Your branches, delete one": "Τα υποκαταστήματά σας, διαγραφή",
+  "{a} appointments · {c} customers": "{a} ραντεβού · {c} πελάτες",
+  "Delete": "Διαγραφή",
+  "Add a branch from Home": "Προσθέστε υποκατάστημα από την Αρχική",
+  "Delete {name}?": "Διαγραφή {name};",
+  "This cannot be undone.": "Δεν μπορεί να αναιρεθεί.",
+  "Everything in this branch is deleted: {a} appointments, {c} customers, its services, hours and team access. Head-office drivers are kept.": "Διαγράφονται όλα: {a} ραντεβού, {c} πελάτες, υπηρεσίες, ωράριο και πρόσβαση ομάδας. Οι οδηγοί του κεντρικού παραμένουν.",
+  "Your password": "Ο κωδικός σας",
+  "Enter your password.": "Εισαγάγετε τον κωδικό σας.",
+  "Delete branch": "Διαγραφή υποκαταστήματος",
+  "Could not delete the branch.": "Δεν ήταν δυνατή η διαγραφή.",
+  "{name} was deleted.": "Το {name} διαγράφηκε."
 };
 export default dict;

@@ -8,6 +8,14 @@ const loading = ref(false);
 const errorMessage = ref("");
 const showPassword = ref(false);
 const { supabase, user } = useSupabaseAuth();
+// Signing in to accept an invitation? Then this is the team sign-in: the invited
+// email is filled in and the person goes back to the invitation afterwards.
+const invite = ref<PendingInvite | null>(null);
+const afterSignIn = () => (invite.value ? inviteUrl(invite.value) : "/dashboard");
+onMounted(() => {
+  invite.value = getPendingInvite();
+  if (invite.value && !form.email) form.email = invite.value.email;
+});
 
 definePageMeta({ layout: "marketing" });
 usePageSeo({ path: "/login", title: "Sign in", description: `Sign in to your ${BRAND.name} business account.` });
@@ -16,7 +24,7 @@ usePageSeo({ path: "/login", title: "Sign in", description: `Sign in to your ${B
 watch(
   user,
   (currentUser) => {
-    if (currentUser) navigateTo("/dashboard");
+    if (currentUser) navigateTo(getPendingInvite() ? inviteUrl(getPendingInvite()!) : "/dashboard");
   },
   { immediate: true },
 );
@@ -31,7 +39,7 @@ const login = async () => {
     });
     if (error) throw error;
     // The dashboard self-heals provisioning when no business exists yet.
-    await navigateTo("/dashboard");
+    await navigateTo(afterSignIn());
   } catch (error: any) {
     errorMessage.value =
       error?.message ?? "Unable to sign in. Check your details.";
@@ -46,13 +54,23 @@ const login = async () => {
     <section
       class="w-full rounded-[2rem] border border-stone-200 bg-white p-6 shadow-xl shadow-stone-900/5 sm:p-8"
     >
-      <p class="eyebrow text-rose">Welcome back</p>
-      <h1 class="mt-1 font-display text-3xl text-stone-900">
-        Sign in to your business.
-      </h1>
-      <p class="mt-2 text-sm text-stone-500">
-        Sign in with the email and password you registered with.
-      </p>
+      <template v-if="invite">
+        <p class="eyebrow text-rose">Team sign-in</p>
+        <h1 class="mt-1 font-display text-3xl text-stone-900">Join {{ invite.business }}</h1>
+        <p class="mt-2 text-sm text-stone-500">
+          Sign in with <b>{{ invite.email }}</b> to accept the invitation.
+          <NuxtLink :to="inviteUrl(invite)" class="font-semibold text-rose-600 hover:underline">Back to the invitation</NuxtLink>
+        </p>
+      </template>
+      <template v-else>
+        <p class="eyebrow text-rose">Welcome back</p>
+        <h1 class="mt-1 font-display text-3xl text-stone-900">
+          Sign in to your business.
+        </h1>
+        <p class="mt-2 text-sm text-stone-500">
+          Sign in with the email and password you registered with.
+        </p>
+      </template>
 
       <div class="mt-7"><GoogleSignInButton /></div>
       <form class="space-y-4" @submit.prevent="login">
@@ -115,7 +133,7 @@ const login = async () => {
           class="!mt-5 !w-full !justify-center !rounded-xl !bg-stone-900 !py-3 !text-white"
         />
       </form>
-      <p class="mt-7 border-t border-stone-100 pt-6 text-center text-sm text-stone-500">
+      <p v-if="!invite" class="mt-7 border-t border-stone-100 pt-6 text-center text-sm text-stone-500">
         New business?
         <NuxtLink to="/register" class="font-semibold text-rose-600 hover:underline"
           >Create an account</NuxtLink

@@ -35,6 +35,8 @@ export function useSupabaseAuth() {
     if (import.meta.client) {
       try {
         sessionStorage.removeItem("rv_login_code");
+        localStorage.removeItem("rv_business");
+        localStorage.removeItem("rv_branch");
       } catch {}
       (window as any).__rvLoginCodeAutoSent = undefined;
     }

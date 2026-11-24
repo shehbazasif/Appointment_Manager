@@ -885,6 +885,19 @@ const dict: Record<string, string> = {
   "Your account is ready. Sign in with the password you chose to open {business}.": "حسابك جاهز. سجّل الدخول بكلمة المرور التي اخترتها لفتح {business}.",
   "Forgot password?": "نسيت كلمة المرور؟",
   "Add another service": "إضافة خدمة أخرى",
-  "Assign later": "التعيين لاحقًا"
+  "Assign later": "التعيين لاحقًا",
+  "Branches": "الفروع",
+  "Your branches, delete one": "فروعك، وحذف فرع",
+  "{a} appointments · {c} customers": "{a} موعد · {c} عميل",
+  "Delete": "حذف",
+  "Add a branch from Home": "أضف فرعًا من الصفحة الرئيسية",
+  "Delete {name}?": "حذف {name}؟",
+  "This cannot be undone.": "لا يمكن التراجع عن ذلك.",
+  "Everything in this branch is deleted: {a} appointments, {c} customers, its services, hours and team access. Head-office drivers are kept.": "سيُحذف كل ما في هذا الفرع: {a} موعد، {c} عميل، خدماته وساعاته وصلاحيات فريقه. يبقى سائقو المكتب الرئيسي.",
+  "Your password": "كلمة المرور",
+  "Enter your password.": "أدخل كلمة المرور.",
+  "Delete branch": "حذف الفرع",
+  "Could not delete the branch.": "تعذّر حذف الفرع.",
+  "{name} was deleted.": "تم حذف {name}."
 };
 export default dict;

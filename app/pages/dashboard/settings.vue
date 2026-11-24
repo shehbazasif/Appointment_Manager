@@ -23,6 +23,7 @@ import {
   ChevronLeft,
   LayoutTemplate,
   UsersRound,
+  Store,
 } from "lucide-vue-next";
 const { t, intl } = useT();
 
@@ -484,6 +485,7 @@ const SECTIONS = [
   { id: "region", title: "Location & language", sub: "Address, time zone, currency, language", icon: MapPin },
   { id: "theme", title: "Theme", sub: "Your brand colour", icon: Palette },
   { id: "team", title: "Team", sub: "Who can sign in, invite by email", icon: UsersRound },
+  { id: "branches", title: "Branches", sub: "Your branches, delete one", icon: Store },
   { id: "security", title: "Account security", sub: "Login email and mobile number", icon: ShieldCheck },
 ] as const;
 // Features the platform admin switched off are not shown at all
@@ -493,9 +495,16 @@ const businessProfile = inject<Ref<any> | null>("businessProfile", null);
 const isBranch = computed(() => !!org.value?.isBranch);
 /** head office working inside a branch (may rename it) */
 const headInBranch = computed(() => isBranch.value && !!businessProfile?.value?.viewingBranch);
-const BRANCH_HIDDEN = ["type", "booking", "team"];
+const BRANCH_HIDDEN = ["type", "booking", "team", "branches"];
+/** head office with the Branches feature, working in the head office itself */
+const manageBranches = computed(() => !!businessProfile?.value?.isHeadOffice && !businessProfile?.value?.viewingBranch);
 const visibleSections = computed(() =>
-  SECTIONS.filter((s) => (s.id !== "theme" || allowed("theme")) && !(isBranch.value && BRANCH_HIDDEN.includes(s.id))),
+  SECTIONS.filter(
+    (s) =>
+      (s.id !== "theme" || allowed("theme")) &&
+      !(isBranch.value && BRANCH_HIDDEN.includes(s.id)) &&
+      (s.id !== "branches" || manageBranches.value),
+  ),
 );
 const typeNote = ref("");
 const applyType = () => {
@@ -868,6 +877,7 @@ const backToList = () => {
 
             <!-- ============ Team ============ -->
             <TeamPanel v-else-if="shown === 'team'" />
+            <BranchesPanel v-else-if="shown === 'branches'" />
 
             <!-- ============ Account security ============ -->
             <template v-else-if="shown === 'security'">
@@ -961,7 +971,7 @@ const backToList = () => {
 
           <!-- Save bar (not needed for account security: those save with codes) -->
           <div
-            v-if="shown !== 'security' && shown !== 'team' && !(shown === 'profile' && isBranch && !headInBranch)"
+            v-if="shown !== 'security' && shown !== 'team' && shown !== 'branches' && !(shown === 'profile' && isBranch && !headInBranch)"
             class="sticky bottom-0 flex flex-col gap-3 rounded-b-xl border-t border-stone-200 bg-white/95 px-5 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6"
           >
             <p v-if="errorMessage" class="flex items-center gap-2 text-sm font-medium text-red-700">

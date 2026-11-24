@@ -37,6 +37,7 @@ type MeResponse = {
   } | null;
   role: string | null;
   isHeadOffice?: boolean;
+  businesses?: { id: string; name: string; role: string; isBranch: boolean }[];
   viewingBranch?: boolean;
   homeBusiness?: { id: string; name: string } | null;
 };
@@ -166,14 +167,17 @@ const loadMe = async () => {
     needsLoginCode.value = false;
     meLoadFailed.value = false;
     me.value = res;
-    // a branch choice the server did not accept is forgotten
+    // a branch / business choice the server did not accept is forgotten
     if (!res.viewingBranch && getSelectedBranch()) clearSelectedBranch();
+    const chosenBusiness = getSelectedBusiness();
+    if (chosenBusiness && res.homeBusiness && chosenBusiness !== res.homeBusiness.id) rememberBusiness(null);
     if (res.isHeadOffice) loadBranches();
     // show the dashboard in the business language (unless this person picked one)
     await applyLocale(me.value?.organization?.language);
   } catch (error: any) {
     if (error?.statusCode === 401) {
-      await navigateTo("/login", { replace: true });
+      const invite = getPendingInvite();
+      await navigateTo(invite ? inviteUrl(invite) : "/login", { replace: true });
     } else {
       meLoadFailed.value = true;
     }
@@ -435,6 +439,19 @@ provide("refreshBusinessProfile", loadMe);
           <LanguageSwitcher compact :business-language="me?.organization?.language ?? null" />
         </div>
       </header>
+
+      <!-- Several businesses on one account (own business + a branch of another company) -->
+      <div
+        v-if="(me?.businesses?.length ?? 0) > 1"
+        class="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-sky-200 bg-sky-50 px-4 py-2 text-[13px] text-sky-900 lg:px-6"
+      >
+        <span class="font-medium">{{ t("Business") }}</span>
+        <AppSelect :model-value="me?.homeBusiness?.id" class="w-full max-w-xs sm:w-72" @update:model-value="(id: string) => id !== me?.homeBusiness?.id && openBusiness(id)">
+          <option v-for="b in me?.businesses ?? []" :key="b.id" :value="b.id">
+            {{ b.name }}{{ b.isBranch ? ` · ${t("Branch")}` : "" }}
+          </option>
+        </AppSelect>
+      </div>
 
       <!-- Head office: which branch you are working in (branches never see this) -->
       <div

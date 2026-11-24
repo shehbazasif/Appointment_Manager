@@ -46,6 +46,8 @@ export default defineEventHandler(async (event) => {
     .select("*, business:businesses(*)")
     .eq("user_id", authUser.id)
     .eq("status", "ACTIVE")
+    // a person can belong to several businesses: any one means "already set up"
+    .limit(1)
     .maybeSingle();
 
   if (existingMembership?.business_id)

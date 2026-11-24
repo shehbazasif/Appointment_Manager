@@ -885,6 +885,19 @@ const dict: Record<string, string> = {
   "Your account is ready. Sign in with the password you chose to open {business}.": "Votre compte est prêt. Connectez-vous avec le mot de passe choisi pour ouvrir {business}.",
   "Forgot password?": "Mot de passe oublié ?",
   "Add another service": "Ajouter un autre service",
-  "Assign later": "Attribuer plus tard"
+  "Assign later": "Attribuer plus tard",
+  "Branches": "Succursales",
+  "Your branches, delete one": "Vos succursales, en supprimer une",
+  "{a} appointments · {c} customers": "{a} rendez-vous · {c} clients",
+  "Delete": "Supprimer",
+  "Add a branch from Home": "Ajouter une succursale depuis l’accueil",
+  "Delete {name}?": "Supprimer {name} ?",
+  "This cannot be undone.": "Action irréversible.",
+  "Everything in this branch is deleted: {a} appointments, {c} customers, its services, hours and team access. Head-office drivers are kept.": "Tout est supprimé : {a} rendez-vous, {c} clients, ses services, horaires et accès de l’équipe. Les chauffeurs du siège sont conservés.",
+  "Your password": "Votre mot de passe",
+  "Enter your password.": "Saisissez votre mot de passe.",
+  "Delete branch": "Supprimer la succursale",
+  "Could not delete the branch.": "Impossible de supprimer la succursale.",
+  "{name} was deleted.": "{name} a été supprimée."
 };
 export default dict;
